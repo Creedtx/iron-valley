@@ -32,7 +32,7 @@ for (const f of Object.keys(meta.metafile.inputs)) { const src = fs.readFileSync
   for (const m of src.matchAll(/THREE\.([A-Za-z_$][\w$]*)/g)) names.add(m[1]);
   for (const m of src.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"]three['"]/g)) for (const n of m[1].split(',')) { const k = n.trim().split(/\s+as\s+/)[0]; if (k) names.add(k); } }
 const all = await import(path.join(three, 'build', 'three.module.js')); const used = [...names].filter(n => n in all).sort();
-fs.writeFileSync(path.join(ROOT, 'build', 'three-entry.js'), `export { ${used.join(', ')} } from 'three';\n`);
+fs.mkdirSync(path.join(ROOT, 'build'), { recursive:true }); fs.writeFileSync(path.join(ROOT, 'build', 'three-entry.js'), `export { ${used.join(', ')} } from 'three';\n`);
 await build({ entryPoints:[path.join(ROOT, 'build', 'three-entry.js')], bundle:true, minify:true, format:'esm', target:['es2020'], outfile:path.join(OUT, 'three.js'), legalComments:'none', logLevel:'warning',
   plugins:[{ name:'three', setup(b){ b.onResolve({ filter:/^three$/ }, () => ({ path:path.join(three, 'build', 'three.module.js') })); } }] });
 await build({

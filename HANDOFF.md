@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (17 Nov 2026)
+# Handover: where Iron Valley stands (17 Nov 2026, build 0.18)
 
 Read this first when continuing in a new session.
 
@@ -31,7 +31,19 @@ Preview artifact (the user plays this): https://claude.ai/artifact/Bgy9pgXzhBNAi
 Publish = copy game/{game.js,index.html,progression.js,models.js} to preview/ and publish preview/index.html with
 those three files. The preview runs levels 1-2 on the "wide yard" (PREVIEW = true, MAX_LEVEL 2).
 
-## Done in this build (0.17)
+## Done in build 0.18
+- The working day: HUD clock (Mon-Fri from Monday 2 April 1973), 07:00-17:00 = 480 s of play. Shift whistle at 07:00;
+  lunch whistle at 12:00 (operators, loaders, helpers and Gus sit on the bench by the workshop till 12:30; fitters
+  stay on call; the owner can run the machines); knocking-off whistle at 17:00 opens the day book card (made,
+  shipped, gate trade, reputation, takings, best day so far, a Gus line). No whistles or card during the tutorial.
+- Walk-in customers at the main gate (`P.trade`, beside the west gate post): crates on level 1, pipes too from
+  level 2. The owner fetches and hands over (even with loaders hired); 25% over the order rate, tip within 35 s,
+  rep +1; unserved for 90 s they walk off (rep -1), part-served they pay for what they got.
+- Tests: `tools/workday.mjs` (18 checks, all pass). `tools/ws.sh` now runs from any checkout. `day1.mjs` and
+  `soak.mjs` were already stale before 0.18 (headless timing; the soak never closes the letter card).
+- The user has the GitHub repo now: branch `claude/iron-valley-github-setup-yn6f5j` (no `main` yet).
+
+## Done in build 0.17
 - Wide yard level 1 and level 2 laid out from the concept images; level 2: olive pipe machine on its pad, coil bay,
   loading lane, bay 2 with a widened truck gate, warehouse plot in the cleared back yard, Vera/Abel/Big Tom placed.
 - Side-loading concrete dock with a concrete ramp (not stairs); the signing circle sits on the deck.
@@ -48,10 +60,10 @@ those three files. The preview runs levels 1-2 on the "wide yard" (PREVIEW = tru
 - Show the map before building a new level; the user approves layouts first.
 
 ## Next, in the user's order of interest
-1. Make levels 1-2 less boring. Proposed and awaiting the user's pick: a working day with a shift whistle and
-   end-of-day card; order choices with time pressure (rush/bulk/regular, the driver leaves if late); something to
-   buy every 1-2 minutes that appears on the map (roller conveyor to the lane, second pallet, lights, tea urn);
-   keep the owner's hands busy (walk-in customers, helping speeds things); level 2 power choices you can see.
+1. Make levels 1-2 less boring. Done in 0.18: the working day and walk-in customers (the user's pick). Still on the
+   list: order choices with time pressure (rush/bulk/regular, the driver leaves if late); something to buy every
+   1-2 minutes that appears on the map (roller conveyor to the lane, second pallet, lights, tea urn); helping
+   speeds things; level 2 power choices you can see.
 2. Level 3 on the wide yard (show the map first). Then levels 4-5, then replace the live game (game_live_0.15 is not
    in git; the live build is the older layout).
 3. HUD style: the user never picked A/B/C on the HUD Styles page; the office panel still does not satisfy them.
