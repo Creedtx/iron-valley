@@ -34,7 +34,9 @@ const P = await ev(() => window.__iv.P);
 // 1. the walk-in sale
 await ev(() => { const v = window.__iv; v.S.pallet = 6; v.syncPallet(); v.S.time = Math.floor(v.S.time / 480) * 480 + 60; v.spawnWalker(true); });
 check(await until(() => window.__iv.walker && window.__iv.walker.state === 'wait', 120), 'walk-in customer reaches the gate');
-console.log('at gate', await st()); await p.screenshot({ path:path.join(out, 'w1_gate.png') });
+console.log('at gate', await st());
+check(await ev(() => { const o = window.__iv.walker.c.o; return o.visible && Math.abs(o.position.y) < .01; }), 'customer stands on the ground at the gate');
+await ev(() => { const v = window.__iv; v.camLock = [v.P.trade[0], v.P.trade[1] - 1.5]; }); await wait(1200); await p.screenshot({ path:path.join(out, 'w1_gate.png') }); await ev(() => { window.__iv.camLock = null; });
 const want = await ev(() => window.__iv.walker.n), cash0 = await ev(() => window.__iv.S.cash), type = await ev(() => window.__iv.walker.def.want);
 await walkTo(...(type === 'pipe' ? P.prackSpot : P.pallet)); await until(n => window.__iv.owner.stack.length >= n, 10, want);
 console.log('picked', await st());
@@ -64,16 +66,26 @@ await until(() => window.__iv.walker && window.__iv.walker.state === 'wait', 120
 await ev(() => { window.__iv.walker.t = 88; });
 check(await until(() => window.__iv.S.walk.lost === 1, 30), 'an unserved customer walks off');
 check(await ev(r => window.__iv.S.rep < r, rep0), 'reputation dropped');
-// 4. knocking off
+// 4. knocking off: the whistle, the crew walks out of the gate, the day book, then they clock in next morning
+await p.keyboard.press('Shift'); await wait(300);
+check(await ev(() => { try { window.__iv.whistle(.3); return true; } catch(e) { return false; } }), `the whistle plays (audio ${await ev(() => window.__iv.audio)})`);
 await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * 480 + 478; });
-check(await until(() => window.__iv.cardOpen && /Day book/i.test(document.getElementById('storyBody').innerText), 30), 'the day book opens at 17:00');
-await wait(800); await p.screenshot({ path:path.join(out, 'w5_daybook.png') });
+check(await until(() => /CLOSING/.test(document.getElementById('clock').textContent), 20), 'clock reads 17:00 CLOSING');
+check(await until(() => [...window.__iv.staffObj.values()].some(c => c.leaving), 20), 'the crew sets off for the gate');
+await ev(() => { const v = window.__iv; v.camLock = [v.P.frontIn[0], v.P.frontIn[1] - 2]; }); await wait(2500); await p.screenshot({ path:path.join(out, 'w5_going_home.png') });
+check(await until(() => window.__iv.cardOpen && /Day book/i.test(document.getElementById('storyBody').innerText), 150), 'the day book opens once the yard is empty');
+check(await ev(() => [...window.__iv.staffObj.values()].every(c => c.gone && !c.o.visible)), 'everyone has gone home');
+check(await ev(() => { const g = window.__iv.folk.get('gus'); return !g || g.gone; }), 'Gus has gone home');
+await wait(800); await p.screenshot({ path:path.join(out, 'w6_daybook.png') }); await ev(() => { window.__iv.camLock = null; });
 const card = await ev(() => document.getElementById('storyBody').innerText); console.log(card);
 check(/Gate trade\s+1 served, 1 walked off/.test(card), 'day book counts the gate trade');
 check(/to beat/.test(card), 'first day sets the mark to beat');
 await ev(() => document.querySelector('#storyBody .btn.primary').click()); await wait(800);
-check(await ev(() => !window.__iv.cardOpen), 'the next morning starts');
-console.log('morning', await st()); await p.screenshot({ path:path.join(out, 'w6_morning.png') });
-check(/07:0/.test(await ev(() => document.getElementById('clock').textContent)), 'clock reads 07:0x');
+check(await until(() => !window.__iv.cardOpen && !window.__iv.S.day.closing, 10), 'the next morning starts');
+{ const ck = await ev(() => document.getElementById('clock').textContent); check(/Tue · 07:[0-5]/.test(ck), `clock reads Tuesday morning (${ck})`); }
+check(await ev(() => [...window.__iv.staffObj.values()].every(c => !c.gone && c.o.visible)), 'the crew clocks in through the gate');
+await ev(() => { const v = window.__iv; v.camLock = [v.P.frontIn[0], v.P.frontIn[1] - 1]; }); await wait(2500); await p.screenshot({ path:path.join(out, 'w7_clock_in.png') }); await ev(() => { window.__iv.camLock = null; });
+check(await until(() => { const op = [...window.__iv.staffObj.values()].find(c => c.st.role === 'operator'); return op.state === 'work'; }, 150), 'the operator is back at the saw in the morning');
+console.log('morning', await st());
 console.log(errs.length ? 'ERRORS ' + JSON.stringify(errs.slice(0, 8)) : 'no errors'); await b.close();
 console.log(fail.length ? `${fail.length} FAILED` : 'ALL PASS'); process.exit(fail.length || errs.length ? 1 : 0);
