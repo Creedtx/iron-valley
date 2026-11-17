@@ -21,7 +21,7 @@ const ZONES = [
   ['truck bay 1', [P.truck[0] - 1.25, 4.95, P.truck[0] + 1.25, 10.2], /truck|loading_dock|canopy/], ['truck bay 2', [P.bay2[0] - 1.25, 4.95, P.bay2[0] + 1.25, 10.2], /truck|canopy/],
   ['lorry path through the gate', [P.truck[0] - 2.4, 10.2, P.bay2[0] + 1.6, 14.3], /truck/], ['main gate', [3.1, 10.8, 6.9, 14.3], /gate/],
   ['loading lane', [2.6, 5.0, 9.95, 6.6], /^$/],
-  ...['op', 'pallet', 'drop', 'cash', 'pop', 'pfeedRing', 'prackSpot', 'coilSpot', 'whSpotC', 'whSpotP', 'whSpotT', 'whBuild', 'deskRing', 'feedRing', 'timberRing', 'gus2', 'dockWait', 'loaderHome', 'loaderWait', 'sawFix', 'genFix', 'wsDoor', 'frontIn']
+  ...['op', 'pallet', 'drop', 'cash', 'pop', 'pfeedRing', 'prackSpot', 'coilSpot', 'whSpotC', 'whSpotP', 'whSpotT', 'whBuild', 'deskRing', 'feedRing', 'timberRing', 'gus2', 'dockWait', 'loaderHome', 'loaderWait', 'sawFix', 'genFix', 'wsDoor', 'frontIn', 'trade']
     .filter(k => P[k]).map(k => [`work spot ${k}`, sq(P[k]), /^$/]),
 ];
 const ov = (a, b) => { const w = Math.min(a[2], b[2]) - Math.max(a[0], b[0]), d = Math.min(a[3], b[3]) - Math.max(a[1], b[1]); return w > .06 && d > .06 ? +(w * d).toFixed(2) : 0; };

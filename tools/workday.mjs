@@ -1,0 +1,79 @@
+// Build 0.18: the working day and the walk-in trade. Starts a game with the crew posted, then
+//  1. a walk-in customer at the gate: the owner fetches crates from the pallet and hands them over for cash;
+//  2. the lunch whistle: the crew sits on the bench, the saw stops, everyone is back at 12:30;
+//  3. a customer nobody serves walks off (reputation -1);
+//  4. the knocking-off whistle at 17:00: the day book card, then the next morning.
+//   node tools/workday.mjs <url> <outDir>
+import puppeteer from 'puppeteer-core';
+import fs from 'node:fs'; import path from 'node:path';
+const [url, out] = process.argv.slice(2); fs.mkdirSync(out, { recursive:true });
+const b = await puppeteer.launch({ executablePath:'/usr/bin/google-chrome', protocolTimeout:600000, args:['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const p = await b.newPage(); await p.setViewport({ width:390, height:844, deviceScaleFactor:1, isMobile:true, hasTouch:true });
+await p.setRequestInterception(true);
+p.on('request', r => { const u = r.url(), pre = 'https://cdn.jsdelivr.net/npm/three@0.170.0/';
+  if (u.startsWith(pre)) return r.respond({ status:200, contentType:'text/javascript', headers:{ 'access-control-allow-origin':'*' }, body:fs.readFileSync(path.join(import.meta.dirname, 'node_modules/three', u.slice(pre.length))) });
+  if (u.includes('fonts.g') || u.endsWith('favicon.ico')) return r.abort(); r.continue(); });
+const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push(m.text()); });
+await p.evaluateOnNewDocument(() => { try { localStorage.clear(); } catch(e){} });
+await p.goto(url, { waitUntil:'domcontentloaded' });
+await p.waitForFunction('window.__iv && window.__iv.owner && window.__iv.frames > 20', { timeout:300000 });
+const ev = (f, a) => p.evaluate(f, a), wait = ms => new Promise(r => setTimeout(r, ms));
+const until = async (cond, secs, arg) => { const t0 = Date.now(); while (Date.now() - t0 < secs * 1000) { if (await ev(cond, arg)) return true; await wait(300); } return false; };
+const walkTo = async (x, z, secs = 30) => { for (let i = 0; i < secs * 4; i++) { const d = await ev(([x, z]) => { const o = window.__iv.owner.o.position, dx = x - o.x, dz = z - o.z, d = Math.hypot(dx, dz), s = Math.min(d, .5); if (d > .05) o.set(o.x + dx / d * s, 0, o.z + dz / d * s); return d; }, [x, z]); if (d < .1) return; await wait(250); } };
+const st = () => ev(() => { const v = window.__iv, S = v.S, w = v.walker; return JSON.stringify({ clock:document.getElementById('clock').textContent, obj:document.getElementById('objT').textContent, lunch:v.lunchTime(), walker:w && `${w.def.name}:${w.state}:${w.got}/${w.n}:${Math.round(w.t)}s`, walk:S.walk, cash:Math.round(S.cash), rep:Math.round(S.rep), pallet:S.pallet, carry:`${v.owner.carryType}x${v.owner.stack.length}`, staff:[...v.staffObj.values()].map(c => `${c.st.name}:${c.state}${c.lunch ? '/' + c.lunch : ''}`), gus:(v.folk.get('gus') || {}).job, card:v.cardOpen }); });
+const fail = []; const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) fail.push(what); };
+// a game past day one: the crew hired and posted, the tutorial done, an order on
+await ev(() => { const v = window.__iv; while (v.cardOpen) v.nextCard(); const S = v.S; S.letter = true; S.tutDone = true; S.tut = 99; S.met.gus = true; S.cash = 2000;
+  v.hire('operator'); v.hire('loader'); v.closeOffice(); for (const st of S.staff) st.posted = true; });
+await wait(1500); await ev(() => { const v = window.__iv; for (const c of v.staffObj.values()) { c.o.position.set(...(c.st.role === 'operator' ? v.P.op : v.P.pallet)); c.state = 'idle'; c.path = null; } });
+await ev(() => { window.__iv.speed = 3; });
+// any card other than the day book (a person met on the way) is closed as it comes up
+const closeOthers = () => ev(() => { const v = window.__iv; while (v.cardOpen && !/Day book/i.test(document.getElementById('storyBody').innerText)) v.nextCard(); });
+setInterval(() => closeOthers().catch(() => {}), 400);
+const P = await ev(() => window.__iv.P);
+// 1. the walk-in sale
+await ev(() => { const v = window.__iv; v.S.pallet = 6; v.syncPallet(); v.S.time = Math.floor(v.S.time / 480) * 480 + 60; v.spawnWalker(true); });
+check(await until(() => window.__iv.walker && window.__iv.walker.state === 'wait', 120), 'walk-in customer reaches the gate');
+console.log('at gate', await st()); await p.screenshot({ path:path.join(out, 'w1_gate.png') });
+const want = await ev(() => window.__iv.walker.n), cash0 = await ev(() => window.__iv.S.cash), type = await ev(() => window.__iv.walker.def.want);
+await walkTo(...(type === 'pipe' ? P.prackSpot : P.pallet)); await until(n => window.__iv.owner.stack.length >= n, 10, want);
+console.log('picked', await st());
+check(await ev(n => window.__iv.owner.stack.length >= n, want), `owner picked up ${want} ${type}s with a loader on the payroll`);
+await walkTo(P.trade[0], P.trade[1] - .9); await p.screenshot({ path:path.join(out, 'w2_handover.png') });
+check(await until(() => window.__iv.S.walk.served === 1, 15), 'customer served and paid');
+const cash1 = await ev(() => window.__iv.S.cash); check(cash1 > cash0, `cash went up by ${Math.round(cash1 - cash0)}`);
+await wait(800); await p.screenshot({ path:path.join(out, 'w3_paid.png') }); console.log('paid', await st());
+check(await until(() => !window.__iv.walker, 120), 'customer walked out of the gate');
+// 2. lunch: 11:58 to 12:31
+await walkTo(P.saw[0] + 3, P.saw[1] + 3);
+await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * 480 + 239; });
+check(await until(() => window.__iv.lunchTime(), 10), 'lunch whistle at 12:00');
+check(await until(() => [...window.__iv.staffObj.values()].every(c => c.lunch === 'eat'), 120), 'the crew is on the bench');
+await until(() => (window.__iv.folk.get('gus') || {}).gs === 'eat', 60);
+console.log('lunch', await st());
+await ev(() => { const v = window.__iv; v.camLock = [-8.5, -1]; }); await wait(1200); await p.screenshot({ path:path.join(out, 'w4_lunch.png') }); await ev(() => { window.__iv.camLock = null; });
+check(await ev(() => !window.__iv.sawOn), 'the saw stops while the operator eats');
+check(await until(() => !window.__iv.lunchTime(), 120), 'lunch over at 12:30');
+check(await until(() => [...window.__iv.staffObj.values()].every(c => !c.lunch), 5), 'the crew goes back to work');
+await until(() => { const op = [...window.__iv.staffObj.values()].find(c => c.st.role === 'operator'); return op.state === 'work'; }, 60); console.log('after lunch', await st());
+check(await ev(() => { const op = [...window.__iv.staffObj.values()].find(c => c.st.role === 'operator'); return op.state === 'work' || op.state === 'toWork'; }), 'the operator is back at the saw');
+// 3. a customer nobody serves
+const rep0 = await ev(() => window.__iv.S.rep);
+await ev(() => { const v = window.__iv; v.spawnWalker(true); });
+await until(() => window.__iv.walker && window.__iv.walker.state === 'wait', 120);
+await ev(() => { window.__iv.walker.t = 88; });
+check(await until(() => window.__iv.S.walk.lost === 1, 30), 'an unserved customer walks off');
+check(await ev(r => window.__iv.S.rep < r, rep0), 'reputation dropped');
+// 4. knocking off
+await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * 480 + 478; });
+check(await until(() => window.__iv.cardOpen && /Day book/i.test(document.getElementById('storyBody').innerText), 30), 'the day book opens at 17:00');
+await wait(800); await p.screenshot({ path:path.join(out, 'w5_daybook.png') });
+const card = await ev(() => document.getElementById('storyBody').innerText); console.log(card);
+check(/Gate trade\s+1 served, 1 walked off/.test(card), 'day book counts the gate trade');
+check(/to beat/.test(card), 'first day sets the mark to beat');
+await ev(() => document.querySelector('#storyBody .btn.primary').click()); await wait(800);
+check(await ev(() => !window.__iv.cardOpen), 'the next morning starts');
+console.log('morning', await st()); await p.screenshot({ path:path.join(out, 'w6_morning.png') });
+check(/07:0/.test(await ev(() => document.getElementById('clock').textContent)), 'clock reads 07:0x');
+console.log(errs.length ? 'ERRORS ' + JSON.stringify(errs.slice(0, 8)) : 'no errors'); await b.close();
+console.log(fail.length ? `${fail.length} FAILED` : 'ALL PASS'); process.exit(fail.length || errs.length ? 1 : 0);
