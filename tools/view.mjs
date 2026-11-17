@@ -1,0 +1,27 @@
+// Quick screenshots of build 0.4 in a given state: node tools/view.mjs <url> <outDir>
+import puppeteer from 'puppeteer-core';
+import fs from 'node:fs'; import path from 'node:path';
+const [url, out] = process.argv.slice(2);
+const b = await puppeteer.launch({ executablePath:'/usr/bin/google-chrome', args:['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const p = await b.newPage(); await p.setViewport({ width:390, height:844 });
+await p.setRequestInterception(true);
+p.on('request', r => { const u = r.url(), pre = 'https://cdn.jsdelivr.net/npm/three@0.170.0/';
+  if (u.startsWith(pre)) return r.respond({ status:200, contentType:'text/javascript', headers:{ 'access-control-allow-origin':'*' }, body:fs.readFileSync(path.join(import.meta.dirname, 'node_modules/three', u.slice(pre.length))) });
+  if (u.includes('fonts.g')) return r.abort(); r.continue(); });
+const logs = []; p.on('pageerror', e => logs.push('pageerror: ' + e.message));
+await p.goto(url, { waitUntil:'domcontentloaded' });
+await p.evaluate(() => { try { localStorage.clear(); } catch(e){} });
+await p.reload({ waitUntil:'domcontentloaded' });
+await p.waitForFunction('window.__iv', { timeout:90000 });
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const tp = (xz) => p.evaluate(([x, z]) => window.__iv.owner.o.position.set(x, 0, z), xz);
+await wait(1500);
+await tp([6.4, 4.2]); await wait(1500); await p.screenshot({ path:`${out}/v1.png` });
+await p.evaluate(() => { const v = window.__iv; v.S.tut = 8; v.S.tutDone = true; v.S.officeSeen = true; v.S.cash = 900; v.S.delivered = 2; v.hire('loader'); v.speed = 4; v.S.feed = 5; v.S.timber = 12; });
+await tp([12.5, 6.4]); await wait(9000); await p.screenshot({ path:`${out}/v2.png` });
+await tp([3.0, 8.2]); await wait(500); await p.evaluate(() => window.__iv.closeOffice()); await tp([5.5, 6.3]); await wait(1500); await p.screenshot({ path:`${out}/v3.png` });
+await p.evaluate(() => window.__iv.speed = 1);
+await p.setViewport({ width:1280, height:720 }); await tp([9, 6]); await wait(2000); await p.screenshot({ path:`${out}/v4.png` });
+await tp([17, 9]); await wait(2000); await p.screenshot({ path:`${out}/v5.png` });
+console.log(logs.join('\n'));
+await b.close();

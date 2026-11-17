@@ -1,0 +1,371 @@
+<title>Iron Valley Asset Bench</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Barlow:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one-screen bench. 3D stage on top (portrait) or left (landscape);
+   steel control rail with model picker, controls and the budget sheet.
+   Single dark look on purpose: it matches the game's factory lighting. */
+:root{
+  --ink:#0f1113; --steel-900:#16191d; --steel-800:#1c2025; --steel-700:#252a30; --steel-600:#343a41; --steel-400:#5b616a; --steel-200:#aab0b7;
+  --chalk:#ece6d9; --yellow:#e8ab2c; --yellow-deep:#a87615; --ok:#9bd26f; --over:#e0583f;
+  --f-display:"Oswald","Arial Narrow","Roboto Condensed",Arial,sans-serif;
+  --f-body:"Barlow","Helvetica Neue",Arial,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--ink);color:var(--chalk);font-family:var(--f-body);overflow:hidden;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit}
+#app{height:100%;box-sizing:border-box;display:grid;grid-template-rows:minmax(0,1.25fr) minmax(0,1fr);gap:10px;padding-block:10px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+@media (min-aspect-ratio:5/4){#app{grid-template-rows:minmax(0,1fr);grid-template-columns:minmax(0,1fr) clamp(290px,30vw,360px)}}
+#stage{position:relative;min-height:0;border:1px solid var(--steel-700);border-radius:8px;overflow:hidden;background:#15181c}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#cv:active{cursor:grabbing}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.anc{position:absolute;left:0;top:0;transform:translate(-50%,-100%);white-space:nowrap;font:500 10px/1 var(--f-mono);color:var(--ink);background:var(--yellow);padding:3px 5px;border-radius:2px}
+.anc::after{content:"";position:absolute;left:50%;bottom:-4px;width:6px;height:6px;margin-left:-3px;background:var(--yellow);transform:rotate(45deg)}
+#hud{position:absolute;left:10px;top:10px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none;max-width:calc(100% - 20px)}
+.chip{font:500 11px/1 var(--f-mono);background:rgba(15,17,19,.82);border:1px solid var(--steel-600);border-radius:3px;padding:5px 7px;font-variant-numeric:tabular-nums;color:var(--steel-200)}
+.chip b{color:var(--chalk);font-weight:500}
+#stageTitle{position:absolute;left:12px;bottom:10px;pointer-events:none}
+#stageTitle .t{font:600 22px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase}
+#stageTitle .s{font-size:13px;color:var(--steel-200);margin-top:4px;max-width:46ch}
+#loadmsg{position:absolute;inset:0;display:grid;place-items:center;color:var(--steel-200);font-size:14px;text-align:center;padding:24px}
+#rail{min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding-bottom:8px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.brand h1{margin:0;font:700 20px/1 var(--f-display);letter-spacing:.05em}
+.brand span{font:500 11px/1 var(--f-mono);color:var(--steel-200)}
+.group{display:flex;flex-direction:column;gap:7px}
+.lbl{font:600 11px/1 var(--f-body);letter-spacing:.16em;text-transform:uppercase;color:var(--steel-200)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{background:linear-gradient(180deg,#2a2f35,#1f2327);border:1px solid var(--steel-600);border-radius:5px;padding:8px 10px;min-height:38px;cursor:pointer;font-weight:600;font-size:13px;letter-spacing:.02em}
+.seg button:hover{border-color:var(--steel-400)}
+.seg button[aria-pressed="true"]{background:var(--yellow);border-color:var(--yellow);color:#1b1408}
+.seg button:focus-visible,.row button:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
+.note{font-size:13px;line-height:1.45;color:var(--steel-200);margin:0}
+.sheet{border-top:1px solid var(--steel-700);padding-top:12px}
+table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+th{font:600 10.5px/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--steel-200);text-align:right;padding:0 0 6px}
+th:first-child,td:first-child{text-align:left}
+td{padding:5px 0;text-align:right;border-top:1px solid var(--steel-800)}
+td.m{font-family:var(--f-mono);font-size:11.5px}
+tr.sel td{color:var(--yellow)}
+.bar{height:4px;background:var(--steel-800);border-radius:2px;overflow:hidden;margin-top:3px}
+.bar i{display:block;height:100%;background:var(--ok)}
+.bar i.over{background:var(--over)}
+.total{display:flex;justify-content:space-between;font:500 12px/1.3 var(--f-mono);color:var(--steel-200);margin-top:8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div id="app">
+  <main id="stage">
+    <canvas id="cv" aria-label="3D view of the selected model. Drag to turn, scroll or pinch to zoom, double-tap to reset."></canvas>
+    <div id="labels"></div>
+    <div id="hud"></div>
+    <div id="stageTitle"><div class="t" id="stT"></div><div class="s" id="stS"></div></div>
+    <div id="loadmsg">Loading models&hellip;</div>
+  </main>
+  <aside id="rail" aria-label="Controls">
+    <div class="brand"><h1>IRON VALLEY &middot; ASSET BENCH</h1><span>blender &rarr; glb</span></div>
+    <div class="group"><div class="lbl">Show</div><div class="seg" id="pick"></div></div>
+    <div class="group" id="ctxGroup"><div class="lbl" id="ctxLbl"></div><div class="seg" id="ctx"></div></div>
+    <div class="group" id="ctx2Group"><div class="lbl" id="ctx2Lbl"></div><div class="seg" id="ctx2"></div></div>
+    <div class="group"><div class="lbl">Shading</div><div class="seg" id="shade"></div>
+      <p class="note" id="shadeNote"></p></div>
+    <div class="group"><div class="lbl">Overlays</div><div class="seg" id="ovl"></div></div>
+    <div class="sheet group">
+      <div class="lbl">Download budget &middot; measured from the files</div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Model</th><th>Size</th><th>Tris</th><th>Draws</th></tr></thead><tbody id="budget"></tbody></table></div>
+      <div class="total"><span>All models</span><span id="tot"></span></div>
+      <p class="note">Budget per model 150 KiB (props 60 KiB). Platform limit per file 512 KiB; first download target under 5 MiB including code.</p>
+    </div>
+  </aside>
+</div>
+
+<script src="models.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+
+const $ = id => document.getElementById(id);
+const FILES = { saw_bench:150, pipe_machine:150, generator:150, truck:150, props:60, worker:150 };
+const NICE = { saw_bench:'Saw Bench', pipe_machine:'Pipe Mill', generator:'Generator Mk I', truck:'Delivery Truck', props:'Props', worker:'Worker' };
+// Worker palette slots, same order as blender/ivlib/palette.py
+const SLOTS = ['skin','hair','shirt','suit','pants','boots','hat','eyes','metal','stache','belt','glove','s1','s2','s3','s4'];
+const BASE = { skin:'#e0ac85', hair:'#4b3424', shirt:'#c9b28a', suit:'#3f6c94', pants:'#2f3b52', boots:'#1b1814', hat:'#e3a52a', eyes:'#161616', metal:'#8d939a', stache:'#4b3424', belt:'#3b2a1c', glove:'#8a6a3e', s1:'#f0f', s2:'#f0f', s3:'#f0f', s4:'#f0f' };
+const ROLES = { Operator:{ suit:'#3f6c94', hat:'#e3a52a' }, Loader:{ suit:'#5d6b3a', hat:'#d9772b' }, Mechanic:{ suit:'#5b616a', hat:'#b3261e' }, Supervisor:{ suit:'#8e3b2f', hat:'#ece6d6' } };
+const LOOKS = [ {}, { skin:'#9b6a43', hair:'#1a1a1a', stache:'#9b6a43', shirt:'#d8d2c2' }, { skin:'#f1c9a5', hair:'#b8b2a6', stache:'#b8b2a6', shirt:'#a46b4f' }, { skin:'#c68c5f', hair:'#2a1f19', stache:'#c68c5f', shirt:'#8f9a76' } ];
+const CLIPS = ['idle','walk','work','fix','sit','carry','cheer'];
+const STATES = { Running:['#5ef06a',3], Idle:['#3a3f45',.6], 'Bin full':['#ffb028',3], Fault:['#ff3b2b',5] };
+
+/* ---------- renderer ---------- */
+const cv = $('cv');
+const renderer = new THREE.WebGLRenderer({ canvas:cv, antialias:true, powerPreference:'high-performance' });
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#15181c');
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
+scene.environmentIntensity = .45;
+const hemi = new THREE.HemisphereLight('#9fb2c8', '#2e251e', .9); scene.add(hemi);
+const sun = new THREE.DirectionalLight('#ffe4c4', 2.3); sun.position.set(-6, 14, -9); scene.add(sun, sun.target);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -.0004; sun.shadow.normalBias = .03;
+const fill = new THREE.DirectionalLight('#9fb4d6', .5); fill.position.set(10, 6, 12); scene.add(fill);
+const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 200);
+
+// floor + blob shadow texture
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ color:'#5f5c56', roughness:.95 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const blobTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(.55, 'rgba(0,0,0,.28)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+const blobMat = new THREE.MeshBasicMaterial({ map:blobTex, transparent:true, depthWrite:false });
+function blob(w, d){ const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), blobMat); m.rotation.x = -Math.PI / 2; m.position.y = .004; m.renderOrder = 1; m.userData.blob = true; return m; }
+
+/* ---------- loading ---------- */
+const loader = new GLTFLoader();
+const ASSET = {}, BYTES = {};
+async function load(name){
+  let buf;
+  if (window.IV_MODELS && window.IV_MODELS[name]) { const bin = atob(window.IV_MODELS[name]); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); buf = u.buffer; }
+  else { const res = await fetch(`models/${name}.glb`); if (!res.ok) throw new Error(`${name}.glb: HTTP ${res.status}`); buf = await res.arrayBuffer(); }
+  BYTES[name] = buf.byteLength;
+  return new Promise((ok, bad) => loader.parse(buf, '', g => { ASSET[name] = g; ok(g); }, bad));
+}
+function stats(obj){ let tris = 0, draws = 0; obj.traverse(o => { if (o.isMesh) { draws += Array.isArray(o.material) ? o.material.length : 1; const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } }); return { tris:Math.round(tris), draws }; }
+
+/* ---------- instances ---------- */
+let world = new THREE.Group(); scene.add(world);
+const mixers = [], movers = [], machines = [], anchors = [];
+function prep(o){ o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); return o; }
+function machine(name, x, z, ry = 0){
+  const o = prep(ASSET[name].scene.clone(true)); o.position.set(x, 0, z); o.rotation.y = ry; world.add(o);
+  const lamps = []; o.traverse(m => { if (m.isMesh && (m.name.startsWith('status_lamp') || m.name.startsWith('beacon'))) { m.material = m.material.clone(); lamps.push(m); } });
+  const get = n => o.getObjectByName(n);
+  const box = new THREE.Box3().setFromObject(o), sz = box.getSize(new THREE.Vector3());
+  const b = blob(sz.x * 1.25, sz.z * 1.25); b.position.x = x + (box.min.x + box.max.x) / 2 - x; b.position.z = (box.min.z + box.max.z) / 2; b.position.x = (box.min.x + box.max.x) / 2; world.add(b);
+  const rec = { name, o, lamps, get, state:'Running', t:Math.random() * 3 };
+  ['op_spot','out_spot','fix_spot','issue_anchor','bed','tailgate','smoke'].forEach(n => { const a = get(n); if (a) anchors.push({ n, a }); });
+  machines.push(rec); return rec;
+}
+function paletteTex(cols){
+  const data = new Uint8Array(16 * 4);
+  SLOTS.forEach((s, i) => { const c = new THREE.Color(cols[s]); data.set([c.r * 255, c.g * 255, c.b * 255, 255].map(Math.round), i * 4); });
+  const t = new THREE.DataTexture(data, 16, 1); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter; t.needsUpdate = true; return t;
+}
+function worker(role, look, clip, x, z, ry = 0){
+  const o = prep(SkeletonUtils.clone(ASSET.worker.scene)); o.position.set(x, 0, z); o.rotation.y = ry; world.add(o);
+  const cols = Object.assign({}, BASE, LOOKS[look % LOOKS.length], ROLES[role]);
+  o.traverse(m => { if (m.isSkinnedMesh) { m.material = m.material.clone(); m.material.map = paletteTex(cols); m.frustumCulled = false; } });
+  const mixer = new THREE.AnimationMixer(o); mixers.push(mixer);
+  const b = blob(.55, .55); o.add(b);
+  const w = { o, mixer, role, look, action:null };
+  w.play = (name, fade = .25) => { const c = ASSET.worker.animations.find(a => a.name === name); if (!c) return; const a = mixer.clipAction(c);
+    a.reset(); a.setLoop(name === 'cheer' ? THREE.LoopOnce : THREE.LoopRepeat); a.clampWhenFinished = true;
+    if (w.action && w.action !== a) { a.crossFadeFrom(w.action, fade, false); } a.play(); w.action = a; w.clip = name; };
+  w.setRole = r => { w.role = r; const c = Object.assign({}, BASE, LOOKS[w.look % LOOKS.length], ROLES[r]); o.traverse(m => { if (m.isSkinnedMesh) m.material.map = paletteTex(c); }); };
+  w.play(clip, 0); return w;
+}
+function props(list){
+  for (const [n, x, z, ry, y] of list) { const src = ASSET.props.scene.getObjectByName(n); const o = prep(src.clone(true)); o.position.set(x, y || 0, z); o.rotation.y = ry || 0; world.add(o); }
+}
+
+/* ---------- views ---------- */
+let view = 'level1', workers = [], truckDrive = false, loaderBot = null;
+const VIEWS = {
+  level1:{ t:'Level 1 \u00b7 Inherited Workshop', s:'Saw bench, generator and a crate pallet laid out with their own anchor points. One operator works, one waits.', fit:[10, 1.2, 4], build(){
+    machine('generator', 1.2, 2.8); const saw = machine('saw_bench', 4.4, 3.0);
+    const out = saw.get('out_spot').getWorldPosition(new THREE.Vector3());
+    props([['prop_pallet', out.x, out.z], ...[0,1,2,3,4,5,6].map(i => ['prop_crate', out.x - .29 + (i % 3) * .29, out.z - .29 + Math.floor(i / 3) % 3 * .29, 0, .14 + Math.floor(i / 9) * .3]),
+      ['prop_drum_red', .5, 4.6], ['prop_drum_blue', .5, 5.15], ['prop_drum_olive', 1.0, 4.85]]);
+    const op = saw.get('op_spot').getWorldPosition(new THREE.Vector3());
+    workers = [worker('Operator', 0, 'work', op.x, op.z, Math.PI), worker('Mechanic', 1, 'idle', 2.6, 5.4, .4)];
+  }},
+  level2:{ t:'Level 2 \u00b7 Reopened Factory', s:'Pipe mill and the loading dock. A loader carries goods to the truck, the strategy\'s level 2 system.', fit:[13, 1.2, 4.6], build(){
+    machine('generator', 1.2, 2.8); const saw = machine('saw_bench', 4.4, 3.0); const mill = machine('pipe_machine', 7.6, 3.0);
+    const truck = machine('truck', 12.6, 6.6, Math.PI);
+    const so = saw.get('out_spot').getWorldPosition(new THREE.Vector3()), mo = mill.get('out_spot').getWorldPosition(new THREE.Vector3());
+    props([['prop_pallet', so.x, so.z], ['prop_crate', so.x - .15, so.z, 0, .14], ['prop_crate', so.x + .15, so.z, 0, .14], ['prop_crate', so.x, so.z + .3, 0, .14],
+      ['prop_pallet', mo.x, mo.z], ['prop_pipe_bundle', mo.x, mo.z, 0, .14],
+      ['prop_crate', 12.0, 6.4, .2, 1.0], ['prop_crate', 12.0, 6.75, -.1, 1.0], ['prop_pipe_bundle', 13.0, 6.6, Math.PI / 2, 1.0]]);
+    const op1 = saw.get('op_spot').getWorldPosition(new THREE.Vector3()), op2 = mill.get('op_spot').getWorldPosition(new THREE.Vector3());
+    const tg = truck.get('tailgate').getWorldPosition(new THREE.Vector3());
+    workers = [worker('Operator', 0, 'work', op1.x, op1.z, Math.PI), worker('Operator', 2, 'work', op2.x, op2.z, Math.PI),
+      worker('Loader', 3, 'carry', so.x, so.z + .7), worker('Mechanic', 1, 'sit', 2.4, 6.4, .3)];
+    loaderBot = { w:workers[2], a:new THREE.Vector3(so.x + .3, 0, so.z + .7), b:new THREE.Vector3(tg.x - .5, 0, tg.z), t:0, leg:0 };
+  }},
+  saw_bench:{ t:'Saw Bench', s:'Level 1 crate machine. The blade, the plank and the status lamp are separate nodes the game drives.', fit:[3.2, .6, 0], build(){ machine('saw_bench', 0, 0); workers = [worker('Operator', 0, 'work', -.55, 1.0, Math.PI)]; }},
+  pipe_machine:{ t:'Pipe Mill', s:'Level 2 metal machine. Coil, three rollers, the moving pipe and the beacon all animate from the game.', fit:[3.4, .6, 0], build(){ machine('pipe_machine', 0, 0); workers = [worker('Operator', 2, 'work', .1, 1.0, Math.PI)]; }},
+  generator:{ t:'Generator Mk I', s:'The workshop\'s old diesel set. Flywheel spins, the lamp blinks red on a breakdown, and the fixer kneels at fix_spot.', fit:[3.0, .8, 0], build(){ machine('generator', 0, 0); workers = [worker('Mechanic', 1, 'fix', 1.15, .8, -Math.PI / 2 - .5)]; }},
+  truck:{ t:'Delivery Truck', s:'Level 2 dock truck. Four wheel nodes roll; the bed anchor is where loaded goods stack.', fit:[5.6, .9, 0], build(){ machine('truck', 0, 0); workers = [worker('Loader', 3, 'carry', -2.6, .3, -Math.PI / 2)]; }},
+  worker:{ t:'Worker', s:'One skinned mesh, one draw call. A 16-pixel palette texture sets role and look; seven clips cover the whole game.', fit:[2.4, .7, 0], build(){
+    workers = Object.keys(ROLES).map((r, i) => worker(r, i, 'idle', (i - 1.5) * .62, 0)); }},
+  props:{ t:'Props', s:'Crates, pipes, pallets and drums in one file, each with its own root so the game can instance them.', fit:[4.2, .3, 0], build(){
+    props([['prop_pallet', -1.4, 0], ['prop_crate', -1.4, 0, 0, .14], ['prop_crate', -.4, -.3], ['prop_crate', -.4, -.3, .3, .3], ['prop_pipe', .5, -.6, .4], ['prop_pipe_bundle', .7, .3],
+      ['prop_drum_red', 1.7, -.5], ['prop_drum_blue', 1.8, .1], ['prop_drum_olive', 1.3, .6]]); workers = []; }},
+};
+const ORDER = ['level1','level2','saw_bench','pipe_machine','generator','truck','worker','props'];
+const SHORT = { level1:'Level 1 floor', level2:'Level 2 dock', saw_bench:'Saw Bench', pipe_machine:'Pipe Mill', generator:'Generator', truck:'Truck', worker:'Worker', props:'Props' };
+
+function clearWorld(){ scene.remove(world); world.traverse(o => { if (o.isMesh && o.material && o.material.map && o.material.map.isDataTexture) o.material.map.dispose(); }); world = new THREE.Group(); scene.add(world); mixers.length = machines.length = anchors.length = 0; workers = []; loaderBot = null; }
+function show(v){
+  view = v; clearWorld(); VIEWS[v].build(); applyShading();
+  const f = VIEWS[v].fit; camGoal.span = f[0]; camGoal.ty = f[1]; camGoal.tx = 0; camGoal.tz = 0;
+  const box = new THREE.Box3().setFromObject(world), c = box.getCenter(new THREE.Vector3()); camGoal.tx = c.x; camGoal.tz = c.z; camGoal.az = Math.PI / 4; camGoal.el = .61; camGoal.zoom = 1;
+  $('stT').textContent = VIEWS[v].t; $('stS').textContent = VIEWS[v].s;
+  renderPicker(); renderContext(); renderBudget(); updateHud(true);
+}
+
+/* ---------- camera (fixed game angle, inspect by dragging) ---------- */
+const camGoal = { az:Math.PI / 4, el:.61, span:10, zoom:1, tx:0, ty:1, tz:0 }, camCur = Object.assign({}, camGoal);
+function placeCam(){
+  const r = cv.clientWidth / Math.max(1, cv.clientHeight), span = camCur.span * camCur.zoom;
+  const h = r < 1 ? span / r : span; const w = h * r;
+  Object.assign(cam, { left:-w / 2, right:w / 2, top:h / 2, bottom:-h / 2 }); cam.updateProjectionMatrix();
+  const d = 40, ce = Math.cos(camCur.el);
+  cam.position.set(camCur.tx + Math.sin(camCur.az) * ce * d, camCur.ty + Math.sin(camCur.el) * d, camCur.tz + Math.cos(camCur.az) * ce * d);
+  cam.lookAt(camCur.tx, camCur.ty, camCur.tz);
+}
+const ptrs = new Map(); let drag = null;
+cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; drag = { pinch:Math.hypot(a[0] - b[0], a[1] - b[1]), z0:camGoal.zoom }; }
+  else drag = { x:e.clientX, y:e.clientY, az:camGoal.az, el:camGoal.el }; });
+cv.addEventListener('pointermove', e => { if (!ptrs.has(e.pointerId) || !drag) return; ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (drag.pinch && ptrs.size === 2) { const [a, b] = [...ptrs.values()]; camGoal.zoom = Math.min(1.6, Math.max(.35, drag.z0 * drag.pinch / Math.max(20, Math.hypot(a[0] - b[0], a[1] - b[1])))); return; }
+  if (drag.pinch) return;
+  camGoal.az = drag.az - (e.clientX - drag.x) * .008; camGoal.el = Math.min(1.35, Math.max(.15, drag.el + (e.clientY - drag.y) * .005)); });
+const up = e => { ptrs.delete(e.pointerId); if (!ptrs.size) drag = null; };
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+cv.addEventListener('wheel', e => { e.preventDefault(); camGoal.zoom = Math.min(1.6, Math.max(.35, camGoal.zoom * Math.exp(e.deltaY * .001))); }, { passive:false });
+cv.addEventListener('dblclick', () => Object.assign(camGoal, { az:Math.PI / 4, el:.61, zoom:1 }));
+
+/* ---------- controls ---------- */
+let shading = 'baked', showAnchors = false, machineState = 'Running', worldClip = null;
+function btns(host, items, isOn, onClick){
+  host.replaceChildren(...items.map(it => { const b = document.createElement('button'); b.type = 'button';
+    b.innerHTML = it.html || it.label; b.setAttribute('aria-pressed', String(isOn(it))); b.addEventListener('click', () => onClick(it)); return b; }));
+}
+function renderPicker(){ btns($('pick'), ORDER.map(k => ({ k, label:SHORT[k] })), it => it.k === view, it => show(it.k)); }
+function renderContext(){
+  const g1 = $('ctxGroup'), g2 = $('ctx2Group');
+  g1.hidden = g2.hidden = false;
+  if (view === 'worker') {
+    $('ctxLbl').textContent = 'Clip';
+    btns($('ctx'), CLIPS.map(c => ({ c, label:c[0].toUpperCase() + c.slice(1) })), it => workers[0] && workers[0].clip === it.c, it => { workers.forEach(w => w.play(it.c)); renderContext(); });
+    $('ctx2Lbl').textContent = 'Palette texture';
+    const sw = c => `<span class="swatch" style="background:${c}"></span>`;
+    btns($('ctx2'), Object.entries(ROLES).map(([r, c]) => ({ r, html:sw(c.hat) + r })), it => workers.every(w => w.role === it.r), it => { workers.forEach(w => w.setRole(it.r)); renderContext(); });
+    return;
+  }
+  if (view === 'props') { g1.hidden = g2.hidden = true; return; }
+  $('ctxLbl').textContent = 'Machine state';
+  btns($('ctx'), Object.keys(STATES).map(s => ({ s, label:s })), it => it.s === machineState, it => { machineState = it.s; renderContext(); });
+  if (view === 'truck' || view === 'level2') {
+    $('ctx2Lbl').textContent = 'Truck';
+    btns($('ctx2'), [{ k:false, label:'Parked' }, { k:true, label:'Drive' }], it => it.k === truckDrive, it => { truckDrive = it.k; renderContext(); });
+  } else g2.hidden = true;
+}
+function renderShading(){
+  btns($('shade'), [{ k:'baked', label:'Baked + blob shadows' }, { k:'realtime', label:'Real-time shadows' }], it => it.k === shading, it => { shading = it.k; applyShading(); renderShading(); });
+  $('shadeNote').textContent = shading === 'baked'
+    ? 'The low-end phone path: occlusion baked into vertex colours by Blender, soft blobs under feet and wheels, no shadow maps.'
+    : 'For comparison only. Shadow maps cost a full extra render pass every frame.';
+}
+function applyShading(){
+  const rt = shading === 'realtime'; renderer.shadowMap.enabled = rt; sun.castShadow = rt;
+  world.traverse(o => { if (o.userData.blob) o.visible = !rt; if (o.isMesh && o.material) o.material.needsUpdate = true; });
+  floor.material.needsUpdate = true;
+}
+function renderOverlays(){ btns($('ovl'), [{ k:true, label:'Anchor points' }], () => showAnchors, () => { showAnchors = !showAnchors; renderOverlays(); }); }
+function renderBudget(){
+  const sel = { level1:['saw_bench','generator','props','worker'], level2:['saw_bench','pipe_machine','generator','truck','props','worker'] }[view] || [view];
+  let total = 0;
+  $('budget').innerHTML = Object.keys(FILES).map(n => {
+    const kib = BYTES[n] / 1024, st = stats(ASSET[n].scene); total += kib;
+    const pct = Math.min(100, kib / FILES[n] * 100), over = kib > FILES[n];
+    return `<tr class="${sel.includes(n) ? 'sel' : ''}"><td>${NICE[n]}<div class="bar"><i class="${over ? 'over' : ''}" style="width:${pct.toFixed(0)}%"></i></div></td><td class="m">${kib.toFixed(1)} KiB</td><td class="m">${st.tris.toLocaleString('en-US')}</td><td class="m">${st.draws}</td></tr>`;
+  }).join('');
+  $('tot').textContent = `${total.toFixed(1)} KiB`;
+}
+
+/* ---------- labels + HUD ---------- */
+const labMap = new Map(), v3 = new THREE.Vector3();
+function updateLabels(){
+  const seen = new Set();
+  if (showAnchors) for (const { n, a } of anchors) {
+    const k = a.uuid; seen.add(k); let e = labMap.get(k);
+    if (!e) { e = document.createElement('div'); e.className = 'anc'; e.textContent = n; $('labels').appendChild(e); labMap.set(k, e); }
+    a.getWorldPosition(v3).project(cam); e.style.transform = `translate(${((v3.x + 1) / 2 * cv.clientWidth).toFixed(1)}px,${((1 - v3.y) / 2 * cv.clientHeight).toFixed(1)}px) translate(-50%,-100%)`;
+  }
+  for (const [k, e] of labMap) if (!seen.has(k)) { e.remove(); labMap.delete(k); }
+}
+let hudT = 0, fpsN = 0, fpsT = 0, fps = 0;
+function updateHud(force){
+  if (!force && performance.now() - hudT < 500) return; hudT = performance.now();
+  const info = renderer.info.render;
+  $('hud').innerHTML = `<span class="chip"><b>${fps}</b> fps</span><span class="chip"><b>${info.calls}</b> draw calls</span><span class="chip"><b>${info.triangles.toLocaleString('en-US')}</b> tris on screen</span>`;
+}
+
+/* ---------- loop ---------- */
+const clock = new THREE.Clock(); let T = 0;
+function animate(){
+  const dt = Math.min(.05, clock.getDelta()); T += dt;
+  for (const m of mixers) m.update(dt);
+  const st = STATES[machineState], running = machineState === 'Running';
+  for (const m of machines) {
+    m.t += dt;
+    for (const l of m.lamps) {
+      const beacon = l.name.startsWith('beacon');
+      if (beacon) { l.material.emissive.set('#ff9a1f'); l.material.emissiveIntensity = running ? (Math.sin(T * 8) > .3 ? 4 : .3) : .3; continue; }
+      const blink = machineState === 'Fault' && Math.floor(T * 4) % 2;
+      l.material.emissive.set(blink ? '#40100c' : st[0]); l.material.emissiveIntensity = blink ? .5 : st[1];
+    }
+    const g = m.get;
+    if (m.name === 'saw_bench') { if (running) g('blade').rotation.z -= dt * 30; const p = (m.t % 5) / 5; g('plank').position.x = -.48 + p; }
+    if (m.name === 'generator') { if (machineState !== 'Fault') g('flywheel').rotation.x += dt * 9; m.o.children.forEach(c => { if (c.isMesh && c.name.startsWith('generator')) c.position.x = machineState === 'Fault' ? Math.sin(T * 47) * .012 : 0; }); }
+    if (m.name === 'pipe_machine' && running) { g('coil').rotation.z += dt * 1.2; for (const i of [1, 2, 3]) g('roller_' + i).rotation.z -= dt * 6; g('pipe_out').position.x = .6 + (m.t % 3) / 3 * .7; }
+    if (m.name === 'truck') {
+      const speed = truckDrive ? Math.sin(T * .6) * 1.6 : 0;
+      for (const n of ['wheel_fl','wheel_fr','wheel_rl','wheel_rr']) g(n).rotation.z -= speed * dt / .42;
+      if (!m.home) m.home = m.o.position.clone();
+      const dir = new THREE.Vector3(1, 0, 0).applyQuaternion(m.o.quaternion);
+      m.o.position.copy(m.home).addScaledVector(dir, truckDrive ? -Math.cos(T * .6) * 1.6 + 1.6 : 0);
+    }
+  }
+  if (loaderBot) { // ping-pong between the crate pallet and the tailgate
+    const L = loaderBot, from = L.leg ? L.b : L.a, to = L.leg ? L.a : L.b, dist = from.distanceTo(to);
+    L.t += dt * 1.2 / dist; const k = Math.min(1, L.t);
+    L.w.o.position.lerpVectors(from, to, k); L.w.o.rotation.y = Math.atan2(to.x - from.x, to.z - from.z);
+    const want = L.leg ? 'walk' : 'carry'; if (L.w.clip !== want) L.w.play(want);
+    if (k >= 1) { L.t = 0; L.leg = 1 - L.leg; }
+  }
+  for (const k of ['az','el','span','zoom','tx','ty','tz']) camCur[k] += (camGoal[k] - camCur[k]) * Math.min(1, dt * 6);
+  placeCam(); renderer.render(scene, cam); updateLabels();
+  fpsN++; fpsT += dt; if (fpsT > .5) { fps = Math.round(fpsN / fpsT); fpsN = 0; fpsT = 0; }
+  updateHud(false);
+  requestAnimationFrame(animate);
+}
+function resize(){ const r = $('stage').getBoundingClientRect(); renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1)); renderer.setSize(r.width, r.height, false); }
+new ResizeObserver(resize).observe($('stage'));
+
+try {
+  await Promise.all(Object.keys(FILES).map(load));
+  $('loadmsg').remove(); resize(); renderShading(); renderOverlays(); show('level1');
+  Object.assign(camCur, camGoal); requestAnimationFrame(animate);
+  window.__bench = { ASSET, BYTES, scene, show, stats };
+} catch (err) {
+  $('loadmsg').textContent = 'The models could not load: ' + err.message;
+  console.error(err);
+}
+</script>

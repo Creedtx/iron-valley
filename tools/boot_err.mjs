@@ -1,0 +1,16 @@
+import puppeteer from 'puppeteer-core';
+import fs from 'node:fs'; import path from 'node:path';
+const [url] = process.argv.slice(2);
+const b = await puppeteer.launch({ executablePath:'/usr/bin/google-chrome', args:['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const p = await b.newPage(); await p.setViewport({ width:390, height:844, isMobile:true, hasTouch:true });
+await p.setRequestInterception(true);
+p.on('request', r => { const u = r.url(), pre = 'https://cdn.jsdelivr.net/npm/three@0.170.0/';
+  if (u.startsWith(pre)) return r.respond({ status:200, contentType:'text/javascript', headers:{ 'access-control-allow-origin':'*' }, body:fs.readFileSync(path.join(import.meta.dirname, 'node_modules/three', u.slice(pre.length))) });
+  if (u.includes('fonts.g') || u.endsWith('favicon.ico')) return r.abort(); r.continue(); });
+p.on('pageerror', e => console.log('PAGEERROR', e.message, (e.stack || '').split('\n').slice(0, 4).join(' | ')));
+p.on('requestfailed', r => console.log('REQFAIL', r.url().slice(0, 120), r.failure() && r.failure().errorText));
+p.on('console', async m => { if (m.type() === 'error') { const a = await Promise.all(m.args().map(x => x.evaluate(v => v instanceof Error ? v.message + ' ' + v.stack : String(v)).catch(() => '?'))); console.log('ERRARGS', a.join(' ').slice(0, 600)); } if (m.type() === 'error' || m.type() === 'warning') console.log('CONSOLE', m.type(), m.text().slice(0, 300)); });
+await p.evaluateOnNewDocument(() => { try { localStorage.clear(); } catch(e){} });
+await p.goto(url, { waitUntil:'domcontentloaded' });
+await p.waitForFunction('window.__iv && window.__iv.owner && window.__iv.frames > 5', { timeout:120000 }).then(() => console.log('booted')).catch(() => console.log('NOT booted'));
+await b.close();

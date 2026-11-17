@@ -1,0 +1,13 @@
+# dependencies and scratch
+tools/node_modules/
+tools/x
+build/
+*.log
+# generated copies (rebuild with tools/pack_viewer.py and tools/package.mjs)
+preview/
+viewer/models.js
+dist/playables/
+dist/*.zip
+# large preview images and old snapshots
+renders/
+game_live_0.15/

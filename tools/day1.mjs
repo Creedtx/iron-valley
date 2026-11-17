@@ -1,0 +1,41 @@
+// Day one on level 1 (build 0.16c): the owner and Gus alone; the owner runs, carries and ships the first order,
+// then hires an operator and a loader and walks each to their post. Prints the state after every step.
+import puppeteer from 'puppeteer-core';
+import fs from 'node:fs'; import path from 'node:path';
+const [url, out] = process.argv.slice(2); fs.mkdirSync(out, { recursive:true });
+const b = await puppeteer.launch({ executablePath:'/usr/bin/google-chrome', args:['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const p = await b.newPage(); await p.setViewport({ width:390, height:844, deviceScaleFactor:1, isMobile:true, hasTouch:true });
+await p.setRequestInterception(true);
+p.on('request', r => { const u = r.url(), pre = 'https://cdn.jsdelivr.net/npm/three@0.170.0/';
+  if (u.startsWith(pre)) return r.respond({ status:200, contentType:'text/javascript', headers:{ 'access-control-allow-origin':'*' }, body:fs.readFileSync(path.join(import.meta.dirname, 'node_modules/three', u.slice(pre.length))) });
+  if (u.includes('fonts.g') || u.endsWith('favicon.ico')) return r.abort(); r.continue(); });
+const errs = []; p.on('pageerror', e => errs.push(e.message));
+await p.evaluateOnNewDocument(() => { if (!sessionStorage.getItem('s')) { sessionStorage.setItem('s', '1'); localStorage.clear(); } setInterval(() => { if (window.__iv && window.__iv.cardOpen) window.__iv.nextCard(); }, 200); });
+await p.goto(url, { waitUntil:'domcontentloaded' });
+await p.waitForFunction('window.__iv && window.__iv.owner && window.__iv.frames > 20', { timeout:180000 });
+const ev = (f, a) => p.evaluate(f, a), wait = ms => new Promise(r => setTimeout(r, ms));
+await ev(() => { window.__iv.speed = 3; });
+const st = () => ev(() => { const v = window.__iv, S = v.S; return JSON.stringify({ tut:S.tut, obj:document.getElementById('objT').textContent, staff:[...v.staffObj.values()].map(c => `${c.st.name}:${c.st.role}:${c.st.posted}:${c.state}`), ord:S.order && `${S.order.cut}/${S.order.qty} bed${S.bed}${S.order.ready ? ' ready' : ''}`, pal:S.pallet, carry:v.owner.stack.length, truck:v.truck.state, del:S.delivered, cash:Math.round(S.cash), earned:S.earned, pile:S.cashPile }); });
+const walkTo = async (x, z, secs = 20) => { for (let i = 0; i < secs * 4; i++) { const d = await ev(([x, z]) => { const o = window.__iv.owner.o.position, dx = x - o.x, dz = z - o.z, d = Math.hypot(dx, dz), s = Math.min(d, .5); if (d > .05) o.set(o.x + dx / d * s, 0, o.z + dz / d * s); return d; }, [x, z]); if (d < .1) return; await wait(250); } };
+const until = async (cond, secs) => { const t0 = Date.now(); while (Date.now() - t0 < secs * 1000) { if (await ev(cond)) return true; await wait(500); } return false; };
+const P = await ev(() => window.__iv.P);
+console.log('start', await st()); await p.screenshot({ path:path.join(out, 'e0_start.png') });
+await until(() => !!window.__iv.S.call, 120);
+await walkTo(P.wsDoor[0], P.wsDoor[1] + .6); await walkTo(P.deskRing[0] + 1.2, P.deskRing[1] + 1.6); await walkTo(...P.deskRing); await wait(1500); await ev(() => window.__iv.acceptCall()); await wait(500); await ev(() => window.__iv.closeOffice()); await wait(300);
+await walkTo(P.deskRing[0] + 1.2, P.deskRing[1] + 1.6); await walkTo(P.wsDoor[0], P.wsDoor[1] + .6);
+console.log('order taken', await st());
+await walkTo(...P.op); const cut = await until(() => window.__iv.S.order && window.__iv.S.order.cut >= window.__iv.S.order.qty, 240); console.log('cut by hand', cut, await st());
+for (let trip = 0; trip < 8; trip++) { if (await ev(() => window.__iv.S.order && window.__iv.S.order.ready)) break; await walkTo(...P.pallet); await until(() => window.__iv.owner.stack.length >= 5 || window.__iv.S.pallet === 0, 8);
+  await walkTo(P.drop[0] - 1.6, P.drop[1] - 1.0); await walkTo(...P.drop); await until(() => window.__iv.truck.state === 'docked' && window.__iv.owner.stack.length === 0, 60); }
+console.log('loaded', await st());
+const signed = await until(() => window.__iv.S.delivered > 0, 30); console.log('signed', signed, await st()); await p.screenshot({ path:path.join(out, 'e1_signed.png') });
+await walkTo(...P.cash); await until(() => window.__iv.S.cashPile === 0, 20); console.log('cash', await st());
+await ev(() => window.__iv.hire('operator')); await ev(() => window.__iv.closeOffice()); await wait(4000);
+const walt = await ev(() => { const c = [...window.__iv.staffObj.values()].find(c => c.st.role === 'operator'); return [c.o.position.x, c.o.position.z]; });
+await walkTo(walt[0], walt[1] - .9); await wait(1500); await walkTo(P.frontIn[0], P.frontIn[1] - 3); await walkTo(...P.op, 40); await wait(2500); console.log('operator posted', await st());
+await ev(() => window.__iv.hire('loader')); await ev(() => window.__iv.closeOffice()); await wait(4000);
+const rita = await ev(() => { const c = [...window.__iv.staffObj.values()].find(c => c.st.role === 'loader'); return [c.o.position.x, c.o.position.z]; });
+await walkTo(rita[0], rita[1] - .9); await wait(1500); await walkTo(P.frontIn[0], P.frontIn[1] - 3); await walkTo(...P.pallet, 40); await wait(2500); console.log('loader posted', await st());
+await until(() => !!window.__iv.S.call, 90); await walkTo(P.wsDoor[0], P.wsDoor[1] + .6); await walkTo(P.deskRing[0] + 1.2, P.deskRing[1] + 1.6); await walkTo(...P.deskRing); await wait(1000); await ev(() => window.__iv.acceptCall()); await ev(() => window.__iv.closeOffice());
+await wait(60000); console.log('crew working', await st()); await p.screenshot({ path:path.join(out, 'e2_crew.png') });
+console.log(errs.length ? 'ERRORS ' + JSON.stringify(errs.slice(0, 6)) : 'no errors'); await b.close();
