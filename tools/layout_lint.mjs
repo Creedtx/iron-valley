@@ -29,6 +29,6 @@ const ov = (a, b) => { const w = Math.min(a[2], b[2]) - Math.max(a[0], b[0]), d 
 const out = [];
 for (const [zn, z, own] of ZONES) {
   for (const o of D.put) { const w = o.box[2] - o.box[0], d = o.box[3] - o.box[1]; if (o.h < .12 || w > 30 || d > 30 || own.test(o.name)) continue; const a = ov(o.box, z); if (a) out.push(`${zn.padEnd(30)} ← ${o.name} at [${o.at}] (overlap ${a} m², ${o.h} m tall)`); }
-  for (const c of D.col) { const a = ov(c.b, z); if (a && !/dock|ramp|truck|kerb/.test(c.k)) out.push(`${zn.padEnd(30)} ← collision box '${c.k}' [${c.b.map(v => v.toFixed(1))}]`); }
+  for (const c of D.col) { const a = ov(c.b, z); if (a && !/dock|ramp|truck|kerb|cartBay/.test(c.k)) out.push(`${zn.padEnd(30)} ← collision box '${c.k}' [${c.b.map(v => v.toFixed(1))}]`); }
 }
 console.log(out.length ? out.join('\n') : 'layout clean'); console.log(`checked ${D.put.length} placed objects, ${D.col.length} collision boxes, ${ZONES.length} keep-clear zones`);

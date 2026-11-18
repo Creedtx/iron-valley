@@ -3165,8 +3165,11 @@ const helperOn = () => staffOf('helper').some(c => c.st.posted !== false && c.st
 const ownerFeeds = () => !!owner && owner.o.visible && sawBy && sawBy !== owner && ownerOn(P.feedRing);
 const feedK = () => ownerFeeds() ? 1.25 : helperOn() || loadersHired() ? 1 : .7;
 function selfFeed(dt){
-  if (helperOn() || loadersHired()) return; feedT -= dt; if (feedT > 0) return; feedT = 1;
-  if (S.feed < 3 && S.timber > 0) { S.timber--; S.feed++; syncRack(); syncFeed(); }
+  // build 0.19: the owner at the in-feed hands the planks over (quickly); with no helper, when the in-feed runs dry and
+  // the loader is busy, the operator (or the owner, or Gus) reaches for a plank himself
+  const hand = ownerFeeds(), dry = !helperOn() && S.feed === 0 && !!sawBy;
+  if (helperOn() || (loadersHired() && !hand && !dry)) return; feedT -= dt; if (feedT > 0) return; feedT = hand ? .5 : 1;
+  if (S.feed < (hand ? 6 : 3) && S.timber > 0) { S.timber--; S.feed++; syncRack(); syncFeed(); }
   if (S.timber < 4 && S.store > 0) { const k = Math.min(4, S.store); S.store -= k; S.timber += k; syncStore(); syncRack(); }
 }
 let coilSelfT = 0;
