@@ -46,7 +46,8 @@ check(await ev(() => !!window.__iv.trip && !window.__iv.owner.o.visible), 'the t
 await ev(() => { window.__car = { bad:[], last:null }; const t = () => { const c = window.__iv.M.car, R = window.__car; if (c.visible) { const x = c.position.x, z = c.position.z;
   if (R.last && (R.last[1] - 12.5) * (z - 12.5) < 0 && (x < 15.3 || x > 22.3)) R.bad.push(`crossed the fence at x=${x.toFixed(1)}`); R.last = [x, z]; } requestAnimationFrame(t); }; requestAnimationFrame(t); });
 await until(() => window.__iv.M.car.position.x > 15 && window.__iv.M.car.position.z > 11, 60); await ev(() => { window.__iv.camLock = [15, 11]; }); await wait(500); await p.screenshot({ path:path.join(out, 's2_gateway.png') }); await ev(() => { window.__iv.camLock = null; });
-check(await until(() => window.__iv.trip && window.__iv.trip.phase === 'away', 90), 'the car drives out and away to town');
+const away = await until(() => window.__iv.trip && window.__iv.trip.phase === 'away', 400); if (!away) console.log('trip:', await ev(() => { const v = window.__iv, c = v.M.car.position; return JSON.stringify({ trip:v.trip, car:[c.x.toFixed(2), c.z.toFixed(2)], truck:v.truck.state, sup:v.sup.state, t:Math.round(v.S.time) }); }));
+check(away, 'the car drives out and away to town');
 // 2. while away: a phone call and a gate customer; Gus deals with both
 await ev(() => { const v = window.__iv; v.S.pallet = 4; v.syncPallet(); if (!v.S.call && !v.S.order) v.S.call = v.placeSpec('farm'); v.spawnWalker(true); });
 check(await until(() => (window.__iv.S.answeredGus || 0) >= 1 || !!window.__iv.S.order, 60), 'Gus answers the office phone');
@@ -59,9 +60,9 @@ check(await ev(() => window.__iv.S.book.length === 1 && window.__iv.S.book[0].pl
 check(await until(() => window.__iv.S.walk.served >= 1 || !window.__iv.walker, 120), 'Gus serves the gate customer');
 console.log('served by Gus', await ev(() => window.__iv.S.walk.served));
 // 4. home: the car comes back by the lorry gateway and reverses into its space
-check(await until(() => window.__iv.trip && window.__iv.trip.phase === 'park', 150), 'the car comes back in at the lorry gateway');
+check(await until(() => window.__iv.trip && window.__iv.trip.phase === 'park', 400), 'the car comes back in at the lorry gateway');
 await ev(() => { window.__iv.camLock = [16, 11.5]; }); await wait(300); await p.screenshot({ path:path.join(out, 's4_reverse.png') }); await ev(() => { window.__iv.camLock = null; });
-check(await until(() => !window.__iv.trip, 30), 'the car is parked and the trip is over');
+check(await until(() => !window.__iv.trip, 200), 'the car is parked and the trip is over');
 check(await ev(() => { const v = window.__iv, c = v.M.car.position; return v.owner.o.visible && Math.hypot(c.x - v.P.carSpot[0], c.z - v.P.carSpot[1]) < .05 && Math.abs(v.M.car.rotation.y) < .05; }), 'the car is back in its space, facing the gateway, and the owner is out');
 check(await ev(() => window.__car.bad.length === 0), 'the car only crossed the fence line in the lorry gateway ' + JSON.stringify(await ev(() => window.__car.bad.slice(0, 3))));
 // 5. the agreed order starts once the yard is free

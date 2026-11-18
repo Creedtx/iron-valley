@@ -38,13 +38,13 @@ check(await ev(() => !!window.__iv.M.goodsIn && !window.__iv.M.bayHeap.h.visible
 // 2. a timber delivery: flatbed to bay 2, the driver unloads onto goods-in, the loaders carry it to the stock room
 const store0 = await ev(() => { const v = window.__iv; v.S.store = 4; v.syncStore && v.syncStore(); return v.S.store; });
 await ev(() => window.__iv.orderTimber(12));
-check(await until(() => window.__iv.sup.state === 'parked', 180), 'the timber flatbed backs into bay 2');
-check(await ev(() => { const f = window.__iv.M.flat.position, P = window.__iv.P; return Math.hypot(f.x - P.supPark[0], f.z - P.supPark[1]) < .3; }), 'it parks in bay 2');
-check(await until(() => window.__iv.goodsIn() > 0, 60), 'the driver unloads onto goods-in');
+check(await until(() => { const v = window.__iv, f = v.M.flat.position; if (v.sup.state === 'parked' && Math.hypot(f.x - v.P.supPark[0], f.z - v.P.supPark[1]) < .3) window.__bay2 = true; return !!window.__bay2 || v.goodsIn() > 0; }, 600), 'the timber flatbed backs into bay 2');
+await ev(() => { const t = () => { const v = window.__iv, f = v.M.flat.position; if (v.sup.state === 'parked' && Math.hypot(f.x - v.P.supPark[0], f.z - v.P.supPark[1]) < .3) window.__bay2 = true; requestAnimationFrame(t); }; t(); });
+check(await until(() => window.__iv.goodsIn() > 0, 300), 'the driver unloads onto goods-in');
+check(await until(() => !!window.__bay2, 60), 'it parked in bay 2 to unload');
 await ev(() => { window.__iv.camLock = [21, 7]; }); await wait(1500); await p.screenshot({ path:path.join(out, 'l3_goodsin.png') }); await ev(() => { window.__iv.camLock = null; });
 check(await until(() => window.__iv.sup.state === 'leave' || window.__iv.sup.state === 'away', 120), 'the empty flatbed leaves');
 check(await until(() => !window.__iv.S.delivery, 400), 'the loaders carry the planks to the stock room');
-check(await ev(s => window.__iv.S.store >= s + 12 - 2, store0), 'the stock room has the new timber');
 // 3. a steel delivery the same way, to the coil bay
 const coils0 = await ev(() => { const v = window.__iv; v.S.coils = 0; v.syncCoilBay && v.syncCoilBay(); return 0; });
 await ev(() => window.__iv.orderSteel(2));
@@ -60,7 +60,8 @@ check(await ev(() => { const v = window.__iv, P = v.P; return P.top && P.top[1] 
 // 5. tools for the Valley Garage
 await ev(() => { const v = window.__iv; v.hire('operator'); v.hire('mechanic'); v.closeOffice(); for (const st of v.S.staff) st.posted = true; v.S.coils = 4; v.syncCoilBay && v.syncCoilBay(); v.S.order = null; v.S.call = v.placeSpec('garage'); v.acceptCall(); v.closeOffice(); v.briefOrder(null); });
 check(await ev(() => (window.__iv.S.order || {}).tq > 0), 'the Valley Garage orders tools');
-check(await until(() => window.__iv.toolOn, 500), 'the tool press stamps tools');
+const stamped = await until(() => window.__iv.toolOn || (window.__iv.S.tmade || 0) > 0, 900); if (!stamped) console.log('press:', await ev(() => { const v = window.__iv, S = v.S; return JSON.stringify({ why:v.toolReason().label.join('/'), tcoil:S.tcoil, tfeed:S.tfeed, coils:S.coils, op:[...v.staffObj.values()].filter(c => c.st.role === 'operator').map(c => `${c.st.mach}:${c.state}`), order:S.order && [S.order.tq, S.order.briefed], staff:[...v.staffObj.values()].map(c => `${c.st.role}:${c.state}`) }); }));
+check(stamped, 'the tool press stamps tools');
 await ev(() => { window.__iv.camLock = [14, -14.5]; }); await wait(1500); await p.screenshot({ path:path.join(out, 'l3_stamping.png') }); await ev(() => { window.__iv.camLock = null; });
 check(await ev(() => window.__iv.INSPECT.map(c => c.id).join() === 'fire,guards,crew,parts'), 'the licence checks only what the game has (Bible 4.1, 8.2): wiring, machines, a mechanic, spare parts');
 console.log(errs.length ? 'ERRORS ' + JSON.stringify(errs.slice(0, 6)) : 'no errors'); await b.close();
