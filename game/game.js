@@ -3114,7 +3114,7 @@ function ownerHands(dt){
   // the trolley bay: take a free trolley by standing at its handle; park yours the same way once it is empty
   if (!owner.cart) { const k = carts.find(k => !k.by && near(o, cartSpot(k.slot), .55)); if (k && owner.cartArm !== false) { takeCart(owner, k); owner.cartArm = false; handT = .3; toast('You have a trolley: load up to ' + ownerCarry() + ' crates. Park it back in the bay when you are done.', 'good'); return; } }
   else if (!n && owner.cartArm && near(o, cartSpot(owner.cartRec.slot), .55)) { parkCart(owner); owner.cartArm = false; handT = .3; return; }
-  if (owner.cartArm === false && !carts.some(k => near(o, cartSpot(k.slot), .9))) owner.cartArm = true;
+  if (owner.cartArm === false && !carts.some(k => near(o, cartSpot(k.slot), .6))) owner.cartArm = true;   // one step off the handle and you can take or park again
   // refuel the generator from the yard tank's can while nobody else does it (diesel goes on the bills)
   if (!loadersHired() && near(o, P.genFix, .9) && S.power.fuel < 98) { const add = Math.min(98 - S.power.fuel, 14 * .25); S.power.fuel += add; S.bills += add * .32; fuelT += .25; handT = .25; if (fuelT > 1) { fuelT = 0; sfx('pour', .5); } }
 }

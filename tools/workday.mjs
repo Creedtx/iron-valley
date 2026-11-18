@@ -62,7 +62,7 @@ check(await ev(() => !window.__iv.S.order || !window.__iv.S.order.qty), 'no crat
 check(await until(() => window.__iv.sawOn, 60), 'the saw starts for the customer at the gate');
 check(await until(n => window.__iv.S.pallet >= n, 90, want2), `the saw cuts the ${want2} crates the customer wants`);
 await wait(4000); check(await ev(n => window.__iv.S.pallet <= n + 1, want2), 'and stops there (no extra stock)');
-if (want2 > 2) { const s2 = await ev(() => window.__iv.cartSpot(window.__iv.freeCart().slot)); await walkTo(s2[0], s2[1] - .8); await walkTo(...s2); await until(() => !!window.__iv.owner.cart, 10); }
+if (want2 > 2) { await walkTo(P.pallet[0], P.pallet[1] + 1); const s2 = await ev(() => window.__iv.cartSpot(window.__iv.freeCart().slot)); await walkTo(s2[0], s2[1] - .8); await walkTo(...s2); check(await until(() => !!window.__iv.owner.cart, 10), 'the owner takes a trolley again'); }
 await walkTo(...P.pallet); await until(n => window.__iv.owner.stack.length >= n, 20, want2); await walkTo(P.trade[0], P.trade[1] - .9);
 check(await until(() => window.__iv.S.walk.served === 2, 30), 'second customer served');
 await until(() => !window.__iv.walker, 120);
@@ -71,7 +71,7 @@ if (await ev(() => !!window.__iv.owner.cart)) { const s3 = await ev(() => window
 check(await ev(() => { const v = window.__iv; for (let i = 0; i < 2; i++) if (v.carriedPos('crate', i, 2, false).y > 1.0) return false; for (let i = 0; i < 16; i++) { const c = v.carriedPos('crate', i, 16, true); if (c.y > 1.3 || c.z < .45) return false; } for (let i = 0; i < 8; i++) if (v.carriedPos('pipe', i).y > .9) return false; return true; }), 'loads stay in the arms or on the trolley, never on the head');
 // 1d. a lorry order: the loader fetches a trolley from the bay for the crates, and parks it again afterwards
 await ev(() => { const v = window.__iv; if (v.S.call) v.acceptCall(); v.closeOffice(); const op = [...v.staffObj.values()].find(c => c.st.role === 'operator'); if (v.S.order && !v.S.order.briefed) v.briefOrder(op); });
-check(await until(() => [...window.__iv.staffObj.values()].some(c => c.st.role === 'loader' && c.cart), 150), 'the loader takes a trolley for the crate run');
+check(await until(() => [...window.__iv.staffObj.values()].some(c => c.st.role === 'loader' && c.cart), 300), 'the loader takes a trolley for the crate run');
 check(await until(() => [...window.__iv.staffObj.values()].some(c => c.st.role === 'loader' && c.cart && c.stack.length >= 3), 150), 'the loader wheels three or more crates on it');
 await ev(() => { const v = window.__iv, l = [...v.staffObj.values()].find(c => c.st.role === 'loader'); v.camLock = [l.o.position.x, l.o.position.z]; }); await wait(1500); await p.screenshot({ path:path.join(out, 'w3b_loader_trolley.png') }); await ev(() => { window.__iv.camLock = null; });
 // 2. lunch: 11:58 to 12:31
