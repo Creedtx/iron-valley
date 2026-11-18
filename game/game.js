@@ -21,7 +21,7 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
    ===================================================================== */
 const LEVELS = { 1:{ name:'Inherited Workshop', next:'Reopened Factory' }, 2:{ name:'Reopened Factory', next:'Local Manufacturer' }, 3:{ name:'Local Manufacturer', next:'Growing Enterprise' }, 4:{ name:'Growing Enterprise', next:'Regional Manufacturer' }, 5:{ name:'Regional Manufacturer', next:'Industrial Company' } };
 const PREVIEW = true;                                    // build 0.16 preview: the new wide level 1 only, its own save
-const MAX_LEVEL = PREVIEW ? 2 : 5;                       // levels built so far
+const MAX_LEVEL = PREVIEW ? 3 : 5;                       // levels built so far
 // level 2: the pipe mill (strategy doc: "Metal machine: pipes", "the generator's power limit")
 const PIPE_PRICE = 95, PIPE_CYCLE = 4,   // Bible 4.2: pipe machine 4 s a pipe
  COIL_PIPES = 4, COIL_CAP = 6, MILL_PRICE = 600, MILL_BUILD = 18;   // Level Bible: pipe machine $600
@@ -98,7 +98,7 @@ const PADS = [
   // level 3: the tool press on the North field (bought in level 2 through Vera Lind)
   { id:'saw2',    label:'Second crate machine', get price(){ return S.perks.freeCrateMachine ? 0 : SAW2_PRICE; }, at:[-12.8, 5.5], icon:'saw', after:s => s.level >= 4 && s.plots.scrap.st >= 3 && !s.lv4.saw2, get note(){ return S.perks.freeCrateMachine ? 'Rusty\'s machine, refitted free' : 'Big Tom\'s crew installs it'; }, lv:4 },
   { id:'mill2',   label:'Second pipe mill', get price(){ return MILL2_PRICE; }, at:[13.9, 17.25], icon:'gear', after:s => s.level >= 5 && !s.l5.mill2, note:'Big Tom\'s crew installs it', lv:5 },
-  { id:'press',   label:'Install the tool press', price:PRESS_PRICE, at:[17.0, -2.55], icon:'gear', after:s => s.level >= 3 && s.lv3.field && !s.lv3.press, note:'A contractor builds it', lv:3 },
+  { id:'press',   label:'Install the tool press', price:PRESS_PRICE, at:[14.0, -13.5], icon:'gear', after:s => s.level >= 3 && s.lv3.field && !s.lv3.press, note:'A contractor builds it', lv:3 },
   { id:'wh',      label:'Build the warehouse',  price:WH_PRICE, at:[18.7, -4.3], icon:'box', after:s => whUnlocked(s) && !s.lv2.wh, note:'Make to stock. A contractor builds it', lv:2 },
 ];
 const CHARTER = [   // level 1 (Level Bible): the owner starts alone, so the people line is the first two hires
@@ -190,7 +190,7 @@ const P = {
   seats:[[-10.3, -1.75], [-9.7, -1.75], [-9.1, -1.75]], frontIn:[5.0, 10.6], frontOut:[5.0, 15.0],
   patrol:[[0.5, 6.4], [10.5, 4.0], [-6.0, 5.0], [14.0, 8.0]],
   // the stock room is not needed in levels 1-7 (Bible: timber is always in stock); its rack stays as dressing
-  storeRack:[-11.6, 4.0], storeSpot:[-10.6, 4.0], trolleyPark:[-11.0, 7.4], unload:[11.0, 8.0], supPark:[11.5, 9.0],
+  storeRack:[-11.6, 4.0], storeSpot:[-10.6, 4.0], trolleyPark:[-11.0, 7.4], unload:[22.35, 7.1], supPark:[20.8, 7.4],
   // staff welfare is not part of the 1973 game (Bible: workers never tire); these props are parked off the map
   cooler:[-90, -90], coolerSpot:[-90, -89.4], bottleRack:[-92, -90], bottleSpot:[-92, -89.3], cleanerHome:[-94, -90], wcCleanSpot:[-96, -90], coffee:[-98, -90],
   loaderHome:[8.0, 4.8], loaderWait:[10.0, 3.2], dockWait:[15.25, 8.9], gus:[3.2, -0.4], gus2:[3.6, 0.2], wcZone:[-96, -90], wcCheck:[-96, -89],
@@ -203,8 +203,12 @@ const P = {
   bay2:[20.8, 7.4], veraL2:[-6.4, 13.75], abelL2:[14.2, -13.6], tomL2:[15.9, -5.3],
   // the warehouse goes up on the plot Big Tom marks out in the cleared back yard; its doors and loading spots face south
   wh:[18.7, -7.7], whSpotC:[17.25, -5.4], whSpotP:[20.1, -5.4], whSpotT:[18.75, -5.4], whTools:[18.7, -8.25], whBuild:[19.0, -5.25],
-  tpress:[16.6, -4.4], tfeed:[14.85, -4.75], tfeedRing:[14.85, -3.45], tfix:[18.0, -3.45], track:[19.45, -4.5], trackSpot:[19.45, -3.5],
-  parts:[13.7, -6.3], pressBuild:[16.9, -2.9],
+  // level 3 on the wide yard (build 0.20, plans/level3_plan.png): the tool press on a gravel pad in the North field
+  // behind the back fence, its steel stand west, its tool rack east; the spare-parts shelf by the generator
+  tpress:[14.0, -16.3], tfeed:[11.6, -16.4], tfeedRing:[11.6, -15.2], tfix:[15.7, -15.2], track:[16.7, -16.4], trackSpot:[16.7, -15.3],
+  parts:[6.6, -11.25], pressBuild:[14.0, -14.4],
+  // paid deliveries from level 3: the flatbed backs into bay 2 and its driver unloads onto the goods-in stack
+  goodsIn:[23.3, 7.1],
   // build 0.18: where walk-in customers wait, just inside the main gate beside its west post (clear of the gate, the lorry path and the lane)
   trade:[2.35, 10.15],
   // build 0.19: grandad's car, nose-in by the front fence; the driver's door is on its east side
@@ -219,7 +223,7 @@ const WHERE = {  // where each fault lives: marker, where the fixer stands, whic
   gen:  { name:'generator', mark:[P.gen[0], 2.3, P.gen[1]], spot:() => P.genFix, face:null },
   saw:  { name:'crate machine', mark:[P.saw[0], 2.7, P.saw[1]], spot:() => P.sawFix, face:null },
   pipe: { name:'pipe mill', mark:[6.4, 1.9, 1.3], spot:() => P.pfix, face:null },
-  tool: { name:'tool press', mark:[16.7, 2.4, -4.4], spot:() => P.tfix, face:null },
+  tool: { name:'tool press', mark:[14.0, 2.4, -16.3], spot:() => P.tfix, face:null },
 };
 
 /* =====================================================================
@@ -790,7 +794,7 @@ function buildWorld(){
       [9.0, 12.15, .1], [12.8, 12.1, 2.8], [23.4, 12.1, 0], [23.6, 9.0, 1.6], [23.65, 2.8, 1.5], [23.6, -6.0, 1.6], [7.8, -11.6, 0], [2.4, -11.6, 2.9], [-12.2, -11.6, .3],
       [P.gen[0] - 1.3, P.gen[1] + 1.05, .7], [P.xfmr[0] - 1.6, P.xfmr[1] + .35, .2], [P.xfmr[0] + 1.1, P.xfmr[1] + .55, 2.6], [9.7, 12.12, 1.6], [8.3, 12.1, 1.5]];   // build 0.19: clear of the car's lane
     for (const [x, z, r] of W) put(inst('site_weeds'), x, z, r, 0, .8 + ((x * 7.3 + z * 3.1) % 1 + 1) % 1 * .5);
-    for (const [x, z, r] of [[-11.6, 11.75, Math.PI], [23.55, 7.0, -Math.PI / 2], [2.6, -11.55, 0]]) { const h = put(inst('site_rust_heap'), x, z, r); colOf(h, .05); }
+    for (const [x, z, r] of [[-11.6, 11.75, Math.PI], [23.55, 7.0, -Math.PI / 2], [2.6, -11.55, 0]]) { const h = put(inst('site_rust_heap'), x, z, r); const k = colOf(h, .05); if (x > 20) { h.userData.dyn = true; M.bayHeap = { h, k }; } }
     const d1 = put(inst('prop_drum_olive'), -12.9, 9.4, .4); d1.rotation.z = Math.PI / 2; d1.position.y = .3; addCol([-13.4, 9.0, -12.4, 9.8]);
     const d2 = put(inst('prop_drum_red'), 22.9, 5.3, 1.1); addCol([22.6, 5.0, 23.2, 5.6]); }
   // ---- the back yard to clear ------------------------------------------------------------------------------------------------
@@ -1158,11 +1162,36 @@ const syncStore = () => syncStack(planks.store, S.store, () => plankMesh(1.4), s
 function trolleyPos(i){ return new THREE.Vector3(0, .26 + Math.floor(i / 3) * .065, -.2 + (i % 3) * .2); }
 const trolleyCap = () => 8 + 4 * S.up.supply;
 function syncBundles(){
-  const steel = S.delivery && S.delivery.kind === 'steel', n = S.delivery && sup.state !== 'away' ? (steel ? Math.min(4, S.delivery.left) : Math.min(4, Math.ceil(S.delivery.left / 6))) : 0;
+  const steel = S.delivery && S.delivery.kind === 'steel', n = S.delivery && sup.state !== 'away' ? (steel ? Math.min(4, onLorry()) : Math.min(4, Math.ceil(onLorry() / 6))) : 0;
   if (M.bundles.length && M.bundles[0].userData.steel !== steel) while (M.bundles.length) M.bundles.pop().removeFromParent();
   while (M.bundles.length < n) { const b = steel ? coilMesh() : inst('env_timber_bundle'); b.userData.steel = steel; M.flat.add(b); M.bundles.push(b); }
   while (M.bundles.length > n) M.bundles.pop().removeFromParent();
   M.bundles.forEach((b, i) => b.position.set(-1.55 + (i % 2) * 1.3, 1.12 + Math.floor(i / 2) * .25, 0));
+}
+// build 0.20: deliveries from level 3. The flatbed backs into bay 2; its driver unloads onto the goods-in stack and
+// leaves; the loaders carry timber from there to the stock room and coils to the coil bay (with no loader on the
+// payroll the driver takes it all to the stores himself, as the Bible Addendum has it)
+const onLorry = () => S.delivery ? (S.delivery.onLorry ?? S.delivery.left) : 0;
+const goodsIn = () => S.delivery ? Math.max(0, S.delivery.left - onLorry()) : 0;
+const goodsInArr = [];
+function buildGoodsIn(){
+  if (M.goodsIn || S.level < 3) return;
+  if (M.bayHeap) { M.bayHeap.h.visible = false; COL.delete(M.bayHeap.k); }
+  const g = new THREE.Group(), wood = std('#6b4a2a', .9), steel = std('#4a4f55', .5, .5);
+  for (const z of [-.75, .75]) { const s = new THREE.Mesh(BX(.9, .12, .16), wood); s.position.set(0, .06, z); g.add(s); }   // sleepers the timber lies on
+  for (const x of [-.3, .3]) { const c = new THREE.Mesh(BX(.12, .1, 1.7), steel); c.position.set(x, .05, 0); g.add(c); }   // chocks under the coils
+  const sign = board(textTex([['GOODS IN', 48, 54]], 256, 80, { bg:'#e2a72c', fg:'#2a1d14', border:'#2a1d14', bw:6 }), .7, .22); sign.position.set(0, .9, -1.05); g.add(sign);
+  const post = new THREE.Mesh(BX(.06, .9, .06), steel); post.position.set(0, .45, -1.08); g.add(post);
+  g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); g.position.set(P.goodsIn[0], 0, P.goodsIn[1]); g.userData.dyn = true; world.add(g); M.goodsIn = g;
+  addCol([P.goodsIn[0] - .45, P.goodsIn[1] - 1.0, P.goodsIn[0] + .45, P.goodsIn[1] + 1.0], 'goodsIn'); syncGoodsIn();
+}
+function goodsInPos(i, steel){ return steel ? new THREE.Vector3(P.goodsIn[0], .32 + Math.floor(i / 4) * .5, P.goodsIn[1] - .6 + (i % 4) * .4) : new THREE.Vector3(P.goodsIn[0] - .3 + (i % 4) * .2, .16 + Math.floor(i / 4) * .065, P.goodsIn[1]); }
+function syncGoodsIn(){
+  if (!M.goodsIn) return; const steel = S.delivery && S.delivery.kind === 'steel', n = goodsIn();
+  if (goodsInArr.length && goodsInArr[0].userData.steel !== steel) while (goodsInArr.length) goodsInArr.pop().removeFromParent();
+  while (goodsInArr.length < n) { const m = steel ? coilMesh() : plankMesh(1); m.userData.steel = steel; if (!steel) m.rotation.y = Math.PI / 2; world.add(m); goodsInArr.push(m); }
+  while (goodsInArr.length > n) goodsInArr.pop().removeFromParent();
+  goodsInArr.forEach((m, i) => m.position.copy(goodsInPos(i, steel)));
 }
 const syncFeed = () => syncStack(planks.feed, S.feed, () => plankMesh(.6), feedPos, Math.PI / 2);
 const syncPallet = () => syncStack(crates.pallet, S.pallet, crateMesh, palletPos);
@@ -1620,8 +1649,8 @@ function orderSteel(n){
   const lot = steelLots().find(l => l[0] === n); if (!lot || S.delivery || S.level < 2) return;
   if (S.coils + coilsInHands() + n > coilCap()) { toast('Not enough room in the coil bay for that much steel.', 'bad'); return; }
   const price = lot[1]; if (S.cash >= price) S.cash -= price; else { S.bills += price; toast(`On account: ${fmt(price)} comes off your next delivery.`, 'gold'); }
-  S.delivery = { kind:'steel', qty:n, left:n }; S.steelBought = (S.steelBought || 0) + n; sup.state = 'away'; sup.t = 0;
-  sfx('buy'); toast(`Ordered ${n} steel coils. The flatbed brings them to the coil bay on the apron.`, 'good'); save(); renderOffice();
+  S.delivery = { kind:'steel', qty:n, left:n, onLorry:n }; S.steelBought = (S.steelBought || 0) + n; sup.state = 'away'; sup.t = 0;
+  sfx('buy'); toast(`Ordered ${n} steel coils. The flatbed unloads them at goods-in by bay 2.`, 'good'); save(); renderOffice();
 }
 const describe = o => [o.qty ? `${o.qty} crate${o.qty > 1 ? 's' : ''}` : '', o.pq ? `${o.pq} pipe${o.pq > 1 ? 's' : ''}` : '', o.tq ? `${o.tq} tool${o.tq > 1 ? 's' : ''}` : ''].filter(Boolean).join(' + ');
 // the operator who should hear about an order first
@@ -1806,6 +1835,7 @@ function loadTool(ch){
 // press, the tool rack and the parts store on it once it is owned.
 function buildLevel3(){
   if (M.l3Built) return; M.l3Built = true;
+  buildGoodsIn();
   if (plotOwned('north')) l3Kit();
   whToolKit(S.time > 5);
   if (S.lv3.press >= 2) finishPress(false); else if (S.lv3.press === 1) startPressBuild(false);
@@ -1814,9 +1844,9 @@ function buildLevel3(){
 // the field joins the site: the gate panels come out (their posts stay), the bales and the sign go, gravel goes down
 function buyField(fx){
   S.lv3.field = true; COL.delete('gate');
-  if (M.gatePanels && M.gatePanels[0].visible) { for (const g of M.gatePanels) g.visible = false; for (const x of [16.3, 19.7]) { const g = put(inst('env_gate_post'), x, -1.4); g.userData.dyn = true; addCol([x - .22, -1.62, x + .22, -1.18]); } }
+  if (M.gatePanels && M.gatePanels[0].visible) { for (const g of M.gatePanels) g.visible = false; for (const x of [12.0, 15.6]) { const g = put(inst('env_gate_post'), x, SITE.z0); g.userData.dyn = true; addCol([x - .22, SITE.z0 - .22, x + .22, SITE.z0 + .22]); } }
   if (M.fieldSign) M.fieldSign.visible = false; if (M.bales) for (const b of M.bales) b.visible = false;
-  if (!M.fieldPad) { M.fieldPad = plane(8.6, 6.4, decal(std('#ffffff', 1, 0, { map:TX.gravel }), 1), 16.6, -4.9, .006); M.fieldPad.userData.dyn = true; }
+  if (!M.fieldPad) { M.fieldPad = plane(8.6, 6.4, decal(std('#ffffff', 1, 0, { map:TX.gravel }), 1), 14.0, -15.9, .006); M.fieldPad.userData.dyn = true; }
   if (S.level >= 3) l3Kit();
   if (fx) checkCharter();
   rebuildNav();
@@ -1877,10 +1907,8 @@ const INSPECT = [
   { id:'guards',  text:'Machines in working order', fix:'No jams or worn parts open on any machine', at:() => [P.sawFix[0] - .2, P.sawFix[1] + .3],
     ok:() => !S.faults.some(f => FAULTS[f.kind].trade === 'mechanic') },
   { id:'ppe',     text:'Safety gear for machine operators', fix:'Buy Operator safety gear (Upgrades)', at:() => [P.op[0] + .7, P.op[1] + .5], ok:() => S.up.ppe >= 1 },
-  { id:'crew',    text:'An electrician and a mechanic on the payroll', fix:'Hire both in the office (Staff)', at:() => P.mechHome, ok:() => hasRole('electrician') && hasRole('mechanic') },
+  { id:'crew',    text:'A mechanic on the payroll', fix:'Hire one in the office (Staff)', at:() => P.mechHome, ok:() => hasRole('mechanic') },
   { id:'parts',   text:'Spare parts on the shelf', fix:'Buy spare parts (Stock)', at:() => [P.parts[0], P.parts[1] + .8], ok:() => S.parts >= 1 },
-  { id:'water',   text:'Drinking water for the crew', fix:'Keep the cooler filled and spare bottles on the rack (Stock)', at:() => P.coolerSpot, ok:() => S.cooler >= 4 || S.water > 0 },
-  { id:'washroom',text:'Washroom clean (60% or better)', fix:'A cleaner keeps it clean (or a loader with time to spare)', at:() => P.wcCheck, ok:() => S.wcClean >= 60 },
 ];
 const licReady = () => INSPECT.every(c => c.ok());
 let inspector = null;
@@ -2118,8 +2146,8 @@ function orderTimber(qty){
   const lot = timberLots().find(l => l[0] === qty); if (!lot || S.delivery) return;
   if (S.store + qty > storeCap()) { toast('Not enough room in the stock room for that much timber.', 'bad'); return; }
   const price = lot[1]; if (S.cash >= price) S.cash -= price; else { S.bills += price; toast(`On account: ${fmt(price)} comes off your next delivery.`, 'gold'); }
-  S.delivery = { qty, left:qty }; S.timberBought += qty; sup.state = 'away'; sup.t = 0;
-  sfx('buy'); toast(`Ordered ${qty} planks. The timber lorry is on its way to the stock room.`, 'good'); save(); renderOffice();
+  S.delivery = { qty, left:qty, onLorry:qty }; S.timberBought += qty; sup.state = 'away'; sup.t = 0;
+  sfx('buy'); toast(`Ordered ${qty} planks. The timber lorry unloads at goods-in by bay 2; the loaders take them to the stock room.`, 'good'); save(); renderOffice();
 }
 const sup = { state:'away', t:0, s:0, path:null };
 const SUP_ARRIVE = samplePath([{ p:[[-80, ROAD_Z - .9], [P.supPark[0] + 6.5, ROAD_Z - .9]] }, { bez:true, rev:true, p:[[P.supPark[0] + 6.5, ROAD_Z - .9], [P.supPark[0], ROAD_Z - .9], P.supPark] }]);
@@ -2162,15 +2190,18 @@ function updateTruck(dt){
 function updateSupplier(dt){
   const Tr = M.flat;
   if (sup.state === 'away') { Tr.position.set(ROAD_X, 0, -60); sup.t += dt;
-    if (S.delivery && sup.t > 4 && !['arrive', 'leave'].includes(truck.state)) { sup.state = 'arrive'; sup.s = 0; sup.path = SUP_ARRIVE; syncBundles(); } return; }
+    if (S.delivery && S.delivery.left <= 0) S.delivery = null;   // goods-in cleared
+    if (S.delivery && onLorry() > 0 && sup.t > 4 && !['arrive', 'leave'].includes(truck.state) && !(trip && M.car.visible && M.car.position.x > 12.4 && M.car.position.z > 8.4 && M.car.position.z < 18)) { sup.state = 'arrive'; sup.s = 0; sup.path = SUP_ARRIVE; syncBundles(); } return; }
   if (sup.state === 'arrive' || sup.state === 'leave') {
     if (drive(sup, Tr, dt, SUP_ARRIVE.pts.find(q => q.rev).d, sup.state === 'arrive')) {
       if (sup.state === 'arrive') { sup.state = 'parked'; sfxAt('horn', ...P.supPark); addCol([P.supPark[0] - 1.15, P.supPark[1] - 2.45, P.supPark[0] + 1.15, P.supPark[1] + 2.75], 'supply'); parkedLamps(Tr); toast(S.delivery && S.delivery.kind === 'steel' ? 'Steel coils delivered. Loaders take them to the coil bay.' : 'Timber delivery at the stock room.', 'good'); }
-      else { sup.state = 'away'; S.delivery = null; syncBundles(); save(); } }
+      else { sup.state = 'away'; if (S.delivery && S.delivery.left <= 0) S.delivery = null; syncBundles(); save(); } }
     return; }
-  if (sup.state === 'parked' && S.delivery && S.delivery.left > 0 && !loadersHired()) { sup.unT = (sup.unT || 0) + dt;
-    if (sup.unT > .35) { sup.unT = 0; S.delivery.left--; if (S.delivery.kind === 'steel') { S.coils++; syncCoilBay(); } else { S.store++; syncStore(); } syncBundles(); sfxAt('pick', ...P.supPark, .4); } }
-  if (sup.state === 'parked' && S.delivery && S.delivery.left <= 0) { sup.wait = (sup.wait || 0) + dt; if (sup.wait > 1.2) { sup.wait = 0; sup.state = 'leave'; sup.s = 0; sup.path = SUP_LEAVE; COL.delete('supply'); } }
+  if (sup.state === 'parked' && S.delivery && onLorry() > 0) { sup.unT = (sup.unT || 0) + dt;
+    if (sup.unT > .3) { sup.unT = 0; S.delivery.onLorry = onLorry() - 1;
+      if (!loadersHired() || !M.goodsIn) { S.delivery.left--; if (S.delivery.kind === 'steel') { S.coils++; syncCoilBay(); } else { S.store++; syncStore(); } }   // no loader: the driver takes it to the stores
+      syncBundles(); syncGoodsIn(); sfxAt('pick', ...P.supPark, .4); } }
+  if (sup.state === 'parked' && S.delivery && onLorry() <= 0) { sup.wait = (sup.wait || 0) + dt; if (sup.wait > 1.2) { sup.wait = 0; sup.state = 'leave'; sup.s = 0; sup.path = SUP_LEAVE; COL.delete('supply'); } }
 }
 function loadCrate(ch){
   if (truck.state !== 'docked' || !S.order || S.order.ready || ch.carryType !== 'crate') return false;
@@ -2427,7 +2458,7 @@ function loaderTask(c){
   if (pressReady() && S.tfeed + coilsFor('press') < 2 && S.coils > 0 && !others.includes('coilsPress') && (toolWork() || S.tfeed === 0)) return 'coilsPress';
   if (S.level >= 5 && mill2Ready() && S.l5.coil2 + coilsFor('mill2') < 2 && S.coils > 0 && !others.includes('coils2') && (S.l5.rack2 < RACK2_CAP || S.l5.coil2 === 0)) return 'coils2';
   if (!helperOn() && S.feed < 2 && S.timber > 0 && !others.includes('planks')) return 'planks';
-  if (sup.state === 'parked' && S.delivery && S.delivery.left > 0 && (S.delivery.kind === 'steel' ? S.coils + coilsInHands() < coilCap() : S.store + carriedTimber() < storeCap()) && others.filter(t => t === 'unload' || t === 'deliverTimber' || t === 'deliverCoilBay').length < 2) return 'unload';
+  if (goodsIn() > 0 && (S.delivery.kind === 'steel' ? S.coils + coilsInHands() < coilCap() : S.store + carriedTimber() < storeCap()) && others.filter(t => t === 'unload' || t === 'deliverTimber' || t === 'deliverCoilBay').length < 2) return 'unload';
   if (whReady()) {  // clear the pallet and the pipe rack of stock so the machines never wait for space
     if (surplusC() > 0 && S.wh.c + whBound('crate') < whCapC() && (S.pallet >= palletCap() - 2 || !others.includes('stockC'))) return 'stockC';
     if (surplusP() > 0 && S.wh.p + whBound('pipe') < whCapP() && !others.includes('stockP')) return 'stockP';
@@ -2557,12 +2588,12 @@ function updateLoader(c, dt){
   // timber lorry -> stock room
   const tcap = 4 + 2 * Math.floor((c.st.lv - 1) / 2);
   if (c.state === 'toUnload') { if (walk(c, dt)) c.state = 'takeLorry'; return; }
-  if (c.state === 'takeLorry') { c.faceTo([P.unload[0], P.unload[1] + 1], dt); c.play('idle'); if (c.wait > 0) return;
-    if (!S.delivery || S.delivery.left <= 0 || sup.state !== 'parked' || c.stack.length >= tcap || (S.delivery.kind === 'steel' ? S.coils + coilsInHands() >= coilCap() : S.store + carriedTimber() >= storeCap())) { c.state = 'idle'; return; }
+  if (c.state === 'takeLorry') { c.faceTo(P.goodsIn, dt); c.play('idle'); if (c.wait > 0) return;
+    if (!S.delivery || goodsIn() <= 0 || c.stack.length >= tcap || (S.delivery.kind === 'steel' ? S.coils + coilsInHands() >= coilCap() : S.store + carriedTimber() >= storeCap())) { c.state = 'idle'; return; }
     const steel = S.delivery.kind === 'steel'; if (steel && c.stack.length >= 1) { c.state = 'idle'; return; }
-    const m = steel ? coilMesh() : plankMesh(.6), b = M.bundles.at(-1); world.add(m); m.position.copy(b ? b.getWorldPosition(new THREE.Vector3()) : M.flat.position);
+    const m = steel ? coilMesh() : plankMesh(.6), b = goodsInArr.at(-1); world.add(m); m.position.copy(b ? b.position : new THREE.Vector3(P.goodsIn[0], .3, P.goodsIn[1]));
     c.carryType = steel ? 'coil' : 'timber'; if (steel) c.coilDest = 'bay'; c.stack.push(m); fly(m, c.o, carriedPos(c.carryType, c.stack.length - 1, c.stack.length, !!c.cart), .25, () => layoutCarry(c));
-    S.delivery.left--; syncBundles(); c.wait = .28; sfxAt('pick', c.o.position.x, c.o.position.z, .5); return; }
+    S.delivery.left--; syncGoodsIn(); c.wait = .28; sfxAt('pick', c.o.position.x, c.o.position.z, .5); return; }
   if (c.state === 'toStore') { if (walk(c, dt)) c.state = 'dropStore'; return; }
   if (c.state === 'dropStore') { c.faceTo([P.storeRack[0], P.storeRack[1]], dt); c.play('carry', 0); if (c.wait > 0) return;
     if (!c.stack.length || S.store >= storeCap()) { c.state = 'idle'; return; }
@@ -4322,7 +4353,7 @@ function objective(){
   // level 3 beats: buy the field, install the press, staff it, give it steel, keep spare parts, get the licence
   if (S.level >= 3) {
     const pn = plotBeat('north'); if (pn) return pn;
-    if (S.lv3.press === 0) return { t:`Install the tool press on the North field: stand on the pad (${fmt(PRESS_PRICE)})`, at:[17.0, -2.55], alert:S.cash >= PRESS_PRICE };
+    if (S.lv3.press === 0) return { t:`Install the tool press on the North field: stand on the pad (${fmt(PRESS_PRICE)})`, at:[14.0, -13.5], alert:S.cash >= PRESS_PRICE };
     if (S.lv3.press === 1) return { t:`Big Tom's crew is installing the tool press: ${Math.floor(S.lv3.pressT / PRESS_BUILD * 100)}%`, at:P.tpress };
     if (S.lv3.jam && !hasRole('mechanic')) return { t:`Hire a mechanic in the office (${fmt(hireCost('mechanic'))}): jams and worn parts are their trade`, at:P.deskRing, alert:true };
     if (S.order && S.order.tq && !pressOp() && toolLeft() > 0) return { t:'Stand at the tool press to stamp the tools yourself, or hire an operator', at:P.top, alert:!ownerOn(P.top) };
@@ -4573,7 +4604,8 @@ function updateLabels(){
     if (M.cooler) lab('cooler', `<div class="mtag ${S.cooler <= 3 ? 'warn' : ''}"><b>Water ${S.cooler}/${coolerCap()}</b>${S.water} spare bottle${S.water === 1 ? '' : 's'}</div>`, P.cooler[0], 1.75, P.cooler[1]);
     if (!timberFree()) lab('rack', `<div class="mtag ${S.timber === 0 ? 'warn' : ''}"><b>Line rack ${S.timber}/${LINE_CAP}</b>from the stock room</div>`, P.timber[0], 1.65, P.timber[1]);
     if (!timberFree()) lab('store', `<div class="mtag ${timberLow() ? 'warn' : ''}"><b>Stock room ${S.store}/${storeCap()}</b>${S.delivery ? `${S.delivery.left} planks on order` : 'Order timber in the office'}</div>`, P.storeSpot[0], .25, P.storeSpot[1] + .3);
-    if (sup.state === 'parked' && S.delivery) lab('lorry', `<div class="mtag"><b>Timber delivery</b>${S.delivery.left} planks to unload</div>`, M.flat.position.x - .6, 2.5, M.flat.position.z);
+    if (sup.state === 'parked' && S.delivery) lab('lorry', `<div class="mtag"><b>${S.delivery.kind === 'steel' ? 'Steel' : 'Timber'} delivery</b>${onLorry()} still on the lorry</div>`, M.flat.position.x - .6, 2.5, M.flat.position.z);
+    if (M.goodsIn && goodsIn() > 0) lab('goodsin', `<div class="mtag"><b>Goods in: ${goodsIn()} ${S.delivery.kind === 'steel' ? 'coils' : 'planks'}</b>Loaders take them to the ${S.delivery.kind === 'steel' ? 'coil bay' : 'stock room'}</div>`, P.goodsIn[0], 1.5, P.goodsIn[1]);
     lab('gen', `<div class="mtag ${stalled() ? 'warn' : !powerOn() ? 'bad' : S.power.fuel < 25 ? 'warn' : ''}"><b>${stalled() ? 'Stalled' : powerOn() ? 'Generator' : 'Power off'}</b>${stalled() ? 'Restarting by itself' : S.level < 8 ? `${load().toFixed(1)} of ${genKW()} kW in use` : `Diesel ${Math.round(S.power.fuel)}%${!loadersHired() && S.power.fuel < 60 ? ' · stand here to refuel' : ''}`}</div>`, P.gen[0], 2.5, P.gen[1]);
     if (S.lv2.mill === 0 && S.level >= 2) lab('tarp', `<div class="mtag"><b>${S.level >= 2 ? 'Pipe machine' : 'Level 2'}</b>${S.level >= 2 ? 'Pay in at the pad' : 'Pipe machine'}</div>`, P.pmill[0], 1.0, P.tarp[1]);
     if (S.cashPile > 0) lab('cash', `<div class="pad"><b>${fmt(S.cashPile)}</b>Collect</div>`, P.cash[0], .9, P.cash[1]);
@@ -4898,7 +4930,8 @@ const PLACES = {
   hardware:{ n:'4', name:'Hartley Hardware', buyer:'Ted Hartley', min:20, mix:'mix', size:1, say:'Crates for the stockroom, and once your pipe mill runs I\'ll take pipe too.', x:470, y:500 },
   docks:   { n:'5', name:'Dunmore Docks', buyer:'the shipping clerk', min:40, mix:'crate', size:2, say:'Export packing. Big lots, and the ship sails when it sails.', x:250, y:700 },
   bottling:{ n:'6', name:'Ashby Bottling', buyer:'Miss Ashby', min:25, mix:'crate', size:1.3, say:'Bottle crates. When a lorry\'s waiting, I need them yesterday.', x:760, y:380 },
-  kerr:    { n:'7', name:'Kerr & Sons', buyer:'Angus Kerr', min:30, mix:'pipe', size:1, lv:2, say:'Builders\' merchant. Drain pipe, every size you can roll.', x:980, y:360 },
+  kerr:    { n:'7', name:'Kerr & Sons', buyer:'Angus Kerr', min:30, mix:'pipe', size:1, lv:2, say:'Builders\' merchant. Drain pipe, every size you can roll, and spanners once you make them.', x:980, y:360 },
+  garage:  { n:'8', name:'Valley Garage', buyer:'Stan Moss, mechanic', min:20, mix:'tool', size:1, lv:3, say:'Spanners and wrenches. Mine keep walking off with the customers.', x:780, y:580 },
 };
 const ADS = {
   courier: { n:'A', name:'Valley Courier advert', min:15, cost:90, days:4, boost:.8, say:'A quarter page in Thursday\'s Courier. The whole valley reads it.', x:600, y:500 },
@@ -4915,15 +4948,18 @@ function interest(){ let i = .3 + .35 * accounts().length + Math.max(0, (S.rep -
 const callGap = () => clamp(90 / interest(), 20, 240);
 // an order from a place: its usual goods, at the order rate; a big order is bigger, pays a fifth more, and is due sooner
 function placeSpec(k, kind = 'now'){
-  const pl = PLACES[k], big = kind === 'big' ? 1.8 : 1, pipes = S.level >= 2 && millReady(), L1 = S.level === 1, base = L1 ? 24 : 12;
-  let q = 0, pq = 0;
-  if (pl.mix === 'pipe' && pipes) pq = Math.max(4, Math.round(8 * pl.size * big));
+  const pl = PLACES[k], big = kind === 'big' ? 1.8 : 1, pipes = S.level >= 2 && millReady(), tools = S.level >= 3 && pressReady(), L1 = S.level === 1, base = L1 ? 24 : 12;
+  let q = 0, pq = 0, tq = 0;
+  if (pl.mix === 'tool') { if (tools) tq = Math.max(4, Math.round(8 * pl.size * big)); else q = Math.max(4, Math.round(base * .6)); }
+  else if (tools && (k === 'hardware' || k === 'kerr')) tq = Math.max(2, Math.round(5 * pl.size * big));
+  if (pl.mix === 'tool') {}
+  else if (pl.mix === 'pipe' && pipes) pq = Math.max(4, Math.round(8 * pl.size * big));
   else if (pl.mix === 'mix' && pipes) { q = Math.max(4, Math.round(base * pl.size * big * .6)); pq = Math.max(2, Math.round(6 * pl.size * big * .5)); }
   else q = Math.max(4, Math.round(base * pl.size * big / 2) * 2);
   const cut = sales().acc[k] && sales().acc[k].cut >= dayNo() ? .9 : 1;
-  const pay = Math.round((q * walkUnit('crate') + pq * walkUnit('pipe')) * (kind === 'big' ? 1.2 : 1) * cut);
-  const dl = Math.round((L1 ? Math.max(180, q * 4 + 60) : Math.max(180, 60 + q * 10 + pq * 11)) * (kind === 'big' ? .75 : 1));
-  return { qty:q, pq, tq:0, l2:false, l3:false, l4:false, guided4:false, guided:false, nodl:false, pay, client:pl.name, deadline:dl, place:k };
+  const pay = Math.round((q * walkUnit('crate') + pq * walkUnit('pipe') + tq * TOOL_PRICE * PG.econ(S.level).price * (0.9 + S.rep / 500) * bandPay()) * (kind === 'big' ? 1.2 : 1) * cut);
+  const dl = Math.round((L1 ? Math.max(180, q * 4 + 60) : Math.max(180, 60 + q * 10 + pq * 11 + tq * 9)) * (kind === 'big' ? .75 : 1));
+  return { qty:q, pq, tq, l2:false, l3:false, l4:false, guided4:false, guided:false, nodl:false, pay, client:pl.name, deadline:dl, place:k };
 }
 // who rings: one of your accounts (twice as likely), or someone who heard of you
 function callerSpec(){ const acc = accounts(); if (acc.length && Math.random() < acc.length * 2 / (acc.length * 2 + 1)) return placeSpec(pick(acc)); return null; }
@@ -4944,7 +4980,7 @@ function carDrive(path, dt, vmax){
   CAR.v += clamp(want - CAR.v, -5 * dt, 2.6 * dt); CAR.s += Math.max(0, CAR.v) * dt;
   const q = pathAt(path, CAR.s); M.car.position.set(q.x, 0, q.z); M.car.rotation.y = q.yaw; return CAR.s >= path.len - .03;
 }
-const lorryMoving = () => truck.state === 'arrive' || truck.state === 'leave';
+const lorryMoving = () => truck.state === 'arrive' || truck.state === 'leave' || sup.state === 'arrive' || sup.state === 'leave';
 const canDrive = () => S.tutDone && !trip && !owner.stack.length && !owner.cart && !S.gus.party && !(S.day && S.day.closing) && !!M.car;
 function startTrip(kind, key){
   if (!canDrive()) return; const d = kind === 'ad' ? ADS[key] : PLACES[key];
@@ -4976,7 +5012,7 @@ function tripScene(){ story({ kind:trip.kind === 'ad' ? 'advert' : 'visit', key:
 function leaveScene(){ if (trip) { trip.phase = 'home'; trip.t = 0; } }
 function visitHtml(k){
   const pl = PLACES[k], acc = !!sales().acc[k], booked = (S.book || []).some(o => o.place === k) || (S.order && S.order.place === k), now = placeSpec(k), big = placeSpec(k, 'big');
-  const desc = o => [o.qty ? `${o.qty} crates` : '', o.pq ? `${o.pq} pipes` : ''].filter(Boolean).join(' and ');
+  const desc = o => [o.qty ? `${o.qty} crates` : '', o.pq ? `${o.pq} pipes` : '', o.tq ? `${o.tq} tools` : ''].filter(Boolean).join(' and ');
   const offers = booked ? '' : `<div class="offer"><b>Take an order now</b><button class="btn primary" data-pick="now" type="button">${fmt(now.pay)}</button><p>${desc(now)}, due in ${now.deadline} s once it starts.</p></div>
     <div class="offer"><b>A big order, tight deadline</b><button class="btn primary" data-pick="big" type="button">${fmt(big.pay)}</button><p>${desc(big)} at a fifth over the rate, due in ${big.deadline} s. Late pays half.</p></div>`;
   const accOffer = acc ? `<div class="offer"><b>Regular account</b><span class="badge">open</span><p>${pl.buyer.split(',')[0]} phones you for orders already.</p></div>`
@@ -5012,7 +5048,7 @@ const TOWN_SVG = () => { const pin = (d, col) => `<g transform="translate(${d.x}
   ${Object.values(PLACES).filter(p => !p.lv || S.level >= p.lv).map(p => pin(p, '#e2a72c')).join('')}${Object.values(ADS).map(a => pin(a, '#6fa6d6')).join('')}</svg>`; };
 function townHtml(){
   const s = sales(), row = (k, d, ad) => { const acc = !ad && s.acc[k], seen = !ad && s.visited[k] === dayNo(), on = ad && adOn(k), fri = !ad || !d.friday || dayNo() % 5 === 4, lock = !ad && d.lv && S.level < d.lv;
-    const note = lock ? `opens at level ${d.lv}` : ad ? (on ? 'running' : !fri ? 'Fridays only' : fmt(d.cost)) : acc ? 'account ★' : seen ? 'visited today' : (d.mix === 'pipe' ? 'pipes' : d.mix === 'mix' ? 'crates, pipes' : 'crates');
+    const note = lock ? `opens at level ${d.lv}` : ad ? (on ? 'running' : !fri ? 'Fridays only' : fmt(d.cost)) : acc ? 'account ★' : seen ? 'visited today' : (d.mix === 'tool' ? 'tools' : d.mix === 'pipe' ? (S.level >= 3 && k === 'kerr' ? 'pipes, tools' : 'pipes') : d.mix === 'mix' ? (S.level >= 3 ? 'crates, pipes, tools' : 'crates, pipes') : 'crates');
     return `<button class="trow ${ad ? 'ad' : ''}" data-go="${ad ? 'ad' : 'visit'}:${k}" type="button" ${lock || seen || (ad && (on || !fri)) ? 'disabled' : ''}><i>${d.n}</i><b>${d.name}</b><span>${d.min ? d.min + ' min' : 'here'}</span><small>${note}</small></button>`; };
   return `<div class="note" style="letter-spacing:.2em;text-transform:uppercase">Grandad's car · the valley</div><h3 style="margin:4px 0 8px;font:700 22px Georgia,serif">Where to, boss?</h3>${TOWN_SVG()}
     <div class="tlist">${Object.entries(PLACES).map(([k, d]) => row(k, d)).join('')}${Object.entries(ADS).map(([k, d]) => row(k, d, true)).join('')}</div>
@@ -5294,7 +5330,7 @@ async function boot(){
   const ld = $('loading'); setTimeout(() => { ld.style.opacity = 0; setTimeout(() => { ld.remove(); try { yt && yt.game.gameReady(); } catch(e){} }, 600); }, 350);
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
-  window.__iv = { gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  window.__iv = { finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });
