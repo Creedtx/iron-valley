@@ -87,6 +87,7 @@ const play = async (gsecs, opts = {}) => ev(async ([gsecs, opts]) => {
     const S = v.S;
     if (S.call) { v.acceptCall(); v.closeOffice(); }
     if (S.order && !S.order.briefed) v.briefOrder(null);
+    if (S.order && S.order.ready && v.truck.state === 'docked' && !v.trip) { A.signT = (A.signT || 0) + .05; if (A.signT > 3) { A.signT = 0; v.signOrder(v.owner); } }   // the owner signs the lorry off
     // now and then the owner drives out on a sales trip (any time: late in the day too, to test the closing)
     if (opts.trips && !v.trip && !S.order && Math.random() < .002) { const ks = Object.keys(v.PLACES).filter(k => !v.PLACES[k].lv || S.level >= v.PLACES[k].lv); v.startTrip('visit', ks[Math.floor(Math.random() * ks.length)]); }
     v.step(.05); t += .05; A.check(.05, i++);

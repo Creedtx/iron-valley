@@ -24,7 +24,7 @@ const run = (secs, walkTo) => ev(([secs, walkTo]) => { const v = window.__iv; v.
   while (t < secs) { if (walkTo) { const o = v.owner.o.position, dx = walkTo[0] - o.x, dz = walkTo[1] - o.z, d = Math.hypot(dx, dz), s = Math.min(d, .1); if (d > .02) o.set(o.x + dx / d * s, 0, o.z + dz / d * s); }
     v.step(.05); t += .05; if (window.__stop && window.__stop()) break; }
   v.hold = false; return t; }, [secs, walkTo]);
-const walkTo = async (x, z) => { await run(60, [x, z]); };
+const walkTo = async (x, z) => { await ev(([x, z]) => { window.__stop = () => Math.hypot(window.__iv.owner.o.position.x - x, window.__iv.owner.o.position.z - z) < .03; }, [x, z]); await run(60, [x, z]); await ev(() => { window.__stop = null; }); };
 await ev(() => { const v = window.__iv; while (v.cardOpen) v.nextCard(); const S = v.S; S.letter = true; S.tutDone = true; S.tut = 99; S.met.gus = true; S.cash = 20000; S.rep = 60; S.orderSeq = 6; S.delivered = 6; S.sales.told = true;
   v.hire('operator'); v.hire('loader'); v.closeOffice(); for (const st of S.staff) st.posted = true; v.evNext = 1e9; });
 await ev(async () => { const v = window.__iv; v.applyRestore('yard', false); v.S.levelUp = true; await v.startLevel(2); v.startMillBuild(false); v.finishMill(false); v.startWhBuild(false); v.finishWh(false); v.closeOffice(); while (v.cardOpen) v.nextCard();
@@ -36,12 +36,13 @@ await ev(() => { const v = window.__iv, S = v.S; S.order = null; S.pallet = 0; v
 check(await ev(() => window.__w === 'crate'), 'a customer comes to the gate for crates');
 await run(40); await ev(() => { window.__stop = null; });
 check(await ev(() => window.__iv.walker && window.__iv.walker.state === 'wait'), 'they wait at the gate');
-const obj = await ev(() => document.getElementById('objT').textContent); console.log('objective:', obj);
+const obj = await ev(() => window.__iv.objective().t); console.log('objective:', obj);
 check(/warehouse/i.test(obj), 'with the pallet empty, the objective sends the owner to the warehouse stock');
 await walkTo(P.whSpotC[0], P.whSpotC[1] + 1.2); await walkTo(...P.whSpotC); await run(3);
+console.log('at the warehouse:', await ev(() => { const v = window.__iv, o = v.owner.o.position; return JSON.stringify({ at:[+o.x.toFixed(2), +o.z.toFixed(2)], spot:v.P.whSpotC, wh:v.S.wh, whR:!!v.M.wh, carry:v.owner.carryType, n:v.owner.stack.length, office:document.getElementById('office') && !document.getElementById('office').hidden, walker:v.walker && [v.walker.state, v.walker.got, v.walker.n, Math.round(v.walker.t)] }); }));
 check(await ev(() => window.__iv.owner.carryType === 'crate' && window.__iv.owner.stack.length >= 1), 'standing at the warehouse, the owner takes crates from the stock');
 check(await ev(() => window.__iv.S.wh.c < 6), 'the warehouse count goes down');
-const want = await ev(() => window.__iv.walker.n);
+const want = await ev(() => window.__iv.walker ? window.__iv.walker.n : -1);
 for (let k = 0; k < 4 && await ev(() => !!window.__iv.walker && window.__iv.walker.got < window.__iv.walker.n); k++) {
   if (await ev(() => !window.__iv.owner.stack.length)) { await walkTo(P.whSpotC[0], P.whSpotC[1] + 1.2); await walkTo(...P.whSpotC); await run(3); }
   await walkTo(P.whSpotC[0], P.whSpotC[1] + 1.5); await walkTo(P.frontIn[0], P.frontIn[1]); await walkTo(P.trade[0], P.trade[1] - .7); await run(3); }
