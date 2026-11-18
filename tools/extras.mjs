@@ -25,7 +25,7 @@ const fail = []; const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL
 // a game past day one: the crew hired and posted, the tutorial done, an order on
 // Build 0.19: the daily target, order terms (regular / rush / bulk, the rush lorry leaving), things to buy (tea urn,
 // trade counter, car service) and small events (blunt blade, rain, a rival undercutting an account).
-await ev(() => { const v = window.__iv; while (v.cardOpen) v.nextCard(); const S = v.S; S.letter = true; S.tutDone = true; S.tut = 99; S.met.gus = true; S.cash = 3000; S.rep = 62; S.orderSeq = 4; S.delivered = 4;
+await ev(() => { const v = window.__iv; while (v.cardOpen) v.nextCard(); const S = v.S; S.letter = true; S.tutDone = true; S.tut = 99; S.met.gus = true; S.cash = 3000; S.rep = 62; S.orderSeq = 4; S.delivered = 4; S.sales.told = true;
   v.hire('operator'); v.hire('loader'); v.closeOffice(); for (const st of S.staff) st.posted = true; v.S.time = Math.floor(v.S.time / 480) * 480 + 40; v.speed = 3; v.evNext = 1e9; });
 await wait(3000);
 const P = await ev(() => window.__iv.P);
