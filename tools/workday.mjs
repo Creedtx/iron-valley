@@ -38,14 +38,22 @@ console.log('at gate', await st());
 check(await ev(() => { const o = window.__iv.walker.c.o; return o.visible && Math.abs(o.position.y) < .01; }), 'customer stands on the ground at the gate');
 await ev(() => { const v = window.__iv; v.camLock = [v.P.trade[0], v.P.trade[1] - 1.5]; }); await wait(1200); await p.screenshot({ path:path.join(out, 'w1_gate.png') }); await ev(() => { window.__iv.camLock = null; });
 const want = await ev(() => window.__iv.walker.n), cash0 = await ev(() => window.__iv.S.cash), type = await ev(() => window.__iv.walker.def.want);
+check(await ev(() => !!window.__iv.walker.c.cart), 'a crate customer brings their own barrow');
+const spot = await ev(() => window.__iv.cartSpot(window.__iv.freeCart().slot));
+await walkTo(spot[0], spot[1] - .8); await walkTo(...spot); check(await until(() => !!window.__iv.owner.cart, 10), 'the owner takes a trolley from the bay');
 await walkTo(...(type === 'pipe' ? P.prackSpot : P.pallet)); await until(n => window.__iv.owner.stack.length >= n, 10, want);
 console.log('picked', await st());
 check(await ev(n => window.__iv.owner.stack.length >= n, want), `owner picked up ${want} ${type}s with a loader on the payroll`);
-await walkTo(P.trade[0], P.trade[1] - .9); await p.screenshot({ path:path.join(out, 'w2_handover.png') });
+check(await ev(() => window.__iv.owner.stack.every(m => m.position.y < 1.3 && m.position.z > .45)), 'the crates ride on the trolley deck');
+await walkTo(P.trade[0], P.trade[1] - .9); await ev(() => { const v = window.__iv; v.camLock = [v.P.trade[0], v.P.trade[1] - 1.2]; }); await wait(1200); await p.screenshot({ path:path.join(out, 'w2_handover.png') }); await ev(() => { window.__iv.camLock = null; });
 check(await until(() => window.__iv.S.walk.served === 1, 15), 'customer served and paid');
 const cash1 = await ev(() => window.__iv.S.cash); check(cash1 > cash0, `cash went up by ${Math.round(cash1 - cash0)}`);
 await wait(800); await p.screenshot({ path:path.join(out, 'w3_paid.png') }); console.log('paid', await st());
+await wait(1500); await ev(() => { const v = window.__iv; v.camLock = [v.P.trade[0] + 1.5, v.P.trade[1] + 1.5]; }); await wait(1500); await p.screenshot({ path:path.join(out, 'w3_barrow_out.png') }); await ev(() => { window.__iv.camLock = null; });
 check(await until(() => !window.__iv.walker, 120), 'customer walked out of the gate');
+check(await ev(() => window.__iv.carts.filter(k => !k.by).length === 3), 'the customer left with their own barrow, not ours');
+await walkTo(spot[0], spot[1] - .8); await walkTo(...spot); check(await until(() => !window.__iv.owner.cart, 10), 'the owner parks the empty trolley back in the bay');
+check(await ev(() => window.__iv.carts.every(k => !k.by)), 'all four trolleys are in the bay');
 // 1b. the pallet is empty and no order wants crates: the saw cuts what the customer at the gate needs
 await ev(() => { const v = window.__iv; v.S.pallet = 0; v.syncPallet(); v.spawnWalker(true); });
 await until(() => window.__iv.walker && window.__iv.walker.state === 'wait', 120);
@@ -54,16 +62,24 @@ check(await ev(() => !window.__iv.S.order || !window.__iv.S.order.qty), 'no crat
 check(await until(() => window.__iv.sawOn, 60), 'the saw starts for the customer at the gate');
 check(await until(n => window.__iv.S.pallet >= n, 90, want2), `the saw cuts the ${want2} crates the customer wants`);
 await wait(4000); check(await ev(n => window.__iv.S.pallet <= n + 1, want2), 'and stops there (no extra stock)');
+if (want2 > 2) { const s2 = await ev(() => window.__iv.cartSpot(window.__iv.freeCart().slot)); await walkTo(s2[0], s2[1] - .8); await walkTo(...s2); await until(() => !!window.__iv.owner.cart, 10); }
 await walkTo(...P.pallet); await until(n => window.__iv.owner.stack.length >= n, 20, want2); await walkTo(P.trade[0], P.trade[1] - .9);
 check(await until(() => window.__iv.S.walk.served === 2, 30), 'second customer served');
 await until(() => !window.__iv.walker, 120);
+if (await ev(() => !!window.__iv.owner.cart)) { const s3 = await ev(() => window.__iv.cartSpot(window.__iv.owner.cartRec.slot)); await walkTo(s3[0], s3[1] - .8); await walkTo(...s3); await until(() => !window.__iv.owner.cart, 10); }
 // 1c. carrying (build 0.18b): nothing rides above the shoulders; three or more crates go on the platform trolley
-check(await ev(() => { const v = window.__iv; for (let n = 1; n <= 16; n++) for (let i = 0; i < n; i++) { const c = v.carriedPos('crate', i, n); if (n < v.CART_FROM ? c.y > 1.0 : c.y > 1.3 || c.z < .45) return false; } for (let i = 0; i < 8; i++) if (v.carriedPos('pipe', i).y > .9) return false; return true; }), 'loads stay in the arms or on the trolley, never on the head');
+check(await ev(() => { const v = window.__iv; for (let i = 0; i < 2; i++) if (v.carriedPos('crate', i, 2, false).y > 1.0) return false; for (let i = 0; i < 16; i++) { const c = v.carriedPos('crate', i, 16, true); if (c.y > 1.3 || c.z < .45) return false; } for (let i = 0; i < 8; i++) if (v.carriedPos('pipe', i).y > .9) return false; return true; }), 'loads stay in the arms or on the trolley, never on the head');
+// 1d. a lorry order: the loader fetches a trolley from the bay for the crates, and parks it again afterwards
+await ev(() => { const v = window.__iv; if (v.S.call) v.acceptCall(); v.closeOffice(); const op = [...v.staffObj.values()].find(c => c.st.role === 'operator'); if (v.S.order && !v.S.order.briefed) v.briefOrder(op); });
+check(await until(() => [...window.__iv.staffObj.values()].some(c => c.st.role === 'loader' && c.cart), 150), 'the loader takes a trolley for the crate run');
+check(await until(() => [...window.__iv.staffObj.values()].some(c => c.st.role === 'loader' && c.cart && c.stack.length >= 3), 150), 'the loader wheels three or more crates on it');
+await ev(() => { const v = window.__iv, l = [...v.staffObj.values()].find(c => c.st.role === 'loader'); v.camLock = [l.o.position.x, l.o.position.z]; }); await wait(1500); await p.screenshot({ path:path.join(out, 'w3b_loader_trolley.png') }); await ev(() => { window.__iv.camLock = null; });
 // 2. lunch: 11:58 to 12:31
 await walkTo(P.saw[0] + 3, P.saw[1] + 3);
 await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * 480 + 239; });
 check(await until(() => window.__iv.lunchTime(), 10), 'lunch whistle at 12:00');
 check(await until(() => [...window.__iv.staffObj.values()].every(c => c.lunch === 'eat'), 120), 'the crew is on the bench');
+check(await ev(() => window.__iv.carts.every(k => !k.by)), 'the trolleys were parked in the bay before lunch');
 await until(() => (window.__iv.folk.get('gus') || {}).gs === 'eat', 60);
 console.log('lunch', await st());
 await ev(() => { const v = window.__iv; v.camLock = [-8.5, -1]; }); await wait(1200); await p.screenshot({ path:path.join(out, 'w4_lunch.png') }); await ev(() => { window.__iv.camLock = null; });
@@ -79,6 +95,11 @@ await until(() => window.__iv.walker && window.__iv.walker.state === 'wait', 120
 await ev(() => { window.__iv.walker.t = 88; });
 check(await until(() => window.__iv.S.walk.lost === 1, 30), 'an unserved customer walks off');
 check(await ev(r => window.__iv.S.rep < r, rep0), 'reputation dropped');
+// 3b. another app in front: the works fall silent, and come back with the page
+await p.keyboard.press('Shift'); await wait(300);
+const hide = h => ev(h => { Object.defineProperty(document, 'hidden', { value:h, configurable:true }); document.dispatchEvent(new Event('visibilitychange')); }, h);
+await hide(true); check(await until(() => window.__iv.audio === 'suspended', 5), 'sound stops when another app is in front');
+await hide(false); check(await until(() => window.__iv.audio === 'running', 5), 'sound comes back with the game');
 // 4. knocking off: the whistle, the crew walks out of the gate, the day book, then they clock in next morning
 await p.keyboard.press('Shift'); await wait(300);
 check(await ev(() => { try { window.__iv.whistle(.3); return true; } catch(e) { return false; } }), `the whistle plays (audio ${await ev(() => window.__iv.audio)})`);

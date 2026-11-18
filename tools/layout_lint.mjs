@@ -21,6 +21,7 @@ const ZONES = [
   ['truck bay 1', [P.truck[0] - 1.25, 4.95, P.truck[0] + 1.25, 10.2], /truck|loading_dock|canopy/], ['truck bay 2', [P.bay2[0] - 1.25, 4.95, P.bay2[0] + 1.25, 10.2], /truck|canopy/],
   ['lorry path through the gate', [P.truck[0] - 2.4, 10.2, P.bay2[0] + 1.6, 14.3], /truck/], ['main gate', [3.1, 10.8, 6.9, 14.3], /gate/],
   ['loading lane', [2.6, 5.0, 9.95, 6.6], /^$/],
+  ['trolley bay', [-2.65, 6.35, .4, 7.15], /^$/], ...[[-2.25, 5.9], [-1.5, 5.9], [-.75, 5.9], [0, 5.9]].map((s, i) => [`trolley handle ${i + 1}`, sq(s, .3), /^$/]),
   ...['op', 'pallet', 'drop', 'cash', 'pop', 'pfeedRing', 'prackSpot', 'coilSpot', 'whSpotC', 'whSpotP', 'whSpotT', 'whBuild', 'deskRing', 'feedRing', 'timberRing', 'gus2', 'dockWait', 'loaderHome', 'loaderWait', 'sawFix', 'genFix', 'wsDoor', 'frontIn', 'trade']
     .filter(k => P[k]).map(k => [`work spot ${k}`, sq(P[k]), /^$/]),
 ];

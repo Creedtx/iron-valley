@@ -1151,38 +1151,51 @@ const syncPallet = () => syncStack(crates.pallet, S.pallet, crateMesh, palletPos
 function bedPos(i){ const k = i % 12, layer = Math.floor(i / 12); return new THREE.Vector3(-1.85 + (k % 4) * .42, 1.0 + layer * .3, -.45 + Math.floor(k / 4) * .45); }
 function syncBed(){ while (crates.bed.length < S.bed) { const c = crateMesh(); M.truck.add(c); crates.bed.push(c); } while (crates.bed.length > S.bed) crates.bed.pop().removeFromParent(); crates.bed.forEach((c, i) => c.position.copy(bedPos(i))); }
 // build 0.18b: goods are carried the way a yard hand carries them. The characters stand about 1.2 m (shoulders at 0.75 m,
-// hands at about 0.55 m when carrying). Pipes lie across both forearms; one or two crates are held in the arms in front of
-// the chest; three or more go on a flat platform trolley pushed in front (2 x 2 crates a layer), never piled over the head.
-const CART_FROM = 3;
-function carriedPos(type, i, n = i + 1){
-  if (type === 'crate') { if (n < CART_FROM) return new THREE.Vector3(0, .42 + i * .3, .3);
+// hands at about 0.55 m when carrying). By hand: pipes across both forearms, at most two crates in front of the chest.
+// More crates go on a platform trolley from the trolley bay (2 x 2 crates a layer); pipes on a trolley lie along its deck.
+const CART_FROM = 3, HAND_CRATES = 2;
+function carriedPos(type, i, n = i + 1, cart = false){
+  if (type === 'crate') { if (!cart) return new THREE.Vector3(0, .42 + i * .3, .3);
     const layer = Math.floor(i / 4), k = i % 4; return new THREE.Vector3(k % 2 ? .155 : -.155, .17 + layer * .3, .5 + Math.floor(k / 2) * .31); }
-  if (type === 'pipe') return new THREE.Vector3(0, .52 + Math.floor(i / 2) * .12, .24 + (i % 2) * .12);
+  if (type === 'pipe') return cart ? new THREE.Vector3(-.24 + (i % 5) * .12, .2 + Math.floor(i / 5) * .12, .65) : new THREE.Vector3(0, .52 + Math.floor(i / 2) * .12, .24 + (i % 2) * .12);
   return type === 'plank' || type === 'timber' ? new THREE.Vector3(0, .5 + i * .07, .27) : type === 'fuel' ? new THREE.Vector3(.2, .12, .05) : type === 'coil' ? new THREE.Vector3(0, .22, .42) : type === 'bottle' ? new THREE.Vector3(0, .45, .34) : type === 'toolbox' ? new THREE.Vector3(0, .55 + i * .18, .3) : new THREE.Vector3(0, .5 + i * .3, .3);
 }
 // how high the load reaches, for the name tag above the head
-const carryTop = ch => { const n = ch.stack.length, t = ch.carryType; return !n || t === 'fuel' ? 0 : t === 'crate' ? (n < CART_FROM ? Math.max(0, .12 + n * .3 - .6) : 0) : t === 'toolbox' ? Math.max(0, n * .18 - .4) : 0; };
-// the platform trolley: a timber deck on four castors with a steel push handle at hand height
-let cartProto = null;
-function makeCart(){
-  if (!cartProto) { const g = new THREE.Group(), wood = std('#8a6440', .85), steel = std('#3c4248', .5, .6), tyre = std('#1c1c1c', .9);
+const carryTop = ch => { const n = ch.stack.length, t = ch.carryType; return !n || t === 'fuel' || ch.cart ? 0 : t === 'crate' ? Math.max(0, .12 + n * .3 - .6) : t === 'toolbox' ? Math.max(0, n * .18 - .4) : 0; };
+// the platform trolley: a timber deck on four castors with a steel push handle at hand height (customers bring their own, painted green)
+const cartProto = {};
+function makeCart(deck = '#8a6440'){
+  if (!cartProto[deck]) { const g = new THREE.Group(), wood = std(deck, .85), steel = std('#3c4248', .5, .6), tyre = std('#1c1c1c', .9);
     const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
     add(new THREE.BoxGeometry(.66, .045, .68), wood, 0, .135, .65);
     for (const x of [-.27, .27]) for (const z of [.38, .92]) add(new THREE.CylinderGeometry(.055, .055, .04, 10), tyre, x, .055, z).rotation.z = Math.PI / 2;
     for (const x of [-.25, .25]) add(new THREE.BoxGeometry(.03, .5, .03), steel, x, .39, .32);
     add(new THREE.CylinderGeometry(.018, .018, .56, 8), steel, 0, .63, .32).rotation.z = Math.PI / 2;
-    cartProto = g; }
-  return cartProto.clone();
+    cartProto[deck] = g; }
+  const o = cartProto[deck].clone(); o.userData.dyn = true; return o;
 }
-// show or hide each carrier's trolley as the load changes, and re-lay the load when it crosses the arms/trolley line
+// the trolley bay: four trolleys parked in a painted bay just south of the crate machine's pad, clear of the path from
+// the gate. Whoever needs one walks to its handle, takes it, and brings it back when it is empty.
+const BAY = [[-2.25, 6.75], [-1.5, 6.75], [-.75, 6.75], [0, 6.75]];   // deck centres
+const carts = [];
+const cartSpot = i => [BAY[i][0], BAY[i][1] - .85];   // where a hand stands to take or park it: at the handle, facing south
+function buildCartBay(){
+  const pm = paintMat('#e3b23c'); dashRect(-2.7, 6.3, .45, 7.2, pm, .4, .25, .08); groundLabel('TROLLEYS', -1.125, 7.45, 1.6);
+  BAY.forEach((b, i) => { const o = makeCart(); o.position.set(b[0], 0, b[1] - .65); world.add(o); carts.push({ o, slot:i, by:null }); });
+  addCol([-2.65, 6.35, .4, 7.15], 'cartBay');
+}
+const freeCart = () => carts.find(k => !k.by);
+function takeCart(ch, k){ k.by = ch; ch.cart = k.o; ch.cartRec = k; ch.o.add(k.o); k.o.position.set(0, 0, 0); k.o.rotation.set(0, 0, 0); layoutCarry(ch); sfxAt('drop', ch.o.position.x, ch.o.position.z, .4); }
+function parkCart(ch){ const k = ch.cartRec; if (!k) return; world.add(k.o); k.o.position.set(BAY[k.slot][0], 0, BAY[k.slot][1] - .65); k.o.rotation.set(0, 0, 0); k.by = null; ch.cart = null; ch.cartRec = null; ch.cartFor = null; layoutCarry(ch); sfxAt('drop', ch.o.position.x, ch.o.position.z, .4); }
+function releaseCart(ch){ if (ch.cartFor && !ch.cart) { ch.cartFor.by = null; ch.cartFor = null; } }   // a reservation dropped on the way to the bay
+// a worker taking an empty trolley home to the bay first (lunch, knocking-off): true while still walking it back
+function cartHome(c, dt){ if (!c.cart) return false; if (!c.cartHome) { c.cartHome = true; goTo(c, ...cartSpot(c.cartRec.slot)); } if (walk(c, dt)) { parkCart(c); c.cartHome = false; return false; } return true; }
+// re-lay a load when its size changes
 function syncCarry(){
   const list = carriers(); if (walker) list.push(walker.c);
-  for (const ch of list) { const n = ch.carryType === 'crate' ? ch.stack.length : 0, on = n >= CART_FROM;
-    if (on && !ch.cart) { ch.cart = makeCart(); ch.o.add(ch.cart); }
-    if (ch.cart) ch.cart.visible = on;
-    if (ch._carryN !== ch.stack.length) { ch._carryN = ch.stack.length; layoutCarry(ch); } }
+  for (const ch of list) if (ch._carryN !== ch.stack.length) { ch._carryN = ch.stack.length; layoutCarry(ch); }
 }
-function layoutCarry(ch){ if (ch.carryType === 'fuel') return; const n = ch.stack.length; ch.stack.forEach((m, i) => { if (m.userData.flying) return; m.position.copy(carriedPos(ch.carryType, i, n)); m.rotation.set(0, 0, 0); if (ch.carryType === 'fuel') m.scale.setScalar(.8); }); }
+function layoutCarry(ch){ if (ch.carryType === 'fuel') return; const n = ch.stack.length, cart = !!ch.cart; ch.stack.forEach((m, i) => { if (m.userData.flying) return; m.position.copy(carriedPos(ch.carryType, i, n, cart)); m.rotation.set(0, cart && ch.carryType === 'pipe' ? Math.PI / 2 : 0, 0); if (ch.carryType === 'fuel') m.scale.setScalar(.8); }); }
 const flights = [];
 function fly(obj, toParent, toLocal, dur = .25, done, arc = .5){
   const from = obj.getWorldPosition(new THREE.Vector3()); scene.add(obj); obj.position.copy(from); obj.userData.flying = true;
@@ -1196,7 +1209,7 @@ function updateFlights(dt){
 const poolOf = type => type === 'plank' || type === 'timber' ? planks : type === 'coil' ? coilsArr : type === 'pipe' ? pipesArr : type === 'toolbox' ? toolsArr : type === 'bottle' ? bottlesArr : crates;
 function takeFrom(arrName, ch, type){
   const arr = poolOf(type)[arrName]; const m = arr.pop(); if (!m) return false;
-  ch.carryType = type; ch.stack.push(m); if (arrName === 'rack' && type === 'plank') m.scale.set(.6, 1, 1); fly(m, ch.o, carriedPos(type, ch.stack.length - 1, ch.stack.length), .22, () => layoutCarry(ch)); m.rotation.set(0, 0, 0); return true;
+  ch.carryType = type; ch.stack.push(m); if (arrName === 'rack' && type === 'plank') m.scale.set(.6, 1, 1); fly(m, ch.o, carriedPos(type, ch.stack.length - 1, ch.stack.length, !!ch.cart), .22, () => layoutCarry(ch)); m.rotation.set(0, 0, 0); return true;
 }
 function giveTo(ch, arrName, parent, posFn, done){
   const top = ch.stack[ch.stack.length - 1]; if (!top || top.userData.flying) return false;
@@ -2221,7 +2234,7 @@ function updateOwner(dt){
     if (Math.random() < dt * 2.5) sfx('clank', .4);
     if (handFix.prog >= 1) { clearFault(handFix, owner); toast(handFix.guided ? 'Fixed by hand. A mechanic does that twice as fast: hire one in the office.' : 'Fixed it yourself.', 'good'); } }
   const working = owner.working && T - owner.working < .2;
-  if (owner.lock > 0) {} else if (k > 0) owner.play(owner.stack.length ? 'carry' : 'walk', (.6 + k * .65) * (1 + .12 * S.up.boots));
+  if (owner.lock > 0) {} else if (k > 0) owner.play(owner.stack.length || owner.cart ? 'carry' : 'walk', (.6 + k * .65) * (1 + .12 * S.up.boots));
   else if (working) { owner.play('work'); if (owner.workAt) owner.faceTo(owner.workAt, dt); }
   else if (handFix) { owner.play(FAULTS[handFix.kind].anim); owner.faceTo(jobFace(handFix), dt); }
   else if (owner.stack.length) owner.play('carry', 0);
@@ -2293,7 +2306,7 @@ function walk(c, dt){
     const g = c.goal || c.path[c.path.length - 1]; c.path = findPath(c.o.position.x, c.o.position.z, g[0], g[1]); c.wd = { wp:c.path[0], best:Infinity, t:0, n:wd.n }; return !c.path.length;
   }
   const s = Math.min(d, sp * dt); c.o.position.x += dx / d * s; c.o.position.z += dz / d * s; c.face(dx, dz, dt);
-  c.play(c.trolley || (c.stack.length && c.carryType !== 'fuel') ? 'carry' : 'walk', crewSpeed(c)); return false;
+  c.play(c.trolley || c.cart || (c.stack.length && c.carryType !== 'fuel') ? 'carry' : 'walk', crewSpeed(c)); return false;
 }
 function seatFree(c){ for (let i = 0; i < P.seats.length; i++) { const taken = [...staffObj.values()].some(o => o !== c && o.seat === i); if (!taken) return i; } return -1; }
 function breakDue(c){ return false &&  c.st.energy <= 0 && c.state !== 'break' && c.state !== 'toBreak'; }
@@ -2415,13 +2428,17 @@ function updateLoader(c, dt){
   if (c.state === 'arrive') { if (walk(c, dt)) c.state = 'idle'; return; }
   if (slacking(c, dt)) return;
   if (cleanTask(c, dt)) return;
-  const cap = (S.level === 1 ? 4 : 2) + Math.floor((c.st.lv - 1) / 2) + S.up.back;
+  const cap = (S.level === 1 ? 4 : 2) + Math.floor((c.st.lv - 1) / 2) + S.up.back, ccap = c.cart ? cap : Math.min(cap, HAND_CRATES);   // crates: two by hand
   c.wait = Math.max(0, (c.wait || 0) - dt * multiK());
   if (c.state === 'idle' || c.state === 'waiting') {
     if (breakDue(c)) { startBreak(c); return; }
     if (maybeSlack(c, dt)) return;
     if (!c.stack.length) c.dest = null;
     const task = c.stack.length ? (c.dest === 'wh' ? 'deliverWh' : c.carryType === 'plank' ? (S.feed + c.stack.length > 6 && S.timber + c.stack.length <= LINE_CAP ? 'returnPlanks' : 'deliverPlanks') : c.carryType === 'timber' ? 'deliverTimber' : c.carryType === 'coil' ? (c.coilDest === 'bay' ? 'deliverCoilBay' : c.coilDest === 'press' ? 'deliverCoilPress' : c.coilDest === 'mill2' ? 'deliverCoilMill2' : 'deliverCoilMill') : c.carryType === 'fuel' ? 'deliverFuel' : 'deliverCrates') : loaderTask(c); c.task = task;
+    // a crate run of more than two: fetch a trolley from the bay first; an empty trolley goes back before any other job
+    const crateRun = ['crates', 'stockC', 'whCrates'].includes(task) && cap >= CART_FROM;
+    if (!c.stack.length && !c.cart && !c.cartFor && crateRun) { const k = freeCart(); if (k) { k.by = c; c.cartFor = k; goTo(c, ...cartSpot(k.slot)); c.state = 'toCart'; return; } }
+    if (!c.stack.length && c.cart && !crateRun) { goTo(c, ...cartSpot(c.cartRec.slot)); c.state = 'toCartBack'; return; }
     if (task === 'fuel') { goTo(c, ...P.pump); c.state = 'toPump'; }
     else if (task === 'crates') { goTo(c, P.pallet[0] + .55, P.pallet[1] + .5); c.state = 'toPallet'; }
     else if (task === 'planks') { goTo(c, P.timberRing[0], P.timberRing[1]); c.state = 'toRack'; }
@@ -2449,6 +2466,8 @@ function updateLoader(c, dt){
     else { if (c.state !== 'waiting') { const w = task === 'helperWait' ? [P.feedRing[0] + .9, P.feedRing[1] + .2] : task === 'waitDock' ? P.dockWait : [P.loaderWait[0] + (c.st.id % 2) * .7, P.loaderWait[1]]; goTo(c, ...w); c.state = 'waiting'; } if (walk(c, dt)) c.play('idle'); }
     return;
   }
+  if (c.state === 'toCart') { if (walk(c, dt)) { c.faceNow(0); if (c.cartFor) takeCart(c, c.cartFor); c.cartFor = null; c.state = 'idle'; } return; }
+  if (c.state === 'toCartBack') { if (walk(c, dt)) { c.faceNow(0); parkCart(c); c.state = 'idle'; } return; }
   if (c.state === 'toPump') { if (walk(c, dt)) { c.state = 'fill'; c.wait = 1.4; } return; }
   if (c.state === 'toSweep') { if (walk(c, dt)) { c.state = 'sweeping'; c.wait = 2.6; if (!c.broom) { c.broom = makeBroom(); c.o.add(c.broom); } } return; }
   if (c.state === 'sweeping') { c.play('work', .7); c.broom.rotation.y = Math.sin(T * 6) * .35; c.wait -= dt; if (Math.random() < dt * 4) puff(c.o.position.x + rand(-.3, .3), c.o.position.z + .5, '#c9c2b4');
@@ -2480,7 +2499,7 @@ function updateLoader(c, dt){
   // warehouse: stock goes in from the pallet and the pipe rack, and out to the truck when the line is short
   if (c.state === 'toPalletWh') { if (walk(c, dt)) c.state = 'takePalletWh'; return; }
   if (c.state === 'takePalletWh') { c.play('idle'); if (c.wait > 0) return; const room = whCapC() - S.wh.c - whBound('crate');
-    if (c.stack.length >= cap || surplusC() <= 0 || room <= 0 || (c.stack.length && c.carryType !== 'crate')) { c.state = 'idle'; return; }
+    if (c.stack.length >= ccap || surplusC() <= 0 || room <= 0 || (c.stack.length && c.carryType !== 'crate')) { c.state = 'idle'; return; }
     if (takeFrom('pallet', c, 'crate')) { S.pallet--; c.dest = 'wh'; c.wait = .3; } return; }
   if (c.state === 'toPRackWh') { if (walk(c, dt)) c.state = 'takePRackWh'; return; }
   if (c.state === 'takePRackWh') { c.faceTo(P.prack, dt); c.play('idle'); if (c.wait > 0) return; const room = whCapP() - S.wh.p - whBound('pipe');
@@ -2498,7 +2517,7 @@ function updateLoader(c, dt){
   if (c.state === 'toWhTake') { if (walk(c, dt)) c.state = 'takeWh'; return; }
   if (c.state === 'takeWh') { c.faceTo(P.wh, dt); c.play('idle'); if (c.wait > 0) return; const kind = c.whType === 'pipe' ? 'p' : c.whType === 'toolbox' ? 't' : 'c';
     const need = !S.order || S.order.ready || truck.state !== 'docked' ? 0 : kind === 'p' ? (S.order.pq || 0) - S.pbed - truckPipes() - S.pipes : kind === 't' ? (S.order.tq || 0) - S.tbed - truckTools() - S.tools : S.order.qty - S.bed - truckCrates() - S.pallet;
-    if (c.stack.length >= cap + (kind === 't' ? 1 : 0) || need <= 0 || S.wh[kind] <= 0 || (c.stack.length && c.carryType !== c.whType)) { c.state = 'idle'; return; }
+    if (c.stack.length >= (kind === 'c' ? ccap : cap + (kind === 't' ? 1 : 0)) || need <= 0 || S.wh[kind] <= 0 || (c.stack.length && c.carryType !== c.whType)) { c.state = 'idle'; return; }
     if (takeFrom('wh', c, c.whType)) { S.wh[kind]--; c.dest = null; c.wait = .3; sfxAt('pick', c.o.position.x, c.o.position.z, .5); } return; }
   if (c.state === 'returnPipes') { if (!walk(c, dt)) return; while (c.stack.length && giveTo(c, 'rack', world, pipeRackPos, () => syncPipes())) S.pipes++; c.state = 'idle'; return; }
   // timber lorry -> stock room
@@ -2508,7 +2527,7 @@ function updateLoader(c, dt){
     if (!S.delivery || S.delivery.left <= 0 || sup.state !== 'parked' || c.stack.length >= tcap || (S.delivery.kind === 'steel' ? S.coils + coilsInHands() >= coilCap() : S.store + carriedTimber() >= storeCap())) { c.state = 'idle'; return; }
     const steel = S.delivery.kind === 'steel'; if (steel && c.stack.length >= 1) { c.state = 'idle'; return; }
     const m = steel ? coilMesh() : plankMesh(.6), b = M.bundles.at(-1); world.add(m); m.position.copy(b ? b.getWorldPosition(new THREE.Vector3()) : M.flat.position);
-    c.carryType = steel ? 'coil' : 'timber'; if (steel) c.coilDest = 'bay'; c.stack.push(m); fly(m, c.o, carriedPos(c.carryType, c.stack.length - 1, c.stack.length), .25, () => layoutCarry(c));
+    c.carryType = steel ? 'coil' : 'timber'; if (steel) c.coilDest = 'bay'; c.stack.push(m); fly(m, c.o, carriedPos(c.carryType, c.stack.length - 1, c.stack.length, !!c.cart), .25, () => layoutCarry(c));
     S.delivery.left--; syncBundles(); c.wait = .28; sfxAt('pick', c.o.position.x, c.o.position.z, .5); return; }
   if (c.state === 'toStore') { if (walk(c, dt)) c.state = 'dropStore'; return; }
   if (c.state === 'dropStore') { c.faceTo([P.storeRack[0], P.storeRack[1]], dt); c.play('carry', 0); if (c.wait > 0) return;
@@ -2544,7 +2563,7 @@ function updateLoader(c, dt){
   if (c.state === 'dropFeed') { c.play('carry', 0); if (c.wait > 0) return; if (!c.stack.length) { c.state = 'idle'; return; } if (S.feed >= 6) { c.state = 'waiting'; return; } if (giveTo(c, 'feed', world, feedPos, () => syncFeed())) { S.feed++; S.fedPlanks++; giveXp(c.st, 5); c.wait = .3; c.st.energy = Math.max(0, c.st.energy - 1.2); } return; }
   if (c.state === 'toPallet') { if (walk(c, dt)) c.state = 'takePallet'; return; }
   if (c.state === 'takePallet') { c.play('idle'); if (c.wait > 0) return; const need = S.order && !S.order.ready ? S.order.qty - S.bed - truckCrates() : 0;
-    if (c.stack.length >= cap || S.pallet === 0 || need <= 0) { c.state = 'idle'; return; } if (takeFrom('pallet', c, 'crate')) { S.pallet--; c.wait = .3; } return; }
+    if (c.stack.length >= ccap || S.pallet === 0 || need <= 0) { c.state = 'idle'; return; } if (takeFrom('pallet', c, 'crate')) { S.pallet--; c.wait = .3; } return; }
   if (c.state === 'toTruck') { if (walk(c, dt)) c.state = 'dropTruck'; return; }
   if (c.state === 'dropTruck') { c.play('carry', 0); if (c.wait > 0) return; if (!c.stack.length) { c.state = 'idle'; c.st.energy = Math.max(0, c.st.energy - 3); return; }
     if (truck.state !== 'docked' || !S.order || S.order.ready) { if (S.order && S.order.ready || truck.state === 'leave' || truck.state === 'away') { if (c.carryType === 'pipe') { c.state = 'returnPipes'; goTo(c, ...P.prackSpot); } else if (c.carryType === 'toolbox') { c.state = 'returnTools'; goTo(c, ...P.trackSpot); } else { c.state = 'returnCrates'; goTo(c, P.pallet[0] + .55, P.pallet[1] + .5); } } return; }
@@ -2711,7 +2730,7 @@ function separate(dt){
 // reported once, the rest of the factory keeps running.
 function recoverChar(c, e){
   try { if (c.need) endNeed(c); } catch(_){}
-  c.need = null; c.fjob = null; c.path = null; c.o.visible = true; c.state = 'idle'; c.lock = 0;
+  c.need = null; c.fjob = null; c.path = null; c.o.visible = true; c.state = 'idle'; c.lock = 0; releaseCart(c);
   S.recovered = (S.recovered || 0) + 1; guard('staff', () => { throw e; });
 }
 function leadStep(c, dt){
@@ -3089,9 +3108,13 @@ function ownerHands(dt){
   for (const [type, at, have, need, take, back] of picks) {
     if (!at()) continue;
     const gate = walkWant(type) - (t === type ? n : 0);   // a walk-in customer at the gate waiting for these
-    if ((!t || t === type) && n < ownerCarry() && have() > 0 && ((!loadersHired() && need() > 0) || gate > 0) && take()) { handT = .16; sfx('pick', .5); return; }
+    if ((!t || t === type) && n < (type === 'crate' && !owner.cart ? HAND_CRATES : ownerCarry()) && have() > 0 && ((!loadersHired() && need() > 0) || gate > 0) && take()) { handT = .16; sfx('pick', .5); return; }
     if (t === type && n && n > walkWant(type) && (need() < 0 || loadersHired()) && back()) { handT = .16; return; }   // more than the truck needs (or the loaders have it): put it back
   }
+  // the trolley bay: take a free trolley by standing at its handle; park yours the same way once it is empty
+  if (!owner.cart) { const k = carts.find(k => !k.by && near(o, cartSpot(k.slot), .55)); if (k && owner.cartArm !== false) { takeCart(owner, k); owner.cartArm = false; handT = .3; toast('You have a trolley: load up to ' + ownerCarry() + ' crates. Park it back in the bay when you are done.', 'good'); return; } }
+  else if (!n && owner.cartArm && near(o, cartSpot(owner.cartRec.slot), .55)) { parkCart(owner); owner.cartArm = false; handT = .3; return; }
+  if (owner.cartArm === false && !carts.some(k => near(o, cartSpot(k.slot), .9))) owner.cartArm = true;
   // refuel the generator from the yard tank's can while nobody else does it (diesel goes on the bills)
   if (!loadersHired() && near(o, P.genFix, .9) && S.power.fuel < 98) { const add = Math.min(98 - S.power.fuel, 14 * .25); S.power.fuel += add; S.bills += add * .32; fuelT += .25; handT = .25; if (fuelT > 1) { fuelT = 0; sfx('pour', .5); } }
 }
@@ -4155,7 +4178,7 @@ const TUT = [   // day one (Gameplay Bible, level 1): the owner and old Gus open
     text:() => S.call ? 'The phone is ringing in the workshop office. Take the order' : 'Wait for the phone to ring', gus:'That\'s the telephone in the office. Go on, answer it.' },
   { t:'Stand at the crate machine: you run it yourself', at:() => P.op, done:() => (S.order && S.order.cut >= S.order.qty) || S.delivered > 0,
     text:() => sawBy === owner ? `Making crates: ${S.order ? S.order.cut : 0} / ${S.order ? S.order.qty : 0}. Stay at the machine` : 'Stand on the white spot at the crate machine: you run it yourself', gus:'Stand at the machine and she runs. Your grandfather did it the same way.' },
-  { t:'Pick up the crates at the output pallet', at:() => P.pallet, done:() => ownerCrates() > 0 || S.bed > 0 || S.delivered > 0, gus:'Grab the crates off the pallet. You can carry five at a time.' },
+  { t:'Pick up the crates at the output pallet', at:() => P.pallet, done:() => ownerCrates() > 0 || S.bed > 0 || S.delivered > 0, gus:'Grab the crates off the pallet. Two in your arms, or fetch a trolley from the bay and take five.' },
   { t:'Carry the crates to the truck', at:() => P.drop, done:() => (S.order && S.order.ready) || S.delivered > 0,
     text:() => truck.state !== 'docked' ? 'The customer\'s truck is on its way. Wait in the loading bay' : ownerCrates() ? `Load the truck: stand beside it at the yellow ring (${S.bed} / ${S.order ? S.order.qty : 0})` : `Fetch more crates from the pallet (${S.bed} / ${S.order ? S.order.qty : 0} on the truck)`,
     atFn:() => truck.state === 'docked' && !ownerCrates() && S.pallet > 0 ? P.pallet : P.drop, gus:'Stand by the truck and they go on the bed.' },
@@ -4203,6 +4226,7 @@ function objective(){
   if (S.power.fuel <= 0) return { t:'Out of diesel: your loader is fetching some', at:null, alert:true };
   if (S.call) return { t:`The office phone is ringing: ${S.call.client}. Take the order`, at:P.deskRing, alert:true };
   const wb = walkBeat(); if (wb) return wb;
+  if (!owner.cart && ownerCrates() >= HAND_CRATES && S.pallet > 0 && freeCart() && near(owner.o, P.pallet, 1.6) && ((!loadersHired() && needCrates() - truckCrates() > 0) || walkWant('crate') > HAND_CRATES)) { const k = freeCart(); return { t:'Two crates is all you can carry by hand. Take a trolley from the trolley bay for more', at:cartSpot(k.slot) }; }
   if (S.order && !S.order.briefed) { const sp = supervisor(), op = orderOp(S.order); return sp ? { t:`${sp.st.name} is coming to take the order from you`, at:null } : op ? { t:`Brief ${op.st.name} at the ${op.st.mach === 'pipe' ? 'pipe mill' : op.st.mach === 'tool' ? 'tool press' : 'saw'} about the new order`, at:posOfC(op) } : { t:'Stand at the saw to start the order', at:P.op }; }
   if (S.store + S.timber + S.feed === 0 && !S.delivery) return { t:'Out of timber! Order more in the office (Stock)', at:P.deskRing, alert:true };
   if (timberLow()) return { t:`Timber is running low (${S.store + S.timber + S.feed} planks). Order more in the office`, at:P.deskRing };
@@ -4658,6 +4682,7 @@ function closingStep(c, dt){
   if (!c.leaving) {
     if (c.st.role === 'forklift' || c.stack.length || c.trolley || (c.tplanks && c.tplanks.length) || c.state === 'fixing') return false;   // finish what is in hand first
     if (c.lunch) { if (c.lunch === 'eat') standUp(c); c.lunch = null; c.lunchI = undefined; }
+    releaseCart(c); c.state = 'leave'; if (cartHome(c, dt)) return true;
     c.leaving = true; c.state = 'leave'; c.task = null; c.path = null; goTo(c, P.frontOut[0] + rand(-.6, .6), P.frontOut[1] + .4); c.say = { text:pick(GOODNIGHT), until:T + 2.6 }; }
   if (walk(c, dt)) { c.gone = true; c.leaving = false; c.o.visible = false; }
   return true;
@@ -4686,6 +4711,7 @@ function lunchStep(c, dt){
   if (!lunchTime()) { if (c.lunch) { if (c.lunch === 'eat') standUp(c); c.lunch = null; c.lunchI = undefined; c.state = 'idle'; c.path = null; c.task = null; c.say = { text:pick(['Right, back to it.', 'Back to work.', 'That hit the spot.']), until:T + 2 }; } return false; }
   if (!c.lunch) { const r = c.st.role;
     if (!['operator', 'loader', 'helper'].includes(r) || c.st.posted === false || c.stack.length || c.trolley || (c.tplanks && c.tplanks.length) || ['arrive', 'pour', 'fill', 'cleaning'].includes(c.state)) return false;
+    releaseCart(c); c.state = 'lunch'; if (cartHome(c, dt)) return true;
     c.lunch = 'go'; c.lunchI = lunchSpot(c); const s = LUNCH_SPOTS[c.lunchI]; goTo(c, s[0], s[1]); c.state = 'lunch'; c.task = null; }
   if (c.lunch === 'go') { if (walk(c, dt)) { c.lunch = 'eat'; sitDown(c, c.lunchI); } return true; }
   const s = LUNCH_SPOTS[c.lunchI]; c.play(s[2] ? 'sit' : 'idle'); if (!s[2]) c.faceTo([-9.7, -1.8], dt); return true;
@@ -4720,6 +4746,7 @@ function spawnWalker(force){
   if (!def) return null;
   const c = makeChar('worker', ...P.frontOut, { parts:def.parts, cols:Object.assign({ skin:pick(SKINS), hair:pick(HAIRS) }, def.cols) });
   c.st = { id:-(3000 + (S.walk.seq = (S.walk.seq || 0) + 1)), name:def.name, role:'walkin', lv:1, energy:100, focus:100 };
+  if (def.want === 'crate') { c.cart = makeCart('#4f6b3a'); c.o.add(c.cart); }   // their own barrow, pushed in empty and out loaded
   const n = def.n[0] + Math.floor(Math.random() * (def.n[1] - def.n[0] + 1));
   walker = { def, n, got:0, t:0, wt:0, state:'in', c, force:!!force }; S.walk.last = def.name; goTo(c, ...TRADE);
   toast(`${def.name} (${def.role}) is walking in at the gate for ${n} ${def.want}s, cash.`, 'gold'); sfx('tap'); return walker;
@@ -4732,8 +4759,8 @@ function updateWalkin(dt){
     walkT += dt; if (walkT > walkNext) spawnWalker(); return; }
   const w = walker, c = w.c;
   if (S.day && S.day.closing && w.state !== 'out') { c.say = { text:'Closing up? I\'ll come back tomorrow.', until:T + 3 }; walkerLeave(); return; }
-  if (w.state === 'in') { if (walk(c, dt)) { w.state = 'wait'; c.o.position.set(TRADE[0], 0, TRADE[1]); c.faceNow(Math.PI); } return; }
-  if (w.state === 'out') { if (walk(c, dt)) walkerGone(); else if (c.stack.length) c.play('carry', 1); return; }
+  if (w.state === 'in') { if (c.cart) c.play('carry', 1); if (walk(c, dt)) { w.state = 'wait'; c.o.position.set(TRADE[0], 0, TRADE[1]); c.faceNow(Math.PI); } return; }
+  if (w.state === 'out') { if (walk(c, dt)) walkerGone(); else if (c.stack.length || c.cart) c.play('carry', 1); return; }
   // waiting by the gate
   w.wt += dt; w.t += dt; c.play('idle'); c.faceTo([owner.o.position.x, owner.o.position.z], dt);
   const d = dist2(owner.o, TRADE);
@@ -4742,7 +4769,7 @@ function updateWalkin(dt){
   // the owner hands the goods over, one at a time
   if (d < 1.25 && owner.carryType === w.def.want && owner.stack.length && w.got < w.n && !(owner.stack[owner.stack.length - 1].userData.flying)) {
     w.hand = (w.hand || 0) - dt; if (w.hand <= 0) { w.hand = .22; const m = owner.stack.pop(); if (!owner.stack.length) owner.carryType = null; c.stack.push(m); c.carryType = w.def.want; w.got++;
-      fly(m, c.o, carriedPos(w.def.want, c.stack.length - 1, c.stack.length), .24, () => layoutCarry(c)); sfx('pick', .6); owner.faceTo([c.o.position.x, c.o.position.z]); } }
+      fly(m, c.o, carriedPos(w.def.want, c.stack.length - 1, c.stack.length, !!c.cart), .24, () => layoutCarry(c)); sfx('pick', .6); owner.faceTo([c.o.position.x, c.o.position.z]); } }
   if (w.got >= w.n) {   // paid cash in hand
     const price = walkPrice(w), tip = w.t <= WALK_TIP_S ? Math.max(2, Math.round(price * .08)) : 0, total = price + tip;
     S.cash += total; S.earned += total; S.walk.served++; S.walk.cash += total; repChange(1);
@@ -4931,7 +4958,7 @@ async function boot(){
   try { yt && yt.game.firstFrameReady(); } catch(e){}
   const prog = (p, t) => { try { window.ivLoad && window.ivLoad(p, t); } catch(e){} };
   prog(30, 'Lighting the furnace'); makeTextures(); prog(38, 'Reading the ledger'); await loadSave(); prog(46, 'Unloading the machines'); await ensureModels(S.level);
-  prog(64, 'Building the works'); buildWorld(); buildPlots(); buildBeacons(); buildNav(); buildGuide(); buildDock(); prog(80, 'Calling the crew');
+  prog(64, 'Building the works'); buildWorld(); buildCartBay(); buildPlots(); buildBeacons(); buildNav(); buildGuide(); buildDock(); prog(80, 'Calling the crew');
   const batch = bakeStatic(); console.info(`[iv] static meshes ${batch.before} -> ${batch.after} draw calls`);
   if (S.level >= 2) buildLevel2();
   if (S.level >= 3) buildLevel3();
@@ -4958,12 +4985,16 @@ async function boot(){
     yt.system.onAudioEnabledChange(on => setYtAudio(on)); } } catch(e){}
   // __PLAYABLES__ is defined by tools/package.mjs, so the Playables bundle does not contain this code at all
   if (typeof __PLAYABLES__ === 'undefined' && !yt) document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+  // build 0.18c: in another app or with the screen off nothing is drawn, but the machine sounds kept playing at their last
+  // volume. The audio is suspended while the page is hidden and resumed when it comes back.
+  const bgAudio = () => { if (!AC) return; if (document.hidden) AC.suspend().catch(() => {}); else if (audioAllowed()) { AC.resume().catch(() => {}); clock.getDelta(); } };
+  document.addEventListener('visibilitychange', bgAudio); addEventListener('pagehide', () => { if (AC) AC.suspend().catch(() => {}); }); addEventListener('pageshow', bgAudio);
   // gameReady only once the loading screen is gone and the player can act
   prog(100, 'Ready');
   const ld = $('loading'); setTimeout(() => { ld.style.opacity = 0; setTimeout(() => { ld.remove(); try { yt && yt.game.gameReady(); } catch(e){} }, 600); }, 350);
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
-  window.__iv = { giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  window.__iv = { carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });
