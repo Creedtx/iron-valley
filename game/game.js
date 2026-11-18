@@ -1906,7 +1906,6 @@ const INSPECT = [
     ok:() => S.cond.wiring >= 50 && !S.faults.some(f => FAULTS[f.kind].trade === 'electrician') },
   { id:'guards',  text:'Machines in working order', fix:'No jams or worn parts open on any machine', at:() => [P.sawFix[0] - .2, P.sawFix[1] + .3],
     ok:() => !S.faults.some(f => FAULTS[f.kind].trade === 'mechanic') },
-  { id:'ppe',     text:'Safety gear for machine operators', fix:'Buy Operator safety gear (Upgrades)', at:() => [P.op[0] + .7, P.op[1] + .5], ok:() => S.up.ppe >= 1 },
   { id:'crew',    text:'A mechanic on the payroll', fix:'Hire one in the office (Staff)', at:() => P.mechHome, ok:() => hasRole('mechanic') },
   { id:'parts',   text:'Spare parts on the shelf', fix:'Buy spare parts (Stock)', at:() => [P.parts[0], P.parts[1] + .8], ok:() => S.parts >= 1 },
 ];

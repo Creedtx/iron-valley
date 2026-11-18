@@ -62,6 +62,6 @@ await ev(() => { const v = window.__iv; v.hire('operator'); v.hire('mechanic'); 
 check(await ev(() => (window.__iv.S.order || {}).tq > 0), 'the Valley Garage orders tools');
 check(await until(() => window.__iv.toolOn, 500), 'the tool press stamps tools');
 await ev(() => { window.__iv.camLock = [14, -14.5]; }); await wait(1500); await p.screenshot({ path:path.join(out, 'l3_stamping.png') }); await ev(() => { window.__iv.camLock = null; });
-check(await ev(() => window.__iv.INSPECT.length === 5), 'the licence checklist has five checks, none off the map');
+check(await ev(() => window.__iv.INSPECT.map(c => c.id).join() === 'fire,guards,crew,parts'), 'the licence checks only what the game has (Bible 4.1, 8.2): wiring, machines, a mechanic, spare parts');
 console.log(errs.length ? 'ERRORS ' + JSON.stringify(errs.slice(0, 6)) : 'no errors'); await b.close();
 console.log(fail.length ? `${fail.length} FAILED` : 'ALL PASS'); process.exit(fail.length || errs.length ? 1 : 0);
