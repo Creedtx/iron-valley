@@ -806,7 +806,7 @@ function buildWorld(){
   for (const x of [G0, G1, T0, T1]) { put(inst('env_gate_post'), x, Z1); addCol([x - .25, Z1 - .25, x + .25, Z1 + .25]); }
   const gw = std('#6e4a2c', .9);   // the two timber gate leaves, swung open
   M.gateLeaves = [];   // build 0.18: they swing shut after the last of the crew leaves at 17:00 and open again at 07:00
-  for (const [x, r, shut] of [[G0 + .1, -1.2, 0], [G1 - .1, Math.PI + 1.2, Math.PI]]) { const g = new THREE.Group(); g.position.set(x, 0, Z1); g.rotation.y = r; world.add(g); M.gateLeaves.push({ g, open:r, shut });
+  for (const [x, r, shut] of [[G0 + .1, -1.2, 0], [G1 - .1, Math.PI + 1.2, Math.PI]]) { const g = new THREE.Group(); g.position.set(x, 0, Z1); g.rotation.y = r; g.userData.dyn = true; world.add(g); M.gateLeaves.push({ g, open:r, shut });
     for (let k = 0; k < 5; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(.36, 1.6, .06), gw); b.position.set(.2 + k * .38, .85, 0); b.castShadow = true; g.add(b); }
     const br = new THREE.Mesh(new THREE.BoxGeometry(1.9, .12, .08), std('#4a3424', .9)); br.position.set(.95, .5, .04); br.rotation.z = .6; g.add(br); colOf(g, .02); }
   // the company board by the road
@@ -1150,8 +1150,39 @@ const syncFeed = () => syncStack(planks.feed, S.feed, () => plankMesh(.6), feedP
 const syncPallet = () => syncStack(crates.pallet, S.pallet, crateMesh, palletPos);
 function bedPos(i){ const k = i % 12, layer = Math.floor(i / 12); return new THREE.Vector3(-1.85 + (k % 4) * .42, 1.0 + layer * .3, -.45 + Math.floor(k / 4) * .45); }
 function syncBed(){ while (crates.bed.length < S.bed) { const c = crateMesh(); M.truck.add(c); crates.bed.push(c); } while (crates.bed.length > S.bed) crates.bed.pop().removeFromParent(); crates.bed.forEach((c, i) => c.position.copy(bedPos(i))); }
-function carriedPos(type, i){ return type === 'plank' || type === 'timber' ? new THREE.Vector3(0, .5 + i * .07, .27) : type === 'fuel' ? new THREE.Vector3(.2, .12, .05) : type === 'coil' ? new THREE.Vector3(0, .22, .42) : type === 'bottle' ? new THREE.Vector3(0, .45, .34) : type === 'pipe' ? new THREE.Vector3(0, 1.38 + i * .12, .02) : type === 'toolbox' ? new THREE.Vector3(0, .55 + i * .18, .3) : new THREE.Vector3(0, .5 + i * .3, .3); }
-function layoutCarry(ch){ if (ch.carryType === 'fuel') return; ch.stack.forEach((m, i) => { if (m.userData.flying) return; m.position.copy(carriedPos(ch.carryType, i)); m.rotation.set(0, 0, 0); if (ch.carryType === 'fuel') m.scale.setScalar(.8); }); }
+// build 0.18b: goods are carried the way a yard hand carries them. The characters stand about 1.2 m (shoulders at 0.75 m,
+// hands at about 0.55 m when carrying). Pipes lie across both forearms; one or two crates are held in the arms in front of
+// the chest; three or more go on a flat platform trolley pushed in front (2 x 2 crates a layer), never piled over the head.
+const CART_FROM = 3;
+function carriedPos(type, i, n = i + 1){
+  if (type === 'crate') { if (n < CART_FROM) return new THREE.Vector3(0, .42 + i * .3, .3);
+    const layer = Math.floor(i / 4), k = i % 4; return new THREE.Vector3(k % 2 ? .155 : -.155, .17 + layer * .3, .5 + Math.floor(k / 2) * .31); }
+  if (type === 'pipe') return new THREE.Vector3(0, .52 + Math.floor(i / 2) * .12, .24 + (i % 2) * .12);
+  return type === 'plank' || type === 'timber' ? new THREE.Vector3(0, .5 + i * .07, .27) : type === 'fuel' ? new THREE.Vector3(.2, .12, .05) : type === 'coil' ? new THREE.Vector3(0, .22, .42) : type === 'bottle' ? new THREE.Vector3(0, .45, .34) : type === 'toolbox' ? new THREE.Vector3(0, .55 + i * .18, .3) : new THREE.Vector3(0, .5 + i * .3, .3);
+}
+// how high the load reaches, for the name tag above the head
+const carryTop = ch => { const n = ch.stack.length, t = ch.carryType; return !n || t === 'fuel' ? 0 : t === 'crate' ? (n < CART_FROM ? Math.max(0, .12 + n * .3 - .6) : 0) : t === 'toolbox' ? Math.max(0, n * .18 - .4) : 0; };
+// the platform trolley: a timber deck on four castors with a steel push handle at hand height
+let cartProto = null;
+function makeCart(){
+  if (!cartProto) { const g = new THREE.Group(), wood = std('#8a6440', .85), steel = std('#3c4248', .5, .6), tyre = std('#1c1c1c', .9);
+    const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+    add(new THREE.BoxGeometry(.66, .045, .68), wood, 0, .135, .65);
+    for (const x of [-.27, .27]) for (const z of [.38, .92]) add(new THREE.CylinderGeometry(.055, .055, .04, 10), tyre, x, .055, z).rotation.z = Math.PI / 2;
+    for (const x of [-.25, .25]) add(new THREE.BoxGeometry(.03, .5, .03), steel, x, .39, .32);
+    add(new THREE.CylinderGeometry(.018, .018, .56, 8), steel, 0, .63, .32).rotation.z = Math.PI / 2;
+    cartProto = g; }
+  return cartProto.clone();
+}
+// show or hide each carrier's trolley as the load changes, and re-lay the load when it crosses the arms/trolley line
+function syncCarry(){
+  const list = carriers(); if (walker) list.push(walker.c);
+  for (const ch of list) { const n = ch.carryType === 'crate' ? ch.stack.length : 0, on = n >= CART_FROM;
+    if (on && !ch.cart) { ch.cart = makeCart(); ch.o.add(ch.cart); }
+    if (ch.cart) ch.cart.visible = on;
+    if (ch._carryN !== ch.stack.length) { ch._carryN = ch.stack.length; layoutCarry(ch); } }
+}
+function layoutCarry(ch){ if (ch.carryType === 'fuel') return; const n = ch.stack.length; ch.stack.forEach((m, i) => { if (m.userData.flying) return; m.position.copy(carriedPos(ch.carryType, i, n)); m.rotation.set(0, 0, 0); if (ch.carryType === 'fuel') m.scale.setScalar(.8); }); }
 const flights = [];
 function fly(obj, toParent, toLocal, dur = .25, done, arc = .5){
   const from = obj.getWorldPosition(new THREE.Vector3()); scene.add(obj); obj.position.copy(from); obj.userData.flying = true;
@@ -1165,7 +1196,7 @@ function updateFlights(dt){
 const poolOf = type => type === 'plank' || type === 'timber' ? planks : type === 'coil' ? coilsArr : type === 'pipe' ? pipesArr : type === 'toolbox' ? toolsArr : type === 'bottle' ? bottlesArr : crates;
 function takeFrom(arrName, ch, type){
   const arr = poolOf(type)[arrName]; const m = arr.pop(); if (!m) return false;
-  ch.carryType = type; ch.stack.push(m); if (arrName === 'rack' && type === 'plank') m.scale.set(.6, 1, 1); fly(m, ch.o, carriedPos(type, ch.stack.length - 1), .22, () => layoutCarry(ch)); m.rotation.set(0, 0, 0); return true;
+  ch.carryType = type; ch.stack.push(m); if (arrName === 'rack' && type === 'plank') m.scale.set(.6, 1, 1); fly(m, ch.o, carriedPos(type, ch.stack.length - 1, ch.stack.length), .22, () => layoutCarry(ch)); m.rotation.set(0, 0, 0); return true;
 }
 function giveTo(ch, arrName, parent, posFn, done){
   const top = ch.stack[ch.stack.length - 1]; if (!top || top.userData.flying) return false;
@@ -2477,7 +2508,7 @@ function updateLoader(c, dt){
     if (!S.delivery || S.delivery.left <= 0 || sup.state !== 'parked' || c.stack.length >= tcap || (S.delivery.kind === 'steel' ? S.coils + coilsInHands() >= coilCap() : S.store + carriedTimber() >= storeCap())) { c.state = 'idle'; return; }
     const steel = S.delivery.kind === 'steel'; if (steel && c.stack.length >= 1) { c.state = 'idle'; return; }
     const m = steel ? coilMesh() : plankMesh(.6), b = M.bundles.at(-1); world.add(m); m.position.copy(b ? b.getWorldPosition(new THREE.Vector3()) : M.flat.position);
-    c.carryType = steel ? 'coil' : 'timber'; if (steel) c.coilDest = 'bay'; c.stack.push(m); fly(m, c.o, carriedPos(c.carryType, c.stack.length - 1), .25, () => layoutCarry(c));
+    c.carryType = steel ? 'coil' : 'timber'; if (steel) c.coilDest = 'bay'; c.stack.push(m); fly(m, c.o, carriedPos(c.carryType, c.stack.length - 1, c.stack.length), .25, () => layoutCarry(c));
     S.delivery.left--; syncBundles(); c.wait = .28; sfxAt('pick', c.o.position.x, c.o.position.z, .5); return; }
   if (c.state === 'toStore') { if (walk(c, dt)) c.state = 'dropStore'; return; }
   if (c.state === 'dropStore') { c.faceTo([P.storeRack[0], P.storeRack[1]], dt); c.play('carry', 0); if (c.wait > 0) return;
@@ -4418,7 +4449,7 @@ const STATUS_COL = { zzz:'#6fa6d6', cup:'#6fa6d6', bolt:'#ff8f80', phone:'#fffff
 function updateLabels(){
   for (const e of labs.values()) e._seen = false;
   if (!officeOpen) {
-    if (walker) { const w = walker, c = w.c; if (w.state !== 'out') lab('walkin', `<div class="tagw ${WALK_PATIENCE - w.t < 30 && w.state === 'wait' ? 'bad' : ''}"><span class="lv" style="background:#9bd26f;color:#1b1408">CASH</span><span>${w.def.name} · ${w.n - w.got} ${w.def.want}${w.n - w.got === 1 ? '' : 's'} · ${fmt(walkPrice(w))}${w.state === 'wait' ? ` · ${Math.max(0, Math.ceil(WALK_PATIENCE - w.t))} s` : ''}</span></div>`, c.o.position.x, 1.72 + c.stack.length * (w.def.want === 'crate' ? .3 : .07), c.o.position.z); }
+    if (walker) { const w = walker, c = w.c; if (w.state !== 'out') lab('walkin', `<div class="tagw ${WALK_PATIENCE - w.t < 30 && w.state === 'wait' ? 'bad' : ''}"><span class="lv" style="background:#9bd26f;color:#1b1408">CASH</span><span>${w.def.name} · ${w.n - w.got} ${w.def.want}${w.n - w.got === 1 ? '' : 's'} · ${fmt(walkPrice(w))}${w.state === 'wait' ? ` · ${Math.max(0, Math.ceil(WALK_PATIENCE - w.t))} s` : ''}</span></div>`, c.o.position.x, 1.72 + carryTop(c), c.o.position.z); }
     for (const c of [owner, ...staffObj.values(), ...temps, ...folk.values(), ...(inspector ? [inspector] : []), ...(walker ? [walker.c] : [])]) if (c.say && T < c.say.until && c.o.visible) lab('b' + (c.st ? c.st.id : 'o'), `<div class="bubble">${c.say.text}</div>`, c.o.position.x, 2.25, c.o.position.z);
     if (S.level >= 4) {
       if (M.saw2 || S.lv4.saw2) { const r = saw2Reason().label; lab('saw2', `<div class="mtag ${r[0]}"><b>${r[1]}</b>${r[2]}</div>`, P.saw2[0], 1.75, P.saw2[1]); }
@@ -4441,7 +4472,7 @@ function updateLabels(){
       else if (p.st === 0 && S.level >= pl.lv && S.tutDone) lab('plot' + id, `<div class="pad"><b>For sale</b>${fmt(pl.price)} · stand here</div>`, pl.ring[0], .35, pl.ring[1] + .5); }
     for (const c of [...staffObj.values(), ...temps]) { if (!c.o.visible) continue; const [i] = statusOf(c), st = c.st, ready = st.id > 0 && xpReady(st);
       lab('s' + st.id, `<div class="tagw ${c.state === 'slack' ? 'bad' : ''}"><span class="lv ${ready ? 'ready' : ''}"${ready ? '' : ` style="background:${ROLE[st.role].col.suit};color:#ece6d9"`}>${st.id > 0 ? 'LV' + st.lv : 'HIRE'}</span>${icon(i, STATUS_COL[i] || '#e8ab2c')}<span>${st.name}</span>${c.zone ? '<span class="zone">+15%</span>' : ''}</div>`,
-        c.o.position.x, 1.62 + (c.stack.length && c.carryType !== 'fuel' ? c.stack.length * (c.carryType === 'crate' ? .3 : .07) : 0), c.o.position.z); }
+        c.o.position.x, 1.62 + carryTop(c), c.o.position.z); }
     const sawState = sawReason().label;
     lab('saw', `<div class="mtag ${sawState[0]}"><b>${sawState[1]}</b>${sawState[2]}</div>`, P.saw[0], 1.75, P.saw[1]);
     if (S.level >= 2) { if (millReady()) { const pr = pipeReason().label; lab('pipe', `<div class="mtag ${pr[0]}"><b>${pr[1]}</b>${pr[2]}</div>`, P.pmill[0], 1.85, P.pmill[1]); }
@@ -4711,7 +4742,7 @@ function updateWalkin(dt){
   // the owner hands the goods over, one at a time
   if (d < 1.25 && owner.carryType === w.def.want && owner.stack.length && w.got < w.n && !(owner.stack[owner.stack.length - 1].userData.flying)) {
     w.hand = (w.hand || 0) - dt; if (w.hand <= 0) { w.hand = .22; const m = owner.stack.pop(); if (!owner.stack.length) owner.carryType = null; c.stack.push(m); c.carryType = w.def.want; w.got++;
-      fly(m, c.o, carriedPos(w.def.want, c.stack.length - 1), .24, () => layoutCarry(c)); sfx('pick', .6); owner.faceTo([c.o.position.x, c.o.position.z]); } }
+      fly(m, c.o, carriedPos(w.def.want, c.stack.length - 1, c.stack.length), .24, () => layoutCarry(c)); sfx('pick', .6); owner.faceTo([c.o.position.x, c.o.position.z]); } }
   if (w.got >= w.n) {   // paid cash in hand
     const price = walkPrice(w), tip = w.t <= WALK_TIP_S ? Math.max(2, Math.round(price * .08)) : 0, total = price + tip;
     S.cash += total; S.earned += total; S.walk.served++; S.walk.cash += total; repChange(1);
@@ -4878,7 +4909,7 @@ function step(dt){
   T += dt; S.time += dt;
   for (const m of mixers) m.update(dt);
   if (!officeOpen) updateOwner(dt); else target = null;
-  healthCheck(dt); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateTruck(dt); updateDay(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); updateTutorial(dt); updateFx(dt);
+  healthCheck(dt); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateTruck(dt); updateDay(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); syncCarry(); updateTutorial(dt); updateFx(dt);
   saveT += dt; if (saveT > 8) { saveT = 0; save(); }
 }
 const MAX_DPR = Math.min(2, devicePixelRatio || 1); let dpr = MAX_DPR, perfT = 0, perfN = 0, perfGood = 0, perfBad = 0, lastDpr = 0, dprSettled = false, needResize = false;
@@ -4932,7 +4963,7 @@ async function boot(){
   const ld = $('loading'); setTimeout(() => { ld.style.opacity = 0; setTimeout(() => { ld.remove(); try { yt && yt.game.gameReady(); } catch(e){} }, 600); }, 350);
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
-  window.__iv = { gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  window.__iv = { giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });

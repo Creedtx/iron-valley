@@ -57,6 +57,8 @@ await wait(4000); check(await ev(n => window.__iv.S.pallet <= n + 1, want2), 'an
 await walkTo(...P.pallet); await until(n => window.__iv.owner.stack.length >= n, 20, want2); await walkTo(P.trade[0], P.trade[1] - .9);
 check(await until(() => window.__iv.S.walk.served === 2, 30), 'second customer served');
 await until(() => !window.__iv.walker, 120);
+// 1c. carrying (build 0.18b): nothing rides above the shoulders; three or more crates go on the platform trolley
+check(await ev(() => { const v = window.__iv; for (let n = 1; n <= 16; n++) for (let i = 0; i < n; i++) { const c = v.carriedPos('crate', i, n); if (n < v.CART_FROM ? c.y > 1.0 : c.y > 1.3 || c.z < .45) return false; } for (let i = 0; i < 8; i++) if (v.carriedPos('pipe', i).y > .9) return false; return true; }), 'loads stay in the arms or on the trolley, never on the head');
 // 2. lunch: 11:58 to 12:31
 await walkTo(P.saw[0] + 3, P.saw[1] + 3);
 await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * 480 + 239; });
@@ -88,6 +90,7 @@ check(await until(() => window.__iv.cardOpen && /Day book/i.test(document.getEle
 check(await ev(() => [...window.__iv.staffObj.values()].every(c => c.gone && !c.o.visible)), 'everyone has gone home');
 check(await ev(() => { const g = window.__iv.folk.get('gus'); return !g || g.gone; }), 'Gus has gone home');
 check(await ev(() => window.__iv.gateShut()), 'the main gate is shut for the night');
+check(await ev(() => window.__iv.M.gateLeaves.every(L => L.g.parent && L.g.children.length > 0 && L.g.children.every(m => m.parent === L.g))), 'the gate leaves are drawn from their own group (not baked into the scenery)');
 check(await ev(() => { const r = window.__iv.gateRot; return Math.abs(r[0]) < .05 && Math.abs(r[1] - Math.PI) < .05; }), 'both gate leaves closed across the gateway');
 await ev(() => { const v = window.__iv; v.paused = true; document.getElementById('story').hidden = true; v.camLock = [5, 10.5]; }); await wait(1500); await p.screenshot({ path:path.join(out, 'w6_gates_shut.png') });
 await ev(() => { const v = window.__iv; document.getElementById('story').hidden = false; v.paused = false; });
@@ -97,7 +100,7 @@ check(/Gate trade\s+2 served, 1 walked off/.test(card), 'day book counts the gat
 check(/to beat/.test(card), 'first day sets the mark to beat');
 await ev(() => document.querySelector('#storyBody .btn.primary').click()); await wait(800);
 check(await until(() => !window.__iv.cardOpen && !window.__iv.S.day.closing, 10), 'the next morning starts');
-{ const ck = await ev(() => document.getElementById('clock').textContent); check(/Tue · 07:[0-5]/.test(ck), `clock reads Tuesday morning (${ck})`); }
+{ await until(() => /Tue · 07:/.test(document.getElementById('clock').textContent), 10); const ck = await ev(() => document.getElementById('clock').textContent); check(/Tue · 07:[0-5]/.test(ck), `clock reads Tuesday morning (${ck})`); }
 check(await ev(() => [...window.__iv.staffObj.values()].every(c => !c.gone && c.o.visible)), 'the crew clocks in through the gate');
 check(await until(() => { const r = window.__iv.gateRot; return !window.__iv.gateShut() && Math.abs(r[0] + 1.2) < .05 && Math.abs(r[1] - Math.PI - 1.2) < .05; }, 20), 'the gates swing open in the morning');
 await ev(() => { const v = window.__iv; v.camLock = [v.P.frontIn[0], v.P.frontIn[1] - 1]; }); await wait(2500); await p.screenshot({ path:path.join(out, 'w7_clock_in.png') }); await ev(() => { window.__iv.camLock = null; });
