@@ -26,13 +26,16 @@ const fail = []; const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL
 // Build 0.19: a sales trip. The owner opens the town map at the car, drives to Valley Grocers through the lorry
 // gateway, Gus answers the phone and serves the gate meanwhile, the visit wins an order, the car comes back and
 // reverses into its space, and the agreed order starts. Adverts and the painted sign raise the phone's interest.
-await ev(() => { const v = window.__iv; while (v.cardOpen) v.nextCard(); const S = v.S; S.letter = true; S.tutDone = true; S.tut = 99; S.met.gus = true; S.cash = 1500; S.rep = 60; S.orderSeq = 4; S.delivered = 4;
+await ev(() => { const v = window.__iv; while (v.cardOpen) v.nextCard(); const S = v.S; S.letter = true; S.tutDone = true; S.tut = 99; S.met.gus = true; S.cash = 1500; S.rep = 60; S.orderSeq = 4; S.delivered = 4; S.sales.told = false;
   v.hire('operator'); v.hire('loader'); v.closeOffice(); for (const st of S.staff) st.posted = true; v.S.time = Math.floor(v.S.time / 480) * 480 + 40; v.speed = 3; });
 await wait(4000);
 const P = await ev(() => window.__iv.P);
 // the phone: interest before any selling
 const gap0 = await ev(() => window.__iv.callGap()); console.log('call gap before', Math.round(gap0));
 check(gap0 > 100, 'with nobody knowing the works, the phone rings rarely');
+// 0. the first time there is no work, Gus explains the car
+check(await until(() => window.__iv.cardOpen && /Nobody in the valley knows/.test(document.getElementById('storyBody').innerText), 60), 'Gus explains the car when there is no work');
+await ev(() => document.querySelector('#storyBody .btn.primary').click()); await wait(300);
 // 1. the town map at the car door
 await walkTo(P.carDoor[0] + 1, P.carDoor[1] - 1.5); await walkTo(...P.carDoor);
 check(await until(() => window.__iv.cardOpen && /Where to, boss/.test(document.getElementById('storyBody').innerText), 10), 'standing at the car door opens the town map');
