@@ -1,17 +1,17 @@
-# Handover: where Iron Valley stands (17 Nov 2026, build 0.18)
+# Handover: where Iron Valley stands (18 Nov 2026, build 0.20)
 
 Read this first when continuing in a new session.
 
 ## First job in the new session
-1. Clone this bundle: `git clone iron-valley.bundle iron-valley` (the user attaches `iron-valley.bundle`).
-2. Push it to GitHub: the user's account is **Creedtx**. Create the private repo `Creedtx/iron-valley` if it does
-   not exist (`gh repo create Creedtx/iron-valley --private`), then `git remote set-url origin
-   https://github.com/Creedtx/iron-valley.git && git push -u origin main`. Confirm the files are on GitHub.
+1. The code is on GitHub: `Creedtx/iron-valley` (public), branch `claude/iron-valley-github-setup-yn6f5j`
+   (the default branch). Work and push there.
+2. Every push of game changes must also rebuild `dist/phone` (`node tools/package.mjs`): the user plays the phone
+   copy through Termux (`cd ~/iron-valley && git pull; cd dist/phone && python -m http.server 8080`).
 3. `cd tools && npm install` (three 0.170.0, puppeteer-core, esbuild, eslint, @fontsource fonts).
 
 ## What the game is
 Iron Valley: Factory Rising, a 1973 idle factory game in three.js for YouTube Playables. The user owns a master
-Gameplay Bible (PDF, v1.1) and concept images for levels 1-4; the game must follow them, period-correct for 1973.
+Gameplay Bible, now a Claude Doc at v1.3 (https://claude.ai/artifact/N96Ctn22YPsAps1dRZiAPd) and concept images for levels 1-4; the game must follow them, period-correct for 1973.
 A Claude Doc "Iron Valley — Bible Addendum: Gus, Supplies and the Farewell" records every rule added since:
 https://claude.ai/artifact/HRZiBVHUvRCSEDexVex18G
 
@@ -29,7 +29,27 @@ https://claude.ai/artifact/HRZiBVHUvRCSEDexVex18G
 
 Preview artifact (the user plays this): https://claude.ai/artifact/Bgy9pgXzhBNAiqxpS8oXGe
 Publish = copy game/{game.js,index.html,progression.js,models.js} to preview/ and publish preview/index.html with
-those three files. The preview runs levels 1-2 on the "wide yard" (PREVIEW = true, MAX_LEVEL 2).
+those three files. The preview runs levels 1-3 on the "wide yard" (PREVIEW = true, MAX_LEVEL 3).
+
+## Done in build 0.20 (level 3, Bible v1.3)
+- Level 3 in the North field (bought from Abel via Vera on level 2): tool press pad at `P.tpress`, coil in-feed,
+  fitter spot, tool rack. Valley Garage (new buyer), Hartley Hardware and Kerr & Sons order tools.
+- Deliveries come by flatbed into bay 2 and unload onto a goods-in stack (`P.goodsIn`, where the rust heap was);
+  loaders carry timber to the old west stock room and steel to the coil bay. Free timber/steel ends at level 3.
+- Bible fixes: no blunt-blade event on levels 1-2 (Bible 4.5: no machine issues there); licence no longer asks for
+  operator safety gear (that upgrade was removed); the INSPECT checks are fire, guards, mechanic and parts.
+- Tests: `tools/level3.mjs`, `tools/car_sweep.mjs` (car path vs every collision box), plan map `plans/level3_plan.png`.
+
+## Done in build 0.19
+- Small crew: level 1 has one loader and no machine helper; the owner hands planks to the saw (feed x1.25) and
+  carries crates (2 by hand, 3+ needs a trolley from the trolley bay). Helper from level 2 when the mill is ready.
+- Sales: the owner's car in the lane by the front fence; the car door opens a town map (8 buyers with drive times,
+  book orders, accounts from 55% rep) and adverts (courier, poster, Friday show, sign). Gus runs the works while the
+  owner is away (signs lorries, serves the gate, answers the phone). Car reverses into its spot like the lorries.
+- Daily target chip, order terms (regular / rush x1.3 pay / bulk x2), tea urn, trade counter, signwriting on the car,
+  rain and the rival yard as small events on levels 1-2. Gates shut at night; the crew waits for the gate to stop.
+- Fixes: carried goods in the arms (not on the head); trolleys from the bay; audio stops in the background;
+  crowd push no longer clamps workers through walls. Tests: owner_work, extras, sales_trip, gate_traffic.
 
 ## Done in build 0.18
 - The working day: HUD clock (Mon-Fri from Monday 2 April 1973), 07:00-17:00 = 480 s of play. Shift whistle at 07:00;
