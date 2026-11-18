@@ -5096,7 +5096,8 @@ function updateEvents(dt){
   tickRain(dt); updateBlade(dt);
   if (!S.tutDone || cardOpen || (S.day && S.day.closing) || S.gus.party || S.level > 2) return;
   evT += dt; if (evT < evNext) return; evT = 0; evNext = rand(170, 280);
-  const opts = []; if (!S.blade && sawOp()) opts.push('blade'); if (!rain) opts.push('rain'); if (accounts().length && !(S.sales.rivalDay >= dayNo() - 2)) opts.push('rival');
+  // Bible 4.5: no issues of any kind on levels 1 and 2, so the blunt blade is not one of their events (build 0.20)
+  const opts = []; if (!rain) opts.push('rain'); if (accounts().length && !(S.sales.rivalDay >= dayNo() - 2)) opts.push('rival');
   const e = opts.length ? pick(opts) : null;
   if (e === 'blade') { S.blade = { at:dayNo() }; toast('The crate machine\'s blade has gone blunt: it cuts at 60%. Fit a new one at the side of the machine ($' + BLADE_COST + ').', 'bad'); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, 'Hear that? Blade\'s blunt. There\'s new ones on the bench.'); save(); }
   if (e === 'rain') startRain();

@@ -50,15 +50,15 @@ check(await ev(() => window.__iv.S.order && window.__iv.S.order.terms === 'bulk'
 await ev(() => { window.__iv.S.order = null; });
 // 3. things to buy
 await ev(() => { const S = window.__iv.S; S.walk.served = Math.max(1, S.walk.served); S.sales.trips = 1; S.delivered = 4; S.restored.lights = true; S.restored.paint = true; S.restored.yard = true; S.restored.windows = true; });
-for (const [id, at] of [['urn', [-8.3, -.75]], ['counter', [1.0, 8.6]], ['car', [12.9, 11.25]]]) {
+for (const [id, at] of [['urn', [-8.3, -.75]], ['counter', [1.0, 8.6]], ['car', [13.6, 9.3]]]) {
   await walkTo(at[0], at[1] - 1); await walkTo(...at);
   check(await until(i => window.__iv.S.restored[i], 40, id), `paid in for the ${id}`); }
 check(await ev(() => !!(window.__iv.M.urn && window.__iv.M.counter && window.__iv.M.carSigns)), 'the tea urn, the trade counter and the signwriting are in the yard');
 await ev(() => { window.__iv.camLock = [1.5, 9.5]; }); await wait(1200); await p.screenshot({ path:path.join(out, 'x2_counter.png') }); await ev(() => { window.__iv.camLock = [-8.5, -1.5]; }); await wait(1200); await p.screenshot({ path:path.join(out, 'x3_urn.png') }); await ev(() => { window.__iv.camLock = null; });
-// 4. the blunt blade
+// 4. the blunt blade (kept as a mechanism; Bible 4.5 keeps it out of the level 1-2 events)
 await ev(() => { window.__iv.S.blade = { at:0 }; });
 check(await ev(() => window.__iv.bladeK() < 1), 'a blunt blade slows the saw');
-await walkTo(P.sawFix[0], P.sawFix[1] + 1); await walkTo(...P.sawFix);
+await walkTo(13.6, 6.5); await walkTo(P.sawFix[0], P.sawFix[1] + 1); await walkTo(...P.sawFix);   // round the car door, not past it
 check(await until(() => !window.__iv.S.blade, 20), 'standing at the side of the machine, the owner fits a new blade');
 // 5. rain
 await ev(() => window.__iv.startRain());
