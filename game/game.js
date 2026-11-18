@@ -190,7 +190,7 @@ const P = {
   seats:[[-10.3, -1.75], [-9.7, -1.75], [-9.1, -1.75]], frontIn:[5.0, 10.6], frontOut:[5.0, 15.0],
   patrol:[[0.5, 6.4], [10.5, 4.0], [-6.0, 5.0], [14.0, 8.0]],
   // the stock room is not needed in levels 1-7 (Bible: timber is always in stock); its rack stays as dressing
-  storeRack:[-11.6, 4.0], storeSpot:[-10.6, 4.0], trolleyPark:[-11.0, 7.4], unload:[22.35, 7.1], supPark:[20.8, 7.4],
+  storeRack:[-11.6, 4.0], storeSpot:[-10.6, 4.0], trolleyPark:[-9.9, 5.0], unload:[22.35, 7.1], supPark:[20.8, 7.4],
   // staff welfare is not part of the 1973 game (Bible: workers never tire); these props are parked off the map
   cooler:[-90, -90], coolerSpot:[-90, -89.4], bottleRack:[-92, -90], bottleSpot:[-92, -89.3], cleanerHome:[-94, -90], wcCleanSpot:[-96, -90], coffee:[-98, -90],
   loaderHome:[8.0, 4.8], loaderWait:[10.0, 3.2], dockWait:[15.25, 8.9], gus:[3.2, -0.4], gus2:[3.6, 0.2], wcZone:[-96, -90], wcCheck:[-96, -89],
