@@ -78,5 +78,8 @@ console.log(`[package] three ${version} bundled -> ${path.relative(ROOT, OUT)}, 
 // 6. the phone copy (Termux / any local web server): the same bundle without the YouTube Playables SDK line, so it
 //    opens instantly and runs fully offline. Serve dist/phone/ and open http://localhost:8080 on the phone.
 const PHONE = path.join(ROOT, 'dist', 'phone'); fs.rmSync(PHONE, { recursive:true, force:true }); fs.cpSync(OUT, PHONE, { recursive:true });
-fs.writeFileSync(path.join(PHONE, 'index.html'), html.replace('<script src="https://www.youtube.com/game_api/v1"></script>\n', ''));
+// the game script is asked for under a name that changes with every build (game.js?v=<hash>), so Chrome on the phone
+// never keeps running an older cached copy after a git pull
+const ver = (await import('node:crypto')).createHash('sha1').update(fs.readFileSync(path.join(PHONE, 'game.js'))).digest('hex').slice(0, 10);
+fs.writeFileSync(path.join(PHONE, 'index.html'), html.replace('<script src="https://www.youtube.com/game_api/v1"></script>\n', '').replace('<script type="module" src="game.js"></script>', `<script type="module" src="game.js?v=${ver}"></script>`));
 console.log(`[package] phone copy -> ${path.relative(ROOT, PHONE)} (no Playables SDK, runs offline)`);
