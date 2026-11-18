@@ -46,6 +46,17 @@ check(await until(() => window.__iv.S.walk.served === 1, 15), 'customer served a
 const cash1 = await ev(() => window.__iv.S.cash); check(cash1 > cash0, `cash went up by ${Math.round(cash1 - cash0)}`);
 await wait(800); await p.screenshot({ path:path.join(out, 'w3_paid.png') }); console.log('paid', await st());
 check(await until(() => !window.__iv.walker, 120), 'customer walked out of the gate');
+// 1b. the pallet is empty and no order wants crates: the saw cuts what the customer at the gate needs
+await ev(() => { const v = window.__iv; v.S.pallet = 0; v.syncPallet(); v.spawnWalker(true); });
+await until(() => window.__iv.walker && window.__iv.walker.state === 'wait', 120);
+const want2 = await ev(() => window.__iv.walker.n);
+check(await ev(() => !window.__iv.S.order || !window.__iv.S.order.qty), 'no crates on order (the case from the phone)');
+check(await until(() => window.__iv.sawOn, 60), 'the saw starts for the customer at the gate');
+check(await until(n => window.__iv.S.pallet >= n, 90, want2), `the saw cuts the ${want2} crates the customer wants`);
+await wait(4000); check(await ev(n => window.__iv.S.pallet <= n + 1, want2), 'and stops there (no extra stock)');
+await walkTo(...P.pallet); await until(n => window.__iv.owner.stack.length >= n, 20, want2); await walkTo(P.trade[0], P.trade[1] - .9);
+check(await until(() => window.__iv.S.walk.served === 2, 30), 'second customer served');
+await until(() => !window.__iv.walker, 120);
 // 2. lunch: 11:58 to 12:31
 await walkTo(P.saw[0] + 3, P.saw[1] + 3);
 await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * 480 + 239; });
@@ -78,7 +89,7 @@ check(await ev(() => [...window.__iv.staffObj.values()].every(c => c.gone && !c.
 check(await ev(() => { const g = window.__iv.folk.get('gus'); return !g || g.gone; }), 'Gus has gone home');
 await wait(800); await p.screenshot({ path:path.join(out, 'w6_daybook.png') }); await ev(() => { window.__iv.camLock = null; });
 const card = await ev(() => document.getElementById('storyBody').innerText); console.log(card);
-check(/Gate trade\s+1 served, 1 walked off/.test(card), 'day book counts the gate trade');
+check(/Gate trade\s+2 served, 1 walked off/.test(card), 'day book counts the gate trade');
 check(/to beat/.test(card), 'first day sets the mark to beat');
 await ev(() => document.querySelector('#storyBody .btn.primary').click()); await wait(800);
 check(await until(() => !window.__iv.cardOpen && !window.__iv.S.day.closing, 10), 'the next morning starts');
