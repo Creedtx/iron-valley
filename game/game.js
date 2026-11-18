@@ -805,7 +805,8 @@ function buildWorld(){
   fence(X0, Z1, G0, Z1); fence(G1, Z1, T0, Z1); M.frontFenceE = fence(T1, Z1, X1, Z1, 'frontFenceE');
   for (const x of [G0, G1, T0, T1]) { put(inst('env_gate_post'), x, Z1); addCol([x - .25, Z1 - .25, x + .25, Z1 + .25]); }
   const gw = std('#6e4a2c', .9);   // the two timber gate leaves, swung open
-  for (const [x, r] of [[G0 + .1, -1.2], [G1 - .1, Math.PI + 1.2]]) { const g = new THREE.Group(); g.position.set(x, 0, Z1); g.rotation.y = r; world.add(g);
+  M.gateLeaves = [];   // build 0.18: they swing shut after the last of the crew leaves at 17:00 and open again at 07:00
+  for (const [x, r, shut] of [[G0 + .1, -1.2, 0], [G1 - .1, Math.PI + 1.2, Math.PI]]) { const g = new THREE.Group(); g.position.set(x, 0, Z1); g.rotation.y = r; world.add(g); M.gateLeaves.push({ g, open:r, shut });
     for (let k = 0; k < 5; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(.36, 1.6, .06), gw); b.position.set(.2 + k * .38, .85, 0); b.castShadow = true; g.add(b); }
     const br = new THREE.Mesh(new THREE.BoxGeometry(1.9, .12, .08), std('#4a3424', .9)); br.position.set(.95, .5, .04); br.rotation.z = .6; g.add(br); colOf(g, .02); }
   // the company board by the road
@@ -4160,7 +4161,7 @@ function plotBeat(id){
 }
 function objective(){
   if (showUpg && T < showUpg.until && !officeOpen) return { t:`New: ${showUpg.name}. Take a look`, at:showUpg.at };
-  if (S.tutDone && S.day && S.day.closing) return { t:'17:00: the crew is clocking off. The day book opens when the yard is empty', at:null };
+  if (S.tutDone && S.day && S.day.closing) return { t:S.day.closing.shut ? '17:00: the gates are shut for the night' : '17:00: the crew is clocking off. The gates shut when the yard is empty', at:null };
   if (!S.tutDone) { const s = TUT[Math.min(S.tut, TUT.length - 1)]; return { t:s.text ? s.text() : s.t, at:s.atFn ? s.atFn() : s.at && s.at(), alert:s.alert }; }
   const und = S.faults.find(f => !f.diag);
   const guided = S.faults.find(f => f.guided);
@@ -4558,14 +4559,24 @@ function whistle(len = 1.2, vol = 1){
   ng.gain.setValueAtTime(.0001, t0); ng.gain.exponentialRampToValueAtTime(.05 * vol, t0 + .08); ng.gain.setValueAtTime(.05 * vol, t1); ng.gain.exponentialRampToValueAtTime(.0001, t1 + .6);
   n.connect(bp).connect(ng).connect(master()); n.start(t0); n.stop(t1 + .65);
 }
+// the main gate's two timber leaves: shut from when the yard is empty at 17:00 until the morning whistle. While shut a
+// bar across the gateway keeps everyone in (or out); the leaves swing over about a second and a half.
+const gateShut = () => !!(S.day && S.day.closing && S.day.closing.shut);
+function updateGates(dt){
+  if (!M.gateLeaves) return; const want = gateShut();
+  for (const L of M.gateLeaves) { const to = want ? L.shut : L.open, d = to - L.g.rotation.y; if (Math.abs(d) < .002) { L.g.rotation.y = to; continue; } L.g.rotation.y += Math.sign(d) * Math.min(Math.abs(d), dt * 1.0); }
+  if (want && !COL.has('gateShut')) addCol([3.0, SITE.z1 - .12, 7.0, SITE.z1 + .12], 'gateShut'); else if (!want && COL.has('gateShut')) COL.delete('gateShut');
+}
 function updateDay(dt){
   if (!S.day) S.day = { n:dayNo(), at:daySnap(), lunch:-1, back:-1, best:null, book:[] };
-  const D = S.day;
+  const D = S.day; updateGates(dt);
   // after the knocking-off whistle the clock holds at 17:00 (no order clock runs) while the crew clocks off;
   // the day book opens once the yard is empty, or after 40 s if somebody is still finishing a job
   if (D.closing && D.closing.card && !cardOpen) { morning(); return; }   // the day book was closed: next morning
   if (D.closing) { S.time = D.closing.at; if (S.order) S.order.time = Math.max(0, S.order.time - dt); D.closing.t += dt;
-    if (!D.closing.card && !cardOpen && ((D.closing.t > 4 && yardEmpty()) || D.closing.t > 40)) { D.closing.card = true; endOfDay(D.n); }
+    if (!D.closing.shut && ((D.closing.t > 4 && yardEmpty()) || D.closing.t > 40)) { D.closing.shut = true; D.closing.st = 0; sfxAt('clank', 5, SITE.z1); toast('The gates are shut for the night.', ''); }
+    if (D.closing.shut) { D.closing.st = (D.closing.st || 0) + dt; if (D.closing.st > .9 && !D.closing.lock) { D.closing.lock = true; sfxAt('clank', 5, SITE.z1); sfx('drop'); } }   // the leaves meet, the bolt drops
+    if (D.closing.shut && D.closing.st > 2.2 && !D.closing.card && !cardOpen) { D.closing.card = true; endOfDay(D.n); }
     return; }
   const n = dayNo(), m = dayMin();
   if (n > D.n) { if (S.tutDone && !resetting && !S.gus.party) knockOff(n); else { D.n = n; D.at = daySnap(); toast(`${dayDate(n)}. 07:00: the gates are open.`, 'gold'); whistle(); } save(); return; }
@@ -4630,7 +4641,7 @@ function clockIn(){
   const g = folk.get('gus'); if (g && g.gone) { g.gone = false; g.o.visible = true; g.o.position.set(P.frontOut[0] + 1, 0, P.frontOut[1] + .4); g.job = null; g.gs = null; g.path = null; }
   save();
 }
-function morning(){ clockIn(); whistle(); toast(`${dayDate(dayNo())}. 07:00: the shift whistle. The gates are open.`, 'gold'); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, pick(['Morning, boss. Kettle\'s on.', 'Another day, another lorry.', 'Frost on the timber. She\'ll cut fine.', 'Morning. The radio says rain later.'])); }
+function morning(){ clockIn(); whistle(); sfxAt('clank', 5, SITE.z1); toast(`${dayDate(dayNo())}. 07:00: the shift whistle. The gates swing open.`, 'gold'); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, pick(['Morning, boss. Kettle\'s on.', 'Another day, another lorry.', 'Frost on the timber. She\'ll cut fine.', 'Morning. The radio says rain later.'])); }
 
 // The crew at lunch: operators and loaders put down what they are doing (a loader finishes his carry first) and
 // sit on the bench by the workshop; the ones who find no seat stand with them. The fitters stay on call.
@@ -4921,7 +4932,7 @@ async function boot(){
   const ld = $('loading'); setTimeout(() => { ld.style.opacity = 0; setTimeout(() => { ld.remove(); try { yt && yt.game.gameReady(); } catch(e){} }, 600); }, 350);
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
-  window.__iv = { gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  window.__iv = { gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });
