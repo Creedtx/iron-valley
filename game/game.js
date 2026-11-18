@@ -523,13 +523,15 @@ function findPath(x, z, tx, tz){
   return path;
 }
 const RAD = 0.27;
-function collide(p){
+// 'bounds': the owner is kept inside the fence line; the crew are kept out of walls and fences by the boxes alone, so a
+// push in the gateway (or on the road at clock-in) can never snap a worker through the fence (build 0.18e)
+function collide(p, bounds = true){
   for (const [x0, z0, x1, z1] of COL.values()) {
     const cx = clamp(p.x, x0, x1), cz = clamp(p.z, z0, z1), dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz);
     if (d < RAD) { if (d > 1e-4) { p.x = cx + dx / d * RAD; p.z = cz + dz / d * RAD; }
       else { const o = [[p.x - x0, -1, 0], [x1 - p.x, 1, 0], [p.z - z0, 0, -1], [z1 - p.z, 0, 1]].sort((a, b) => a[0] - b[0])[0]; p.x += o[1] * (o[0] + RAD); p.z += o[2] * (o[0] + RAD); } }
   }
-  const b = siteBounds(); p.x = clamp(p.x, b[0], b[1]); p.z = clamp(p.z, b[2], b[3]);
+  if (!bounds) return; const b = siteBounds(); p.x = clamp(p.x, b[0], b[1]); p.z = clamp(p.z, b[2], b[3]);
 }
 
 /* =====================================================================
@@ -2722,8 +2724,8 @@ function separate(dt){
     if (d > .52 || d < 1e-4) continue;
     const pa = held(a) ? 0 : 1, pb = held(b) ? 0 : 1; if (!pa && !pb) continue;
     const push = Math.min(.52 - d, dt * 1.6) / (pa + pb), nx = dx / d, nz = dz / d;
-    if (pa) { a.o.position.x -= nx * push; a.o.position.z -= nz * push; collide(a.o.position); }
-    if (pb) { b.o.position.x += nx * push; b.o.position.z += nz * push; collide(b.o.position); }
+    if (pa) { a.o.position.x -= nx * push; a.o.position.z -= nz * push; collide(a.o.position, a === owner); }
+    if (pb) { b.o.position.x += nx * push; b.o.position.z += nz * push; collide(b.o.position, b === owner); }
   }
 }
 // a worker whose routine throws is put back on its feet: needs and jobs released, back to idle. The error is
@@ -4683,7 +4685,7 @@ function closingStep(c, dt){
     if (c.st.role === 'forklift' || c.stack.length || c.trolley || (c.tplanks && c.tplanks.length) || c.state === 'fixing') return false;   // finish what is in hand first
     if (c.lunch) { if (c.lunch === 'eat') standUp(c); c.lunch = null; c.lunchI = undefined; }
     releaseCart(c); c.state = 'leave'; if (cartHome(c, dt)) return true;
-    c.leaving = true; c.state = 'leave'; c.task = null; c.path = null; goTo(c, P.frontOut[0] + rand(-.6, .6), P.frontOut[1] + .4); c.say = { text:pick(GOODNIGHT), until:T + 2.6 }; }
+    const k = [...staffObj.values()].filter(o => o.leaving || o.gone).length; c.leaving = true; c.state = 'leave'; c.task = null; c.path = null; goTo(c, P.frontOut[0] + (k % 2 ? 1 : -1) * (.5 + Math.floor(k / 2) * .7), P.frontOut[1] + .5); c.say = { text:pick(GOODNIGHT), until:T + 2.6 }; }
   if (walk(c, dt)) { c.gone = true; c.leaving = false; c.o.visible = false; }
   return true;
 }
@@ -4693,7 +4695,7 @@ function clockIn(){
   D.n = Math.round((D.closing.at + .01) / DAY_S); S.time = D.n * DAY_S + .01; D.closing = null; D.at = daySnap();
   let k = 0;
   for (const c of staffObj.values()) { c.leaving = false; if (!c.gone) continue; c.gone = false; c.o.visible = true;
-    c.o.position.set(P.frontOut[0] - 1.2 - k * .7, 0, P.frontOut[1] + .4); k++; c.path = null; c.task = null; c.state = 'arrive'; goTo(c, P.frontIn[0], P.frontIn[1]); }
+    c.o.position.set(P.frontOut[0] + (k % 2 ? 1 : -1) * (.6 + Math.floor(k / 2) * .75), 0, P.frontOut[1] + .5); k++; c.path = null; c.task = null; c.state = 'arrive'; goTo(c, P.frontIn[0], P.frontIn[1]); }
   const g = folk.get('gus'); if (g && g.gone) { g.gone = false; g.o.visible = true; g.o.position.set(P.frontOut[0] + 1, 0, P.frontOut[1] + .4); g.job = null; g.gs = null; g.path = null; }
   save();
 }
