@@ -1362,7 +1362,7 @@ function updateSaw(dt){
   if (orderLeft() > 0 || (sawOn && S.order && S.order.briefed)) { const k = sawOn ? 'Cutting' : why.label[2]; const d = S.sawLog || (S.sawLog = {}); d[k] = (d[k] || 0) + dt; }
   sawStallT = why && why.stall ? sawStallT + dt : 0;
   if (sawStallT > 6) { sawStallT = 0; const oc = sawOp();
-    if (oc && !oc.talk && !oc.need) { oc.o.position.set(P.op[0], 0, P.op[1]); oc.path = null; oc.wd = null; oc.state = 'work'; oc.faceNow(Math.PI); S.sawRescues = (S.sawRescues || 0) + 1; } }
+    if (rescueOp(oc, P.op)) S.sawRescues = (S.sawRescues || 0) + 1; }
 }
 // One answer to "why is the saw not cutting?", used by the machine label, the operator's status tag and the
 // stall watchdog, so the three can never disagree (build 0.7 showed "Operator away" over a waiting operator).
@@ -1589,7 +1589,7 @@ function updatePipeMill(dt){
   const why = pipeOn ? null : pipeReason();
   if (S.order && S.order.briefed && pipeLeft() > 0) { const key = pipeOn ? 'Cutting' : why.label[2]; const d = S.pipeLog || (S.pipeLog = {}); d[key] = (d[key] || 0) + dt; }
   pipeStallT = why && why.stall ? pipeStallT + dt : 0;
-  if (pipeStallT > 6) { pipeStallT = 0; const oc = pipeOp(); if (oc && !oc.talk && !oc.need) { oc.o.position.set(P.pop[0], 0, P.pop[1]); oc.path = null; oc.wd = null; oc.state = 'work'; oc.faceNow(Math.PI); S.pipeRescues = (S.pipeRescues || 0) + 1; } }
+  if (pipeStallT > 6) { pipeStallT = 0; const oc = pipeOp(); if (rescueOp(oc, P.pop)) S.pipeRescues = (S.pipeRescues || 0) + 1; }
 }
 // one answer to "why is the pipe mill not running?" for its label, its operator and the order ticket
 function pipeReason(){
@@ -1755,6 +1755,12 @@ const steelTools = () => S.tcoil + (S.tfeed + S.coils + (S.delivery && S.deliver
 const coilsFor = d => { let n = 0; for (const o of staffObj.values()) if (o.carryType === 'coil' && (o.coilDest || 'mill') === d) n += o.stack.length; return n; };
 let toolT = 0, toolOn = false, toolBy = null, toolStallT = 0;
 function pressWorker(){ if (!pressReady() || !circuitOn('tool')) return null; return handOn(pressOp(), P.top, P.tpress); }
+// the production watchdog sends an operator who has not reached his machine walking back to it (never a jump), and
+// never while he is at lunch, clocking off, carrying something or already on his way
+function rescueOp(oc, spot){
+  if (!oc || !spot || oc.talk || oc.need || oc.lunch || oc.gone || oc.leaving || oc.stack.length || oc.state === 'toWork' || oc.state === 'work' || lunchTime() || closingTime()) return false;
+  oc.wd = null; goTo(oc, spot[0], spot[1]); oc.state = 'toWork'; return true;
+}
 function updateToolPress(dt){
   if (!pressReady()) { toolOn = false; return; }
   const by = pressWorker();
@@ -1784,7 +1790,7 @@ function updateToolPress(dt){
   const why = toolOn ? null : toolReason();
   if (S.order && S.order.briefed && toolLeft() > 0) { const key = toolOn ? 'Cutting' : why.label[2]; const d = S.toolLog || (S.toolLog = {}); d[key] = (d[key] || 0) + dt; }
   toolStallT = why && why.stall ? toolStallT + dt : 0;
-  if (toolStallT > 6) { toolStallT = 0; const oc = pressOp(); if (oc && !oc.talk && !oc.need) { oc.o.position.set(P.top[0], 0, P.top[1]); oc.path = null; oc.wd = null; oc.state = 'work'; oc.faceNow(Math.PI); S.toolRescues = (S.toolRescues || 0) + 1; } }
+  if (toolStallT > 6) { toolStallT = 0; const oc = pressOp(); if (rescueOp(oc, P.top)) S.toolRescues = (S.toolRescues || 0) + 1; }
 }
 // one answer to "why is the tool press not running?" for its label, its operator and the order ticket
 function toolReason(){
@@ -2526,7 +2532,7 @@ function updateLoader(c, dt){
     else if (task === 'unload') { goTo(c, ...P.unload); c.state = 'toUnload'; }
     else if (task === 'deliverTimber') { goTo(c, ...P.storeSpot); c.state = 'toStore'; }
     else if (task === 'sweep') { c.sweep = 3; c.state = 'toSweep'; const sp = pick(SWEEP); goTo(c, ...sp); }
-    else if (task === 'restock') { trolleyBy = c.st.id; goTo(c, P.trolleyPark[0] - .95, P.trolleyPark[1]); c.state = 'toTrolley'; }
+    else if (task === 'restock') { trolleyBy = c.st.id; goTo(c, P.trolleyPark[0] + .95, P.trolleyPark[1]); c.state = 'toTrolley'; }
     else { if (c.state !== 'waiting') { const w = task === 'helperWait' ? [P.feedRing[0] + .9, P.feedRing[1] + .2] : task === 'waitDock' ? P.dockWait : [P.loaderWait[0] + (c.st.id % 2) * .7, P.loaderWait[1]]; goTo(c, ...w); c.state = 'waiting'; } if (walk(c, dt)) c.play('idle'); }
     return;
   }
@@ -5016,6 +5022,9 @@ function carDrive(path, dt, vmax){
 function carYield(path){
   const a = M.car.position, ahead = pathAt(path, Math.min(path.len, CAR.s + (path === CAR_REV ? 1.6 : 3))), bx = ahead.x - a.x, bz = ahead.z - a.z, L2 = bx * bx + bz * bz || 1;
   const people = [...staffObj.values(), ...folk.values(), ...(walker ? [walker.c] : [])];
+  // the main gate's mouth on the road: people come and go there, so the car waits short of it until it is clear
+  const nearGate = a.z > 13.4 && ((path === CAR_BACK && a.x > -5 && a.x < 2.4) || (path === CAR_OUT && a.x > 7.6 && a.x < 15 && a.z > 16));
+  if (nearGate && people.some(c => c.o.visible && !c.gone && c.o.position.x > 2.2 && c.o.position.x < 7.8 && c.o.position.z > 13.4 && c.o.position.z < 16.6)) return true;
   for (const c of people) { if (!c.o.visible || c.gone) continue; const px = c.o.position.x - a.x, pz = c.o.position.z - a.z, t = clamp((px * bx + pz * bz) / L2, 0, 1);
     if (Math.hypot(px - bx * t, pz - bz * t) < .9) { if (!CAR.honk || T - CAR.honk > 4) { CAR.honk = T; sfxAt('horn', a.x, a.z, .25); } return true; } }
   return false;
@@ -5377,7 +5386,7 @@ async function boot(){
   const ld = $('loading'); setTimeout(() => { ld.style.opacity = 0; setTimeout(() => { ld.remove(); try { yt && yt.game.gameReady(); } catch(e){} }, 600); }, 350);
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
-  window.__iv = { objective, signOrder, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  window.__iv = { syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });
