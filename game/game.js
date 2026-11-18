@@ -2174,11 +2174,11 @@ function updateTruck(dt){
     const done = drive(truck, Tr, dt, ARRIVE.pts.find(q => q.rev).d, truck.state === 'arrive');
     if (done) { if (truck.state === 'arrive') { truck.state = 'docked'; sfxAt('horn', ...P.truck); addCol([P.truck[0] - 1.15, P.truck[1] - 2.45, P.truck[0] + 1.15, P.truck[1] + 2.75], 'truck'); parkedLamps(Tr); } else { truck.state = 'away'; truck.t = 0; callT = 0; S.bed = 0; S.pbed = 0; S.tbed = 0; syncBed(); syncPBed(); syncTBed(); } }
   } else if (truck.state === 'away') { truck.t += dt; Tr.position.set(ROAD_X, 0, -45);
-    if (S.order && truck.t > 9 / dockK() + (S.order.lateBy || 0) && !(trip && M.car.visible && M.car.position.x > 12.4 && M.car.position.z > 8.4 && M.car.position.z < 18) && !['arrive', 'leave'].includes(sup.state) && !(truckB.state === 'arrive' && truckB.s < 30)) { truck.state = 'arrive'; truck.s = 0; truck.path = ARRIVE; S.bed = 0; S.pbed = 0; S.tbed = 0; syncTBed(); syncBed(); syncPBed(); } }
+    if (S.order && !closingTime() && truck.t > 9 / dockK() + (S.order.lateBy || 0) && !(trip && M.car.visible && M.car.position.x > 12.4 && M.car.position.z > 8.4 && M.car.position.z < 18) && !['arrive', 'leave'].includes(sup.state) && !(truckB.state === 'arrive' && truckB.s < 30)) { truck.state = 'arrive'; truck.s = 0; truck.path = ARRIVE; S.bed = 0; S.pbed = 0; S.tbed = 0; syncTBed(); syncBed(); syncPBed(); } }
   if (tg) tg.rotation.z = lerp(tg.rotation.z, truck.state === 'docked' ? Math.PI / 2 * .96 : 0, Math.min(1, dt * 4));
   if (S.order) S.order.time += dt;
   if (S.order && S.order.terms === 'rush' && !S.order.ready && S.order.time > S.order.deadline && truck.state !== 'arrive' && truck.state !== 'leave') {
-    const o = S.order; S.pallet += S.bed; S.pipes += S.pbed; S.bed = 0; S.pbed = 0; syncBed(); syncPBed(); syncPallet(); syncPipes();
+    const o = S.order; unloadBed();
     S.order = null; repChange(-4); toast(`The rush lorry for ${o.client} would not wait: order lost, reputation −4. What was loaded is back on the pallet.`, 'bad');
     if (truck.state === 'docked') { truck.state = 'leave'; truck.s = 0; truck.path = LEAVE; COL.delete('truck'); sfx('horn'); } save(); }
   // the phone rings when there is no order and the truck has gone
@@ -2190,7 +2190,7 @@ function updateSupplier(dt){
   const Tr = M.flat;
   if (sup.state === 'away') { Tr.position.set(ROAD_X, 0, -60); sup.t += dt;
     if (S.delivery && S.delivery.left <= 0) S.delivery = null;   // goods-in cleared
-    if (S.delivery && onLorry() > 0 && sup.t > 4 && !['arrive', 'leave'].includes(truck.state) && !(trip && M.car.visible && M.car.position.x > 12.4 && M.car.position.z > 8.4 && M.car.position.z < 18)) { sup.state = 'arrive'; sup.s = 0; sup.path = SUP_ARRIVE; syncBundles(); } return; }
+    if (S.delivery && onLorry() > 0 && sup.t > 4 && !closingTime() && !['arrive', 'leave'].includes(truck.state) && !(trip && M.car.visible && M.car.position.x > 12.4 && M.car.position.z > 8.4 && M.car.position.z < 18)) { sup.state = 'arrive'; sup.s = 0; sup.path = SUP_ARRIVE; syncBundles(); } return; }
   if (sup.state === 'arrive' || sup.state === 'leave') {
     if (drive(sup, Tr, dt, SUP_ARRIVE.pts.find(q => q.rev).d, sup.state === 'arrive')) {
       if (sup.state === 'arrive') { sup.state = 'parked'; sfxAt('horn', ...P.supPark); addCol([P.supPark[0] - 1.15, P.supPark[1] - 2.45, P.supPark[0] + 1.15, P.supPark[1] + 2.75], 'supply'); parkedLamps(Tr); toast(S.delivery && S.delivery.kind === 'steel' ? 'Steel coils delivered. Loaders take them to the coil bay.' : 'Timber delivery at the stock room.', 'good'); }
@@ -2896,7 +2896,8 @@ function hire(role){
   const cost = hireCost(role); if (cost === undefined || S.cash < cost || S.staff.filter(s => s.role === role).length >= capOf(role)) return;
   S.cash -= cost; if (S.freeHires > 0 && cost === 0) { S.freeHires--; toast('One of Abel Thorne\'s nephews: no hiring fee.', 'gold'); } const used = S.staff.map(s => s.name); const name = NAMES.find(x => !used.includes(x)) || 'Sam';
   const st = { id:S.nextId++, name, role, lv:1, xp:0, energy:100, focus:100, look:newLook(role) }; if (S.level === 1 && (role === 'operator' || role === 'loader')) { st.posted = false; st.loyal = true; } if (role === 'operator') { const m = nextOpMachine(); if (m !== 'saw') st.mach = m; } S.staff.push(st);
-  const c = spawnStaff(st, ...P.frontOut); goTo(c, ...P.frontIn); c.state = 'arrive';
+  const k = [...staffObj.values()].filter(o => o.state === 'arrive').length, q = gateQueue(k);   // hired together: they come in one behind another
+  const c = spawnStaff(st, q[0], q[2]); goTo(c, ...P.frontIn); c.state = 'arrive'; if (k) c.holdUntil = T + k * .8;
   sfx('hire'); toast(st.posted === false ? `${name} joins as your ${ROLE[role].title.toLowerCase()}. Meet ${name} at the gate and walk them to their post.` : `${name} joins as your ${ROLE[role].title.toLowerCase()}.`, 'good'); save(); checkCharter(); renderOffice();
 }
 function train(id){
@@ -3174,6 +3175,9 @@ function ownerHands(dt){
     ['crate', () => near(o, P.pallet, 1.0), () => S.pallet, () => needCrates() - truckCrates(), () => { if (takeFrom('pallet', owner, 'crate')) { S.pallet--; syncPallet(); return true; } }, () => { if (giveTo(owner, 'pallet', world, palletPos, () => syncPallet())) { S.pallet++; return true; } }],
     ['pipe', () => !!M.prack && near(o, P.prackSpot, .8), () => S.pipes, () => needPipes() - truckPipes(), () => { if (takeFrom('rack', owner, 'pipe')) { S.pipes--; syncPipes(); return true; } }, () => { if (giveTo(owner, 'rack', world, pipeRackPos, () => syncPipes())) { S.pipes++; return true; } }],
     ['toolbox', () => !!M.trackRack && near(o, P.trackSpot, .8), () => S.tools, () => needTools() - truckTools(), () => { if (takeFrom('rack', owner, 'toolbox')) { S.tools--; syncTools(); return true; } }, () => { if (giveTo(owner, 'rack', world, toolRackPos, () => syncTools())) { S.tools++; return true; } }],
+    // the warehouse stock: what the racks and the pallet cannot cover (a gate customer, or the lorry) comes from here
+    ...[['crate', 'c', P.whSpotC, whCratePos, () => needCrates() - truckCrates() - S.pallet, whCapC], ['pipe', 'p', P.whSpotP, whPipePos, () => needPipes() - truckPipes() - S.pipes, whCapP], ['toolbox', 't', P.whSpotT, whToolPos, () => needTools() - truckTools() - S.tools, whCapT]]
+      .map(([type, k, spot, pos, need, cap]) => [type, () => whReady() && !!spot && near(o, spot, .8), () => S.wh[k], need, () => { if (takeFrom('wh', owner, type)) { S.wh[k]--; syncWh(); return true; } }, () => { if (S.wh[k] < cap() && giveTo(owner, 'wh', world, pos, () => syncWh())) { S.wh[k]++; return true; } }]),
   ];
   for (const [type, at, have, need, take, back] of picks) {
     if (!at()) continue;
@@ -3228,10 +3232,15 @@ function repChange(d, why){
   if (d < 0) d *= [1, .8, .65, .5][S.skills.name || 0];                         // Good name skill
   S.rep = clamp(S.rep + d, 0, 100); if (why) floatText(`Reputation ${d > 0 ? '+' : ''}${+d.toFixed(1)}`, owner.o.position.x, 2.4, owner.o.position.z, d > 0 ? 'info' : 'warn');
 }
+// a lorry that leaves without its load: what was on the bed goes back to its stack, and it no longer counts as shipped
+function unloadBed(){
+  S.pallet += S.bed; S.pipes += S.pbed; S.tools += S.tbed; S.shipped -= S.bed; S.pshipped -= S.pbed; S.tshipped -= S.tbed;
+  S.bed = 0; S.pbed = 0; S.tbed = 0; syncBed(); syncPBed(); syncTBed(); syncPallet(); syncPipes(); syncTools();
+}
 function giveUpOrder(){
   const o = S.order; if (!o) return;
   // anything already on the truck comes back to its stack; the truck leaves empty
-  S.pallet += S.bed; S.pipes += S.pbed; S.tools += S.tbed; S.bed = 0; S.pbed = 0; S.tbed = 0; syncBed(); syncPBed(); syncTBed(); syncPallet(); syncPipes(); syncTools();
+  unloadBed();
   S.order = null; repChange(-6); if (truck.state === 'docked' || truck.state === 'arrive') { truck.state = 'leave'; truck.s = 0; truck.path = LEAVE; COL.delete('truck'); }
   sfx('alarm', .5); toast('Order given up. Reputation −6. The next call comes soon.', 'bad'); save(); renderOffice();
 }
@@ -3433,6 +3442,13 @@ function mainsHtml(){
   return head + `<div class="up"><span class="ic">${icon('bolt')}</span><div><b>Apply for a mains connection</b><span class="note">${MAINS_KW} kW from the mains, the generator kept as the backup</span></div><button class="btn primary" data-mains="1" type="button" ${S.cash >= MAINS_PRICE ? '' : 'disabled'}>${fmt(MAINS_PRICE)}</button>
     <p>The board fits a transformer on its pole outside the east fence (permit ${MAINS_PERMIT} s, fitting ${MAINS_FIT} s). Then the works runs on the mains: ${MAINS_KW} kW instead of the generator's ${genKW()}, no diesel burnt, and a cheaper power bill. In a power cut the generator starts by itself.</p></div></div>`;
 }
+// where Gus puts down what is in his arms: crates on the pallet, pipes on the pipe rack, tools on the tool rack
+function gusPutBack(g){
+  const t = g.carryType;
+  if (t === 'pipe' && M.prack) return { at:P.prackSpot, give:() => giveTo(g, 'rack', world, pipeRackPos, () => syncPipes()) && (S.pipes++, true) };
+  if (t === 'toolbox' && M.trackRack) return { at:P.trackSpot, give:() => giveTo(g, 'rack', world, toolRackPos, () => syncTools()) && (S.tools++, true) };
+  return { at:[P.pallet[0] + .55, P.pallet[1] + .5], give:() => giveTo(g, 'pallet', world, palletPos, () => syncPallet()) && (S.pallet++, true) };
+}
 function updateGus(dt){
   gusVisitTick(); const g = folk.get('gus'); if (!g || !S.tutDone) return;
   g.old = true; g.wait = Math.max(0, (g.wait || 0) - dt);
@@ -3457,10 +3473,10 @@ function updateGus(dt){
   if (trip && !S.gus.retired && gusMind(g, dt)) return;
   const want = gusWants(g);
   if (g.job !== want && g.job !== 'back' && !(g.job === 'carry' && g.stack.length && truck.state === 'docked' && S.order && !S.order.ready)) {
-    if (g.stack.length) { g.job = 'back'; g.gs = 'toPallet'; goTo(g, P.pallet[0] + .55, P.pallet[1] + .5); }   // the truck left with crates in his arms: put them back
+    if (g.stack.length) { g.job = 'back'; g.gs = 'toPallet'; goTo(g, ...gusPutBack(g).at); }   // the truck (or the gate customer) left with goods in his arms: put them back where they came from
     else gusStart(g, want); }
   if (g.job === 'back') { if (g.gs === 'toPallet') { if (walk(g, dt)) g.gs = 'put'; return; }
-    g.play('idle'); if (g.wait > 0) return; if (g.stack.length && giveTo(g, 'pallet', world, palletPos, () => syncPallet())) { S.pallet++; g.wait = .3; return; } if (!g.stack.length) g.job = null; return; }
+    g.play('idle'); if (g.wait > 0) return; if (g.stack.length && gusPutBack(g).give()) { g.wait = .3; return; } if (!g.stack.length) g.job = null; return; }
   if (g.job === 'saw') {
     if (g.gs === 'toSaw') { if (walk(g, dt)) { g.gs = 'at'; g.o.position.set(P.op[0], 0, P.op[1]); g.faceNow(Math.PI); } return; }
     g.faceNow(Math.PI); g.play(sawBy === g ? 'work' : 'idle'); return; }
@@ -3996,7 +4012,7 @@ function updateTruckB(dt){
       else { truckB.state = 'away'; truckB.t = 0; call2T = 0; syncBed2(); } }
   } else if (truckB.state === 'away') { truckB.t += dt; Tr.position.set(ROAD_X - .9, 0, -52);
     // never two lorries on the same stretch of road: wait while the other truck is still driving in
-    if (o && truckB.t > 9 / dockK() + (o.lateBy || 0) && !(truck.state === 'arrive' && truck.s < 30)) { truckB.state = 'arrive'; truckB.s = 0; truckB.path = ARRIVE2; } }
+    if (o && !closingTime() && truckB.t > 9 / dockK() + (o.lateBy || 0) && !(truck.state === 'arrive' && truck.s < 30)) { truckB.state = 'arrive'; truckB.s = 0; truckB.path = ARRIVE2; } }
   if (tg) tg.rotation.z = lerp(tg.rotation.z, truckB.state === 'docked' ? Math.PI / 2 * .96 : 0, Math.min(1, dt * 4));
 }
 function checkLoaded2(){ const o = S.order2; if (!o || o.ready || ['c', 'p', 't'].some(k => o.l[k] < want2(o, k))) return;
@@ -4709,6 +4725,7 @@ function whistle(len = 1.2, vol = 1){
 // the main gate's two timber leaves: shut from when the yard is empty at 17:00 until the morning whistle. While shut a
 // bar across the gateway keeps everyone in (or out); the leaves swing over about a second and a half.
 const gateShut = () => !!(S.day && S.day.closing && S.day.closing.shut);
+const closingTime = () => !!(S.day && S.day.closing);   // after the knocking-off whistle no lorry comes in
 const gateSwinging = () => !!M.gateLeaves && M.gateLeaves.some(L => Math.abs(L.g.rotation.y - (gateShut() ? L.shut : L.open)) > .02);
 function updateGates(dt){
   if (!M.gateLeaves) return; const want = gateShut();
@@ -4722,7 +4739,7 @@ function updateDay(dt){
   // the day book opens once the yard is empty, or after 40 s if somebody is still finishing a job
   if (D.closing && D.closing.card && !cardOpen) { morning(); return; }   // the day book was closed: next morning
   if (D.closing) { S.time = D.closing.at; if (S.order) S.order.time = Math.max(0, S.order.time - dt); D.closing.t += dt;
-    if (!D.closing.shut && ((D.closing.t > 4 && yardEmpty()) || D.closing.t > 40)) { D.closing.shut = true; D.closing.st = 0; sfxAt('clank', 5, SITE.z1); toast('The gates are shut for the night.', ''); }
+    if (!D.closing.shut && ((D.closing.t > 4 && yardEmpty()) || (D.closing.t > 40 && !trip && !lorryMoving()))) { D.closing.shut = true; D.closing.st = 0; sfxAt('clank', 5, SITE.z1); toast('The gates are shut for the night.', ''); }
     if (D.closing.shut) { D.closing.st = (D.closing.st || 0) + dt; if (D.closing.st > .9 && !D.closing.lock) { D.closing.lock = true; sfxAt('clank', 5, SITE.z1); sfx('drop'); } }   // the leaves meet, the bolt drops
     if (D.closing.shut && D.closing.st > 2.2 && !D.closing.card && !cardOpen) { D.closing.card = true; endOfDay(D.n); }
     return; }
@@ -4770,9 +4787,10 @@ function dayCardHtml(d){
 const GOODNIGHT = ['Night, boss.', 'See you tomorrow.', 'That\'s me done. Night!', 'Same time tomorrow, boss.', 'Off home for my tea.'];
 function knockOff(n){
   S.day.closing = { at:n * DAY_S - .01, t:0, card:false }; S.time = S.day.closing.at;
+  if (trip && trip.phase === 'wait') { endTrip(); toast('Too late to go out now: the car stays parked.', ''); }   // still waiting at the spot for a lorry: the owner gets out
   whistle(2.2); toast('17:00, the knocking-off whistle. The crew finishes up and goes home.', 'gold');
 }
-const yardEmpty = () => [...staffObj.values()].every(c => c.gone || c.st.role === 'forklift' || c.st.posted === false) && !(folk.get('gus') && gusChar() && !S.gus.retired && !folk.get('gus').gone) && !walker;
+const yardEmpty = () => [...staffObj.values()].every(c => c.gone || c.st.role === 'forklift' || c.st.posted === false) && !(folk.get('gus') && gusChar() && !S.gus.retired && !folk.get('gus').gone) && !walker && !trip && !lorryMoving() && !['arrive', 'leave'].includes(truckB.state);   // the car is parked and no lorry is in the gateway before the gates shut
 function closingStep(c, dt){
   if (!(S.day && S.day.closing)) return false;
   if (c.gone) return true;
@@ -4784,14 +4802,17 @@ function closingStep(c, dt){
   if (walk(c, dt)) { c.gone = true; c.leaving = false; c.o.visible = false; }
   return true;
 }
+// people waiting on the road to come in at the main gate stand in two files inside the gateway's width, so walking
+// straight in they never cross the swung-open gate leaves (x 3.1-3.8 and 6.2-6.9)
+const gateQueue = k => [P.frontOut[0] + (k % 2 ? .45 : -.45), 0, P.frontOut[1] + .3 + Math.floor(k / 2) * .75];
 // 07:00: the clock moves on to the next working day and the crew clock in through the main gate, a step apart
 function clockIn(){
   const D = S.day; if (!D || !D.closing) return;
   D.n = Math.round((D.closing.at + .01) / DAY_S); S.time = D.n * DAY_S + .01; D.closing = null; D.at = daySnap();
   let k = 0;
   for (const c of staffObj.values()) { c.leaving = false; if (!c.gone) continue; c.gone = false; c.o.visible = true;
-    c.o.position.set(P.frontOut[0] + (k % 2 ? 1 : -1) * (.6 + Math.floor(k / 2) * .75), 0, P.frontOut[1] + .5); c.holdUntil = T + 1.7 + k * .45; k++; c.path = null; c.task = null; c.state = 'arrive'; goTo(c, P.frontIn[0], P.frontIn[1]); }
-  const g = folk.get('gus'); if (g && g.gone) { g.gone = false; g.o.visible = true; g.o.position.set(P.frontOut[0] + 1, 0, P.frontOut[1] + .4); g.job = null; g.gs = null; g.path = null; g.holdUntil = T + 1.7 + k * .45; }
+    c.o.position.set(...gateQueue(k)); c.holdUntil = T + 1.7 + k * .45; k++; c.path = null; c.task = null; c.state = 'arrive'; goTo(c, P.frontIn[0], P.frontIn[1]); }
+  const g = folk.get('gus'); if (g && g.gone) { g.gone = false; g.o.visible = true; g.o.position.set(...gateQueue(k)); g.job = null; g.gs = null; g.path = null; g.holdUntil = T + 1.7 + k * .45; }
   save();
 }
 // build 0.19: a target for each working day, set from how the day before went, with a cash bonus and +2 reputation
@@ -4856,6 +4877,13 @@ const WALK_TIP_S = 35, walkPatience = () => S.restored.counter ? 130 : 90;
 let walker = null, walkT = 0, walkNext = 45;
 const walkWaiting = () => !!(walker && (walker.state === 'in' || walker.state === 'wait'));
 const walkWant = type => walkWaiting() && walker.def.want === type ? walker.n - walker.got : 0;
+// build 0.20: a gate customer is served from the pallet or the pipe rack, and when that is empty, from the warehouse
+function gateSrc(type){
+  const k = type === 'pipe' ? 'p' : 'c', near0 = type === 'pipe' ? S.pipes : S.pallet;
+  if (near0 > 0 || !whReady() || !(S.wh[k] > 0)) return { at:type === 'pipe' ? P.prackSpot : P.pallet, have:near0, name:type === 'pipe' ? 'pipe rack' : 'pallet', wh:false,
+    take:ch => type === 'pipe' ? takeFrom('rack', ch, 'pipe') && (S.pipes--, syncPipes(), true) : takeFrom('pallet', ch, 'crate') && (S.pallet--, syncPallet(), true) };
+  return { at:type === 'pipe' ? P.whSpotP : P.whSpotC, have:S.wh[k], name:'warehouse', wh:true, take:ch => takeFrom('wh', ch, type) && (S.wh[k]--, syncWh(), true) };
+}
 function walkUnit(type){ const k = (0.9 + S.rep / 500) * bandPay(); return type === 'pipe' ? PIPE_PRICE * PG.econ(Math.max(2, S.level)).price * k : S.level === 1 ? 12 * k : CRATE_PRICE * PG.econ(S.level).price * k; }
 const walkPrice = w => Math.round(w.n * walkUnit(w.def.want) * 1.25 * (S.restored.counter ? 1.1 : 1));
 function spawnWalker(force){
@@ -4876,7 +4904,11 @@ function updateWalkin(dt){
     if (!S.tutDone || S.gus.party || cardOpen || dayMin() > SHIFT_MIN - 30 || (S.day && S.day.closing) || rain) return;   // nobody walks in during the last half hour
     walkT += dt; if (walkT > walkNext) spawnWalker(); return; }
   const w = walker, c = w.c;
-  if (S.day && S.day.closing && w.state !== 'out') { c.say = { text:'Closing up? I\'ll come back tomorrow.', until:T + 3 }; walkerLeave(); return; }
+  if (S.day && S.day.closing && w.state !== 'out') {   // knocking-off: they pay for anything already handed over, and go
+    if (w.got > 0) { const part = Math.round(w.got * walkUnit(w.def.want) * 1.25); S.cash += part; S.earned += part; S.walk.cash += part; S.walk.served++; floatText(`+${fmt(part)}`, c.o.position.x, 2.0, c.o.position.z); sfx('coin');
+      c.say = { text:'Closing up? I\'ll pay for these and take them.', until:T + 3 }; toast(`${w.def.name} paid ${fmt(part)} for the ${w.got} ${w.def.want}${w.got === 1 ? '' : 's'} handed over before closing.`, ''); }
+    else c.say = { text:'Closing up? I\'ll come back tomorrow.', until:T + 3 };
+    walkerLeave(); return; }
   if (w.state === 'in') { if (c.cart) c.play('carry', 1); if (walk(c, dt)) { w.state = 'wait'; c.o.position.set(TRADE[0], 0, TRADE[1]); c.faceNow(Math.PI); } return; }
   if (w.state === 'out') { if (walk(c, dt)) walkerGone(); else if (c.stack.length || c.cart) c.play('carry', 1); return; }
   // waiting by the gate
@@ -4909,10 +4941,10 @@ function updateWalkin(dt){
 function walkBeat(){
   if (!walkWaiting() || walker.state !== 'wait') return null;
   const w = walker, left = w.n - w.got, type = w.def.want, what = `${left} ${type}${left === 1 ? '' : 's'}`, price = fmt(walkPrice(w)), urgent = walkPatience() - w.t < 30;
-  const holding = owner.carryType === type ? owner.stack.length : 0, src = type === 'pipe' ? P.prackSpot : P.pallet, have = type === 'pipe' ? S.pipes : S.pallet;
+  const holding = owner.carryType === type ? owner.stack.length : 0, g = gateSrc(type), have = g.have;
   if (holding >= left || (holding && have === 0)) return { t:`Hand ${w.def.name} the ${type}s at the gate (${price} cash)`, at:TRADE, alert:urgent };
-  if (have === 0 && !holding) return { t:`${w.def.name} wants ${what} at the gate, but the ${type === 'pipe' ? 'pipe rack' : 'pallet'} is empty. ${type === 'pipe' ? 'The mill' : 'The saw'} is making more`, at:type === 'pipe' ? P.pmill : P.saw, alert:urgent };
-  return { t:`${w.def.name} is at the gate for ${what} (${price}, cash). Fetch them from the ${type === 'pipe' ? 'pipe rack' : 'pallet'}`, at:src, alert:urgent };
+  if (have === 0 && !holding) return { t:`${w.def.name} wants ${what} at the gate, but the ${type === 'pipe' ? 'pipe rack' : 'pallet'}${whReady() ? ' and the warehouse are' : ' is'} empty. ${type === 'pipe' ? 'The mill' : 'The saw'} is making more`, at:type === 'pipe' ? P.pmill : P.saw, alert:urgent };
+  return { t:`${w.def.name} is at the gate for ${what} (${price}, cash). Fetch them from the ${g.name}${g.wh ? ' stock' : ''}`, at:g.at, alert:urgent };
 }
 
 /* =====================================================================
@@ -4979,10 +5011,19 @@ function carDrive(path, dt, vmax){
   CAR.v += clamp(want - CAR.v, -5 * dt, 2.6 * dt); CAR.s += Math.max(0, CAR.v) * dt;
   const q = pathAt(path, CAR.s); M.car.position.set(q.x, 0, q.z); M.car.rotation.y = q.yaw; return CAR.s >= path.len - .03;
 }
+// the car stops for anybody in its way (a gate customer on the verge, a worker crossing the lane) and goes on once
+// they have passed: it looks along the next 3 m of its path, 0.9 m either side
+function carYield(path){
+  const a = M.car.position, ahead = pathAt(path, Math.min(path.len, CAR.s + (path === CAR_REV ? 1.6 : 3))), bx = ahead.x - a.x, bz = ahead.z - a.z, L2 = bx * bx + bz * bz || 1;
+  const people = [...staffObj.values(), ...folk.values(), ...(walker ? [walker.c] : [])];
+  for (const c of people) { if (!c.o.visible || c.gone) continue; const px = c.o.position.x - a.x, pz = c.o.position.z - a.z, t = clamp((px * bx + pz * bz) / L2, 0, 1);
+    if (Math.hypot(px - bx * t, pz - bz * t) < .9) { if (!CAR.honk || T - CAR.honk > 4) { CAR.honk = T; sfxAt('horn', a.x, a.z, .25); } return true; } }
+  return false;
+}
 const lorryMoving = () => truck.state === 'arrive' || truck.state === 'leave' || sup.state === 'arrive' || sup.state === 'leave';
 const canDrive = () => S.tutDone && !trip && !owner.stack.length && !owner.cart && !S.gus.party && !(S.day && S.day.closing) && !!M.car;
 function startTrip(kind, key){
-  if (!canDrive()) return; const d = kind === 'ad' ? ADS[key] : PLACES[key];
+  if (!canDrive()) return; const d = kind === 'ad' ? ADS[key] : PLACES[key]; if (tooLate(d)) { toast(`Too late for ${d.name} today: you would not be back by 17:00.`, ''); return; }
   trip = { kind, key, phase:'wait', t:0, min:d.min }; CAR.s = 0; CAR.v = 0; COL.delete('car');
   owner.o.visible = false; owner.o.position.set(...P.carDoor); sfxAt('drop', ...P.carSpot, .6); sales().trips++;
   toast(`Off to ${d.name}. Gus is minding the yard.`, 'gold'); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, pick(['Go on, I\'ll mind the phone.', 'Bring us back some work, boss.', 'I\'ll keep the kettle and the phone warm.']));
@@ -4995,6 +5036,7 @@ function updateTrip(dt){
   if (!trip) return; const T_ = trip; T_.t += dt;
   if (T_.phase === 'wait') { if (!lorryMoving()) { T_.phase = 'out'; CAR.s = 0; } return; }
   if (T_.phase === 'out') { const road = M.car.position.z > 14; if (!road && lorryMoving() && M.car.position.x > 12.4 && M.car.position.x < 15.2) return;   // wait short of the gateway
+    if (carYield(CAR_OUT)) { CAR.v = 0; return; }
     if (carDrive(CAR_OUT, dt, road ? 9 : 3)) { T_.phase = 'away'; T_.t = 0; M.car.visible = false; }
     if (M.car.position.x > -14) owner.o.position.set(M.car.position.x, 0, M.car.position.z); else owner.o.position.set(...P.carDoor); return; }
   const carK = S.restored.car ? .8 : 1;
@@ -5003,8 +5045,9 @@ function updateTrip(dt){
   if (T_.phase === 'home') { if (T_.t >= T_.min * .8 * carK) { if (lorryMoving()) return; T_.phase = 'back'; CAR.s = 0; CAR.v = 8; M.car.visible = true; } return; }
   if (T_.phase === 'back') { const road = M.car.position.z > 14; if (road && lorryMoving() && M.car.position.x > 6 && M.car.position.x < 15) return;
     if (M.car.position.x > -14) owner.o.position.set(M.car.position.x, 0, M.car.position.z);
+    if (carYield(CAR_BACK)) { CAR.v = 0; return; }
     if (carDrive(CAR_BACK, dt, road ? 9 : 3)) { T_.phase = 'park'; CAR.s = 0; CAR.v = 0; } return; }
-  if (T_.phase === 'park') { owner.o.position.set(M.car.position.x, 0, M.car.position.z); if (lorryMoving() && CAR.s < 4) return; if (carDrive(CAR_REV, dt, 1.6)) { endTrip(); toast('Back at the works.', ''); } }
+  if (T_.phase === 'park') { owner.o.position.set(M.car.position.x, 0, M.car.position.z); if (lorryMoving() && CAR.s < 4) return; if (carYield(CAR_REV)) { CAR.v = 0; return; } if (carDrive(CAR_REV, dt, 1.6)) { endTrip(); toast('Back at the works.', ''); } }
 }
 // the visit itself: a scene card; the drive home starts when it is closed
 function tripScene(){ story({ kind:trip.kind === 'ad' ? 'advert' : 'visit', key:trip.key }); }
@@ -5045,10 +5088,13 @@ const TOWN_SVG = () => { const pin = (d, col) => `<g transform="translate(${d.x}
   <g fill="none" stroke="#6b4a2a" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"><path d="M960 1010 L780 980 L640 900 L560 760 L520 620 L470 470 L430 330"/><path d="M520 620 L360 640 L250 700"/><path d="M640 900 L700 1080"/><path d="M470 470 L760 380 L980 360"/></g>
   <rect x="930" y="975" width="110" height="80" rx="8" fill="#8a3b1b" stroke="#2a1d14" stroke-width="5"/><text x="985" y="1090" text-anchor="middle" font-size="30" font-weight="700" fill="#2a1d14">YOU</text>
   ${Object.values(PLACES).filter(p => !p.lv || S.level >= p.lv).map(p => pin(p, '#e2a72c')).join('')}${Object.values(ADS).map(a => pin(a, '#6fa6d6')).join('')}</svg>`; };
+// a round trip in clock minutes: there and back (the away time is one game minute a minute) plus the drive through the yard
+const tripMin = d => 2 * d.min * (S.restored.car ? .8 : 1) + 25;
+const tooLate = d => !!d.min && dayMin() + tripMin(d) > SHIFT_MIN;
 function townHtml(){
-  const s = sales(), row = (k, d, ad) => { const acc = !ad && s.acc[k], seen = !ad && s.visited[k] === dayNo(), on = ad && adOn(k), fri = !ad || !d.friday || dayNo() % 5 === 4, lock = !ad && d.lv && S.level < d.lv;
-    const note = lock ? `opens at level ${d.lv}` : ad ? (on ? 'running' : !fri ? 'Fridays only' : fmt(d.cost)) : acc ? 'account ★' : seen ? 'visited today' : (d.mix === 'tool' ? 'tools' : d.mix === 'pipe' ? (S.level >= 3 && k === 'kerr' ? 'pipes, tools' : 'pipes') : d.mix === 'mix' ? (S.level >= 3 ? 'crates, pipes, tools' : 'crates, pipes') : 'crates');
-    return `<button class="trow ${ad ? 'ad' : ''}" data-go="${ad ? 'ad' : 'visit'}:${k}" type="button" ${lock || seen || (ad && (on || !fri)) ? 'disabled' : ''}><i>${d.n}</i><b>${d.name}</b><span>${d.min ? d.min + ' min' : 'here'}</span><small>${note}</small></button>`; };
+  const s = sales(), row = (k, d, ad) => { const acc = !ad && s.acc[k], seen = !ad && s.visited[k] === dayNo(), on = ad && adOn(k), fri = !ad || !d.friday || dayNo() % 5 === 4, lock = !ad && d.lv && S.level < d.lv, late = !lock && tooLate(d);
+    const note = lock ? `opens at level ${d.lv}` : late ? 'back after 17:00' : ad ? (on ? 'running' : !fri ? 'Fridays only' : fmt(d.cost)) : acc ? 'account ★' : seen ? 'visited today' : (d.mix === 'tool' ? 'tools' : d.mix === 'pipe' ? (S.level >= 3 && k === 'kerr' ? 'pipes, tools' : 'pipes') : d.mix === 'mix' ? (S.level >= 3 ? 'crates, pipes, tools' : 'crates, pipes') : 'crates');
+    return `<button class="trow ${ad ? 'ad' : ''}" data-go="${ad ? 'ad' : 'visit'}:${k}" type="button" ${lock || late || seen || (ad && (on || !fri)) ? 'disabled' : ''}><i>${d.n}</i><b>${d.name}</b><span>${d.min ? d.min + ' min' : 'here'}</span><small>${note}</small></button>`; };
   return `<div class="note" style="letter-spacing:.2em;text-transform:uppercase">Grandad's car · the valley</div><h3 style="margin:4px 0 8px;font:700 22px Georgia,serif">Where to, boss?</h3>${TOWN_SVG()}
     <div class="tlist">${Object.entries(PLACES).map(([k, d]) => row(k, d)).join('')}${Object.entries(ADS).map(([k, d]) => row(k, d, true)).join('')}</div>
     <p class="note" style="margin:8px 0">Times are one way. While you are out, Gus answers the phone, starts the orders, signs the lorry off and serves the gate. Phone interest: ${interest().toFixed(1)} (a call about every ${Math.round(callGap())} s when the yard is free).</p>
@@ -5076,9 +5122,10 @@ function gusMind(g, dt){
   const go = (job, at) => { if (g.job !== job) { g.job = job; g.gs = 'go'; goTo(g, ...at); } return g.gs === 'go' ? (walk(g, dt) ? (g.gs = 'at', true) : false) : true; };
   if (S.order && S.order.ready && truck.state === 'docked') { if (go('sign', P.drop)) { g.play('inspect'); g.faceTo(P.truck, dt); g.signT = (g.signT || 0) + dt; if (g.signT > 1.4) { g.signT = 0; signOrder(g); g.job = null; } } return true; }
   const w = walker; if (w && w.state === 'wait') { const type = w.def.want, left = w.n - w.got;
-    if (g.carryType === type && g.stack.length && (g.stack.length >= Math.min(2, left) || (type === 'pipe' ? S.pipes : S.pallet) === 0)) { if (go('gateHand', [TRADE[0], TRADE[1] - .9])) { g.play('carry', 0); g.faceTo(TRADE, dt); } return true; }
-    const src = type === 'pipe' ? P.prackSpot : [P.pallet[0] + .55, P.pallet[1] + .5], have = type === 'pipe' ? S.pipes : S.pallet;
-    if (have > 0 && (!g.stack.length || g.carryType === type)) { if (go('gateFetch', src)) { g.play('idle'); if (g.wait <= 0 && g.stack.length < Math.min(2, left)) { if (type === 'pipe' ? takeFrom('rack', g, 'pipe') && (S.pipes--, syncPipes(), true) : takeFrom('pallet', g, 'crate') && (S.pallet--, syncPallet(), true)) g.wait = .4; } } return true; } }
+    const gs = gateSrc(type);
+    if (g.carryType === type && g.stack.length && (g.stack.length >= Math.min(2, left) || gs.have === 0)) { if (go('gateHand', [TRADE[0], TRADE[1] - .9])) { g.play('carry', 0); g.faceTo(TRADE, dt); } return true; }
+    const src = gs.wh || type === 'pipe' ? gs.at : [P.pallet[0] + .55, P.pallet[1] + .5];
+    if (gs.have > 0 && (!g.stack.length || g.carryType === type)) { if (go(gs.wh ? 'gateFetchWh' : 'gateFetch', src)) { g.play('idle'); if (g.wait <= 0 && g.stack.length < Math.min(2, left) && gs.take(g)) g.wait = .4; } return true; } }
   if (go('office', P.deskRing)) { g.play('idle'); g.faceTo(P.desk, dt);
     if (S.call) { g.ansT = (g.ansT || 0) + dt; if (g.ansT > 1.6) { g.ansT = 0; gusSay(g, 'Iron Valley Works, Gus speaking.', 2.4); S.answeredGus = (S.answeredGus || 0) + 1; acceptCall(); if (S.order && !S.order.briefed) briefOrder(g); } } }
   return true;
@@ -5330,7 +5377,7 @@ async function boot(){
   const ld = $('loading'); setTimeout(() => { ld.style.opacity = 0; setTimeout(() => { ld.remove(); try { yt && yt.game.gameReady(); } catch(e){} }, 600); }, 350);
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
-  window.__iv = { loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  window.__iv = { applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });
