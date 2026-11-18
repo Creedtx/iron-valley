@@ -2162,6 +2162,8 @@ function truckNodes(Tr){ return Tr.userData.n || (Tr.userData.n = { wheel_fl:fin
 function drive(V, Tr, dt, revStart, arriving){
   const N = truckNodes(Tr);
   const p = V.path, left = p.len - V.s, rev = arriving && V.s > revStart - .01;
+  // on the road a lorry gives way to people at the main gate and anybody in front of it (inside the yard the bays are kept clear)
+  if (Tr.position.z > 13.4 && !rev && roadYield(Tr.position, p, V.s, 5, V)) { setLamp(N.brake, '#ff2a1a', 2.6); return false; }
   const sp = arriving ? (rev ? clamp(left * 1.2, .9, 3.0) : clamp((revStart - V.s) * .9 + .5, 2.5, 10)) : clamp(V.s * 1.5 + 1.2, 1.2, 10);
   const v = sp * dt * (V === sup ? 1 : dockK()); V.s += v; const q = pathAt(p, V.s), ahead = pathAt(p, V.s + 1.8);
   Tr.position.set(q.x, 0, q.z); Tr.rotation.y = q.yaw;
@@ -5020,17 +5022,22 @@ function carDrive(path, dt, vmax){
   const q = pathAt(path, CAR.s); M.car.position.set(q.x, 0, q.z); M.car.rotation.y = q.yaw; return CAR.s >= path.len - .03;
 }
 // the car is on the road by the main gate (where people step in and out): nobody appears there till it has passed
-const carAtGate = () => !!(trip && M.car && M.car.visible && Math.abs(M.car.position.x - P.frontOut[0]) < 4.5 && M.car.position.z > 13);
+const carAtGate = () => !!(trip && M.car && M.car.visible && Math.abs(M.car.position.x - P.frontOut[0]) < 4.5 && M.car.position.z > 13)
+  || [M.truck, M.flat].some(m => m && m.visible && Math.abs(m.position.x - P.frontOut[0]) < 6.5 && m.position.z > 13.4);
 // the car stops for anybody in its way (a gate customer on the verge, a worker crossing the lane) and goes on once
 // they have passed: it looks along the next 3 m of its path, 0.9 m either side
-function carYield(path){
-  const a = M.car.position, ahead = pathAt(path, Math.min(path.len, CAR.s + (path === CAR_REV ? 1.6 : 3))), bx = ahead.x - a.x, bz = ahead.z - a.z, L2 = bx * bx + bz * bz || 1;
+const carYield = path => roadYield(M.car.position, path, CAR.s, path === CAR_REV ? 1.6 : 3, CAR);
+// a vehicle at a on its path at distance s: true if it must wait. It looks along the next `look` metres, 0.9 m either
+// side (1.4 m for a lorry), and, coming along the road towards the main gate's mouth, waits short of it while anybody
+// is there (people step in and out of the yard at that spot)
+function roadYield(a, path, s, look, V){
+  const ahead = pathAt(path, Math.min(path.len, s + look)), bx = ahead.x - a.x, bz = ahead.z - a.z, L2 = bx * bx + bz * bz || 1, half = V === CAR ? .9 : 1.4;
   const people = [...staffObj.values(), ...folk.values(), ...(walker ? [walker.c] : [])];
-  // the main gate's mouth on the road: people come and go there, so the car waits short of it until it is clear
-  const nearGate = a.z > 13.4 && ((path === CAR_BACK && a.x > -5 && a.x < 2.4) || (path === CAR_OUT && a.x > 7.6 && a.x < 15 && a.z > 16));
+  const east = bx > 0, front = a.x + (east ? 1 : -1) * (V === CAR ? 2.2 : 4.2);
+  const nearGate = a.z > 13.4 && (east ? front > -3 && front < 2.6 : front < 13 && front > 7.4);
   if (nearGate && people.some(c => c.o.visible && !c.gone && c.o.position.x > 2.2 && c.o.position.x < 7.8 && c.o.position.z > 13.4 && c.o.position.z < 16.6)) return true;
   for (const c of people) { if (!c.o.visible || c.gone) continue; const px = c.o.position.x - a.x, pz = c.o.position.z - a.z, t = clamp((px * bx + pz * bz) / L2, 0, 1);
-    if (Math.hypot(px - bx * t, pz - bz * t) < .9) { if (!CAR.honk || T - CAR.honk > 4) { CAR.honk = T; sfxAt('horn', a.x, a.z, .25); } return true; } }
+    if (Math.hypot(px - bx * t, pz - bz * t) < half) { if (!V.honk || T - V.honk > 4) { V.honk = T; sfxAt('horn', a.x, a.z, .25); } return true; } }
   return false;
 }
 const lorryMoving = () => truck.state === 'arrive' || truck.state === 'leave' || sup.state === 'arrive' || sup.state === 'leave';
