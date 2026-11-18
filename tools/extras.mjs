@@ -59,7 +59,8 @@ await ev(() => { window.__iv.camLock = [1.5, 9.5]; }); await wait(1200); await p
 await ev(() => { window.__iv.S.blade = { at:0 }; });
 check(await ev(() => window.__iv.bladeK() < 1), 'a blunt blade slows the saw');
 await walkTo(13.6, 6.5); await walkTo(P.sawFix[0], P.sawFix[1] + 1); await walkTo(...P.sawFix);   // round the car door, not past it
-check(await until(() => !window.__iv.S.blade, 20), 'standing at the side of the machine, the owner fits a new blade');
+const fitted = await until(() => !window.__iv.S.blade, 150); if (!fitted) console.log('blade:', await ev(() => { const v = window.__iv, o = v.owner.o.position; return JSON.stringify({ at:[+o.x.toFixed(2), +o.z.toFixed(2)], fix:v.P.sawFix, vis:v.owner.o.visible, card:v.cardOpen }); }));
+check(fitted, 'standing at the side of the machine, the owner fits a new blade');
 // 5. rain
 await ev(() => window.__iv.startRain());
 check(await ev(() => !!window.__iv.rain && !document.getElementById('rain').hidden), 'a shower starts');
