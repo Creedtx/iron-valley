@@ -31,6 +31,22 @@ Preview artifact (the user plays this): https://claude.ai/artifact/Bgy9pgXzhBNAi
 Publish = copy game/{game.js,index.html,progression.js,models.js} to preview/ and publish preview/index.html with
 those three files. The preview runs levels 1-3 on the "wide yard" (PREVIEW = true, MAX_LEVEL 3).
 
+## Done in build 0.20b (fixes from phone play, whole-game audit)
+- Gate customers: when the pallet or pipe rack is empty, the owner (and Gus) serve from the warehouse stock
+  (`gateSrc`); the objective line points there. A customer still waiting at 17:00 pays for what was handed over.
+- The end of the day waits for the car: gates shut and the day book opens only once the car is parked and no lorry is
+  in a gateway; no lorry comes in after the knocking-off whistle; trips that cannot be back by 17:00 are greyed out
+  (`tooLate`, one game second = 1.25 clock minutes, so a trip's away time in minutes is its `min`).
+- `tools/audit.mjs <url> [days]`: plays days fast with the game's own `step()` (no rendering) at levels 1-3 and
+  records people inside collision boxes, jumps, vehicles through people, stock that appears or vanishes, bad counts,
+  stuck workers, machines running unmanned or at lunch, the day book with the car out. Run it after logic changes.
+  Its fixes: the production watchdog no longer teleports operators (it pulled Walt off the lunch bench onto the saw);
+  a lorry leaving without its load returns tools too and un-counts the shipped goods (`unloadBed`); Gus puts pipes
+  back on the pipe rack; the crew queue in two files inside the gateway (not through the open gate leaves); the car
+  stops for people ahead and waits short of the main gate's mouth; hires and gate customers do not step out while the
+  car passes the gate; the timber trolley parks clear of the scrap bins (it sat inside one).
+- `tools/fixes020.mjs`: the warehouse gate sale and the car at 17:00.
+
 ## Done in build 0.20 (level 3, Bible v1.3)
 - Level 3 in the North field (bought from Abel via Vera on level 2): tool press pad at `P.tpress`, coil in-feed,
   fitter spot, tool rack. Valley Garage (new buyer), Hartley Hardware and Kerr & Sons order tools.
