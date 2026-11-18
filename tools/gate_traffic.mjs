@@ -36,6 +36,7 @@ await ev(() => { const v = window.__iv; window.__rec = { bad:[], last:new Map(),
     for (const c of who) { if (!c.o.visible) { R.last.delete(c); continue; } const x = c.o.position.x, z = c.o.position.z, p = R.last.get(c);
       if (p && (p[1] - Z1) * (z - Z1) < 0) { const xc = p[0] + (x - p[0]) * (Z1 - p[1]) / (z - p[1]); if (xc < G0 + .1 || xc > G1 - .1) R.bad.push(`${c.st.name} crossed the front fence at x=${xc.toFixed(2)} (${c.state}${c.gs ? '/' + c.gs : ''})`); }
       for (const [k, b] of v.COL) if (x > b[0] + .05 && x < b[2] - .05 && z > b[1] + .05 && z < b[3] - .05) { const key = c.st.name + k; if (!R[key]) { R[key] = 1; R.bad.push(`${c.st.name} inside collision box ${k} [${b.map(n => n.toFixed(1))}] at ${x.toFixed(2)},${z.toFixed(2)} (${c.state})`); } }
+      if (v.gateSwinging() && x > 3.0 && x < 7.0 && z > 12.0 && z < 14.4 && !R['sw' + c.st.name]) { R['sw' + c.st.name] = 1; R.bad.push(`${c.st.name} in the gateway while the gate leaves swing (${x.toFixed(2)},${z.toFixed(2)})`); }
       R.last.set(c, [x, z]); } requestAnimationFrame(tick); };
   requestAnimationFrame(tick); });
 const shots = async (name, n, gap) => { for (let i = 0; i < n; i++) { await ev(() => { window.__iv.camLock = [5, 11.5]; }); await wait(gap); await p.screenshot({ path:path.join(out, `${name}${i}.png`) }); } };

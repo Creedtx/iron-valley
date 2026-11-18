@@ -57,9 +57,9 @@ check(await until(() => window.__iv.S.walk.served >= 1 || !window.__iv.walker, 1
 console.log('served by Gus', await ev(() => window.__iv.S.walk.served));
 // 4. home: the car comes back by the lorry gateway and reverses into its space
 check(await until(() => window.__iv.trip && window.__iv.trip.phase === 'park', 150), 'the car comes back in at the lorry gateway');
-await ev(() => { window.__iv.camLock = [11.5, 9.5]; }); await wait(300); await p.screenshot({ path:path.join(out, 's4_reverse.png') }); await ev(() => { window.__iv.camLock = null; });
+await ev(() => { window.__iv.camLock = [16, 11.5]; }); await wait(300); await p.screenshot({ path:path.join(out, 's4_reverse.png') }); await ev(() => { window.__iv.camLock = null; });
 check(await until(() => !window.__iv.trip, 30), 'the car is parked and the trip is over');
-check(await ev(() => { const v = window.__iv, c = v.M.car.position; return v.owner.o.visible && Math.hypot(c.x - v.P.carSpot[0], c.z - v.P.carSpot[1]) < .05 && Math.abs(v.M.car.rotation.y - Math.PI / 2) < .05; }), 'the car is back in its space, nose to the yard, and the owner is out');
+check(await ev(() => { const v = window.__iv, c = v.M.car.position; return v.owner.o.visible && Math.hypot(c.x - v.P.carSpot[0], c.z - v.P.carSpot[1]) < .05 && Math.abs(v.M.car.rotation.y) < .05; }), 'the car is back in its space, facing the gateway, and the owner is out');
 check(await ev(() => window.__car.bad.length === 0), 'the car only crossed the fence line in the lorry gateway ' + JSON.stringify(await ev(() => window.__car.bad.slice(0, 3))));
 // 5. the agreed order starts once the yard is free
 await ev(() => { const v = window.__iv; v.S.order = null; v.S.call = null; v.truck.state = 'away'; });

@@ -92,7 +92,7 @@ const PADS = [
   // build 0.19: small things a reopened works buys as the money comes in
   { id:'urn',     label:'Tea urn for the crew', price:90, at:[-8.3, -.75], icon:'cup', after:s => s.delivered >= 2, note:'The crew works 5% faster' },
   { id:'counter', label:'Trade counter at the gate', price:120, at:[1.0, 8.6], icon:'box', after:s => s.walk && s.walk.served >= 1, note:'Customers wait longer, pay 10% more' },
-  { id:'car',     label:'Service and signwrite the car', price:200, at:[12.9, 11.25], icon:'truck', after:s => s.sales && s.sales.trips >= 1, note:'Trips 20% quicker; the car advertises' },
+  { id:'car',     label:'Service and signwrite the car', price:200, at:[13.6, 9.3], icon:'truck', after:s => s.sales && s.sales.trips >= 1, note:'Trips 20% quicker; the car advertises' },
   { id:'mill',    label:'Install the pipe machine', price:MILL_PRICE, at:[4.9, 3.6], icon:'gear', after:s => s.level >= 2, note:'A contractor builds it', lv:2 },
   // level 2, later: a finished-goods warehouse in the cleared back yard, once the pipe line has proved itself
   // level 3: the tool press on the North field (bought in level 2 through Vera Lind)
@@ -208,7 +208,8 @@ const P = {
   // build 0.18: where walk-in customers wait, just inside the main gate beside its west post (clear of the gate, the lorry path and the lane)
   trade:[2.35, 10.15],
   // build 0.19: grandad's car, nose-in by the front fence; the driver's door is on its east side
-  carSpot:[10.6, 10.4], carDoor:[11.75, 10.6],
+  // build 0.19b: in the lane along the front fence, facing the lorry gateway; you get in on the yard side
+  carSpot:[12.0, 11.3], carDoor:[11.6, 10.0],
 };
 const ROAD_X = 40, ROAD_Z = 16.2, RAIL_Z = -24;           // the main road runs past the front gate (east-west)
 const SITE = { x0:-14, x1:24, z0:-12, z1:12.5 };          // the fence line
@@ -787,7 +788,7 @@ function buildWorld(){
     for (const [x, sc] of [[-11.35, 1.0], [1.35, .85], [-6.9, .6]]) { const iv = put(inst('site_ivy'), x, Wk[1] + 4.06, 0, 0, sc); iv.userData.dyn = true; if (front) front.nodes.push(iv); }
     const W = [[-11.6, -2.15, 0], [-8.2, -2.2, .4], [-3.1, -2.2, 3.1], [1.6, -2.15, 1.2], [-13.6, 0.5, 1.6], [-13.5, 7.5, 1.4], [-13.6, 11.0, .2], [-9.8, 12.1, 0], [-1.0, 12.15, 3.0],
       [9.0, 12.15, .1], [12.8, 12.1, 2.8], [23.4, 12.1, 0], [23.6, 9.0, 1.6], [23.65, 2.8, 1.5], [23.6, -6.0, 1.6], [7.8, -11.6, 0], [2.4, -11.6, 2.9], [-12.2, -11.6, .3],
-      [P.gen[0] - 1.3, P.gen[1] + 1.05, .7], [P.xfmr[0] - 1.6, P.xfmr[1] + .35, .2], [P.xfmr[0] + 1.1, P.xfmr[1] + .55, 2.6], [13.9, 12.15, 1.6], [14.6, 12.1, 1.5]];   // build 0.19: moved off the car's way out
+      [P.gen[0] - 1.3, P.gen[1] + 1.05, .7], [P.xfmr[0] - 1.6, P.xfmr[1] + .35, .2], [P.xfmr[0] + 1.1, P.xfmr[1] + .55, 2.6], [9.7, 12.12, 1.6], [8.3, 12.1, 1.5]];   // build 0.19: clear of the car's lane
     for (const [x, z, r] of W) put(inst('site_weeds'), x, z, r, 0, .8 + ((x * 7.3 + z * 3.1) % 1 + 1) % 1 * .5);
     for (const [x, z, r] of [[-11.6, 11.75, Math.PI], [23.55, 7.0, -Math.PI / 2], [2.6, -11.55, 0]]) { const h = put(inst('site_rust_heap'), x, z, r); colOf(h, .05); }
     const d1 = put(inst('prop_drum_olive'), -12.9, 9.4, .4); d1.rotation.z = Math.PI / 2; d1.position.y = .3; addCol([-13.4, 9.0, -12.4, 9.8]);
@@ -820,7 +821,7 @@ function buildWorld(){
   // the company board by the road
   const sb = put(inst('env_sale_sign'), -8.5, Z1 + 1.3, 0, 0, 1.6); const sbm = board(textTex([['IRON VALLEY', 70, 52], ['WORKSHOP', 40, 104, 500]], 512, 140, { bg:'#4a3226', fg:'#ecdcb4', border:'#2a1c14', bw:10 }), 1.5, .41); sbm.position.set(0, 1.3, .1); sb.add(sbm);
   // ---- outside: lamps, telegraph poles along the road, the railway, trees ----------------------------------------------------------
-  M.car = put(inst('env_car'), P.carSpot[0], P.carSpot[1], Math.PI / 2, 0, .85); M.car.userData.dyn = true; colOf(M.car, .05, 'car');
+  M.car = put(inst('env_car'), P.carSpot[0], P.carSpot[1], 0, 0, .85); M.car.userData.dyn = true; colOf(M.car, .05, 'car');
   for (const [x, z] of [[1.6, 10.8], [-6.0, 4.6], [9.3, 7.6]]) { put(inst('env_lamp_post'), x, z, 0); addCol([x - .15, z - .15, x + .15, z + .15]); }
   for (const x of [-36, -24, -12, 0, 12, 24, 36]) put(inst('env_power_pole'), x, ROAD_Z + 2.7, Math.PI / 2);
   const wireMat = new THREE.LineBasicMaterial({ color:'#202020' });
@@ -2787,6 +2788,7 @@ function updateStaff(dt){
     try {
       if (r === 'forklift') { updateForkDriver(c, dt); continue; }
       if (updateNeeds(c, dt)) { c.idleT = 0; continue; }
+      if (c.holdUntil) { if (T < c.holdUntil || gateSwinging()) { c.play('idle'); c.faceTo(P.frontIn, dt); continue; } c.holdUntil = 0; }   // the gate leaves are still swinging open
       if (closingStep(c, dt)) { c.idleT = 0; continue; }
       if (lunchStep(c, dt)) { c.idleT = 0; continue; }
       if (r === 'cleaner') updateCleaner(c, dt); else if (r === 'operator') updateOperator(c, dt); else if (r === 'loader' || r === 'helper') updateLoader(c, dt); else if (r === 'supervisor') updateSupervisor(c, dt); else updateSpecialist(c, dt);
@@ -3307,6 +3309,7 @@ function nextCard(){
     B.querySelectorAll('[data-gift]').forEach(b => b.onclick = () => { giveGift(b.dataset.gift); cardQueue.unshift(c); nextCard(); });
     const bye = B.querySelector('[data-bye]'); if (bye) bye.onclick = () => { sfx('tap'); nextCard(); gusFarewellDone(); }; }
   else if (c.kind === 'licence') B.innerHTML = licenceHtml();
+  else if (c.kind === 'cartip') { B.innerHTML = `<div class="who"><img alt="" src="${portrait('gus')}"><div><b>Gus Mallory</b><small>Old foreman · a word about finding work</small></div></div>${CAR_TIP.map((t, i) => `<div class="say" style="animation-delay:${i * .45}s">${t}</div>`).join('')}<button class="btn primary" data-next type="button" style="width:100%;margin-top:8px;min-height:44px">Show me the car</button>`; B.classList.add('person'); }
   else if (c.kind === 'town') { B.innerHTML = townHtml(); B.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { const [kind, k] = b.dataset.go.split(':'); sfx('tap');
       if (kind === 'ad' && ADS[k].forever) { cardQueue.unshift({ kind:'advert', key:k, here:true }); nextCard(); } else { nextCard(); startTrip(kind, k); } }); }
   else if (c.kind === 'rival') { B.innerHTML = rivalHtml(c.key); B.classList.add('deal'); B.querySelectorAll('[data-rival]').forEach(b => b.onclick = () => { sfx('tap'); rivalPick(c.key, b.dataset.rival); nextCard(); }); }
@@ -3409,6 +3412,7 @@ function updateGus(dt){
   // milestones he is proud of
   for (const [n, msg] of GUS_MILES) if (S.gus.shipped < n && S.shipped >= n) { S.gus.shipped = n; toast(msg, 'gold'); gusSay(g, pick(GUS_CHEERS)); g.play('cheer'); g.lock = 1.6; }
   if (g.lock > 0) { g.lock -= dt; return; }
+  if (g.holdUntil) { if (T < g.holdUntil || gateSwinging()) { g.play('idle'); return; } g.holdUntil = 0; }   // waiting on the road for the gates to open
   // knocking-off: Gus walks out with the crew (after putting down anything in his arms)
   if (S.day && S.day.closing && !g.stack.length) {
     if (g.gone) return;
@@ -4343,6 +4347,7 @@ function objective(){
     const pn = plotBeat('north'); if (pn) return pn;
   }
   if (S.cashPile > 0) return { t:`Collect ${fmt(S.cashPile)} by the dock`, at:P.cash };
+  if (S.tutDone && !S.order && !S.call && !(S.book && S.book.length) && S.level <= 2 && M.car) return { t:sales().trips ? 'No work on the books: drive into town and find some (stand by grandad\'s car)' : 'Nobody knows the works is open: take grandad\'s car into town and find work (stand by the car)', at:P.carDoor, alert:!sales().trips };
   if (WELFARE && S.tutDone && S.water === 0 && S.cooler <= 5) return { t:'The water is running out: buy bottles in the office (Stock)', at:P.deskRing, alert:true };
   if (WELFARE && S.tutDone && S.wcClean < 30 && !hasRole('cleaner') && S.cash >= hireCost('cleaner')) return { t:`The washroom is filthy. Hire a cleaner in the office (${fmt(hireCost('cleaner'))})`, at:P.deskRing, alert:true };
   if (WELFARE && S.tutDone && PG.stallsNeeded(S.staff.length) > stallCount() && S.up.wc < upSteps(UPGRADES.find(u => u.id === 'wc'))) return { t:'Your crew has outgrown the washroom: buy another stall (Upgrades)', at:P.deskRing };
@@ -4551,6 +4556,7 @@ function updateLabels(){
     for (const c of [...staffObj.values(), ...temps]) { if (!c.o.visible) continue; const [i] = statusOf(c), st = c.st, ready = st.id > 0 && xpReady(st);
       lab('s' + st.id, `<div class="tagw ${c.state === 'slack' ? 'bad' : ''}"><span class="lv ${ready ? 'ready' : ''}"${ready ? '' : ` style="background:${ROLE[st.role].col.suit};color:#ece6d9"`}>${st.id > 0 ? 'LV' + st.lv : 'HIRE'}</span>${icon(i, STATUS_COL[i] || '#e8ab2c')}<span>${st.name}</span>${c.zone ? '<span class="zone">+15%</span>' : ''}</div>`,
         c.o.position.x, 1.62 + carryTop(c), c.o.position.z); }
+    if (M.car && S.tutDone && !trip && M.car.visible) lab('car', `<div class="pad"><b>Grandad's car</b>Find work in town · stand here</div>`, P.carDoor[0], .35, P.carDoor[1] - .3);
     if (S.blade) lab('blade', `<div class="fault diag">${icon('wrench', '#1b1408', 2.4)}<span><b>Blunt blade</b>Fit a new one here · ${fmt(BLADE_COST)}</span></div>`, P.sawFix[0], 1.6, P.sawFix[1]);
     const sawState = sawReason().label;
     lab('saw', `<div class="mtag ${sawState[0]}"><b>${sawState[1]}</b>${sawState[2]}</div>`, P.saw[0], 1.75, P.saw[1]);
@@ -4672,6 +4678,7 @@ function whistle(len = 1.2, vol = 1){
 // the main gate's two timber leaves: shut from when the yard is empty at 17:00 until the morning whistle. While shut a
 // bar across the gateway keeps everyone in (or out); the leaves swing over about a second and a half.
 const gateShut = () => !!(S.day && S.day.closing && S.day.closing.shut);
+const gateSwinging = () => !!M.gateLeaves && M.gateLeaves.some(L => Math.abs(L.g.rotation.y - (gateShut() ? L.shut : L.open)) > .02);
 function updateGates(dt){
   if (!M.gateLeaves) return; const want = gateShut();
   for (const L of M.gateLeaves) { const to = want ? L.shut : L.open, d = to - L.g.rotation.y; if (Math.abs(d) < .002) { L.g.rotation.y = to; continue; } L.g.rotation.y += Math.sign(d) * Math.min(Math.abs(d), dt * 1.0); }
@@ -4752,8 +4759,8 @@ function clockIn(){
   D.n = Math.round((D.closing.at + .01) / DAY_S); S.time = D.n * DAY_S + .01; D.closing = null; D.at = daySnap();
   let k = 0;
   for (const c of staffObj.values()) { c.leaving = false; if (!c.gone) continue; c.gone = false; c.o.visible = true;
-    c.o.position.set(P.frontOut[0] + (k % 2 ? 1 : -1) * (.6 + Math.floor(k / 2) * .75), 0, P.frontOut[1] + .5); k++; c.path = null; c.task = null; c.state = 'arrive'; goTo(c, P.frontIn[0], P.frontIn[1]); }
-  const g = folk.get('gus'); if (g && g.gone) { g.gone = false; g.o.visible = true; g.o.position.set(P.frontOut[0] + 1, 0, P.frontOut[1] + .4); g.job = null; g.gs = null; g.path = null; }
+    c.o.position.set(P.frontOut[0] + (k % 2 ? 1 : -1) * (.6 + Math.floor(k / 2) * .75), 0, P.frontOut[1] + .5); c.holdUntil = T + 1.7 + k * .45; k++; c.path = null; c.task = null; c.state = 'arrive'; goTo(c, P.frontIn[0], P.frontIn[1]); }
+  const g = folk.get('gus'); if (g && g.gone) { g.gone = false; g.o.visible = true; g.o.position.set(P.frontOut[0] + 1, 0, P.frontOut[1] + .4); g.job = null; g.gs = null; g.path = null; g.holdUntil = T + 1.7 + k * .45; }
   save();
 }
 // build 0.19: a target for each working day, set from how the day before went, with a cash bonus and +2 reputation
@@ -4922,9 +4929,14 @@ function placeSpec(k, kind = 'now'){
 function callerSpec(){ const acc = accounts(); if (acc.length && Math.random() < acc.length * 2 / (acc.length * 2 + 1)) return placeSpec(pick(acc)); return null; }
 
 // ---- grandad's car: parked nose-in by the front fence; out by the lorry gateway, back the same way and reversed in
-const CAR_OUT = samplePath([{ bez:true, p:[P.carSpot, [P.carSpot[0], 8.5], [12.4, 8.75]] }, { bez:true, p:[[12.4, 8.75], [14.6, 9.0], [16.4, 11.4]] }, { p:[[16.4, 11.4], [16.4, 13.8]] }, { bez:true, p:[[16.4, 13.8], [16.4, ROAD_Z + .9], [13.6, ROAD_Z + .9]] }, { p:[[13.6, ROAD_Z + .9], [-62, ROAD_Z + .9]] }]);
-const CAR_BACK = samplePath([{ p:[[-62, ROAD_Z - .9], [14.8, ROAD_Z - .9]] }, { bez:true, p:[[14.8, ROAD_Z - .9], [17.0, ROAD_Z - .9], [17.0, 13.4]] }, { p:[[17.0, 13.4], [17.0, 11.6]] }, { bez:true, p:[[17.0, 11.6], [17.0, 9.4], [14.6, 9.0]] }, { p:[[14.6, 9.0], [12.9, 8.8]] }]);
-const CAR_REV = samplePath([{ bez:true, rev:true, p:[[12.9, 8.8], [P.carSpot[0], 8.75], P.carSpot] }]);
+// the car lives in the lane between the front fence (12.4) and the dock and a docked lorry's tail (10.15), facing the
+// lorry gateway. Out: along the lane and right out of the gateway, then west. Back: east along the road past the
+// gateway, then reversed in like the lorries and back along the lane into its space (build 0.19b; every route is swept
+// against every collision box with a lorry docked: tools/car_sweep.mjs)
+const LANE_Z = P.carSpot[1];
+const CAR_OUT = samplePath([{ p:[P.carSpot, [14.4, LANE_Z]] }, { bez:true, p:[[14.4, LANE_Z], [17.6, LANE_Z], [17.6, 13.9]] }, { bez:true, p:[[17.6, 13.9], [17.6, ROAD_Z + .9], [14.6, ROAD_Z + .9]] }, { p:[[14.6, ROAD_Z + .9], [-62, ROAD_Z + .9]] }]);
+const CAR_BACK = samplePath([{ p:[[-62, ROAD_Z - .9], [21.6, ROAD_Z - .9]] }]);
+const CAR_REV = samplePath([{ bez:true, rev:true, p:[[21.6, ROAD_Z - .9], [17.6, ROAD_Z - .9], [17.6, 13.4]] }, { bez:true, rev:true, p:[[17.6, 13.4], [17.6, LANE_Z], [14.4, LANE_Z]] }, { rev:true, p:[[14.4, LANE_Z], P.carSpot] }]);
 let trip = null;
 const CAR = { s:0, v:0 };
 function carDrive(path, dt, vmax){
@@ -4941,7 +4953,7 @@ function startTrip(kind, key){
   toast(`Off to ${d.name}. Gus is minding the yard.`, 'gold'); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, pick(['Go on, I\'ll mind the phone.', 'Bring us back some work, boss.', 'I\'ll keep the kettle and the phone warm.']));
 }
 function endTrip(){
-  M.car.position.set(P.carSpot[0], 0, P.carSpot[1]); M.car.rotation.y = Math.PI / 2; M.car.visible = true; colOf(M.car, .05, 'car');
+  M.car.position.set(P.carSpot[0], 0, P.carSpot[1]); M.car.rotation.y = 0; M.car.visible = true; colOf(M.car, .05, 'car');
   owner.o.position.set(...P.carDoor); owner.o.visible = true; owner.carArm = false; trip = null; save();
 }
 function updateTrip(dt){
@@ -4957,7 +4969,7 @@ function updateTrip(dt){
   if (T_.phase === 'back') { const road = M.car.position.z > 14; if (road && lorryMoving() && M.car.position.x > 6 && M.car.position.x < 15) return;
     if (M.car.position.x > -14) owner.o.position.set(M.car.position.x, 0, M.car.position.z);
     if (carDrive(CAR_BACK, dt, road ? 9 : 3)) { T_.phase = 'park'; CAR.s = 0; CAR.v = 0; } return; }
-  if (T_.phase === 'park') { owner.o.position.set(M.car.position.x, 0, M.car.position.z); if (carDrive(CAR_REV, dt, 1.2)) { endTrip(); toast('Back at the works.', ''); } }
+  if (T_.phase === 'park') { owner.o.position.set(M.car.position.x, 0, M.car.position.z); if (lorryMoving() && CAR.s < 4) return; if (carDrive(CAR_REV, dt, 1.6)) { endTrip(); toast('Back at the works.', ''); } }
 }
 // the visit itself: a scene card; the drive home starts when it is closed
 function tripScene(){ story({ kind:trip.kind === 'ad' ? 'advert' : 'visit', key:trip.key }); }
@@ -5007,6 +5019,13 @@ function townHtml(){
     <p class="note" style="margin:8px 0">Times are one way. While you are out, Gus answers the phone, starts the orders, signs the lorry off and serves the gate. Phone interest: ${interest().toFixed(1)} (a call about every ${Math.round(callGap())} s when the yard is free).</p>
     <button class="btn" data-next type="button" style="width:100%;min-height:44px">Stay at the works</button>`;
 }
+// the first time the yard runs out of work after day one, Gus explains: nobody knows the works is open, so go and sell
+function carTip(){
+  if (!S.tutDone || sales().told || cardOpen || S.order || S.call || (S.book && S.book.length) || S.delivered < 1 || truck.state !== 'away' || trip || (S.day && S.day.closing)) return;
+  sales().told = true; story({ kind:'cartip' }); save();
+}
+const CAR_TIP = ['Quiet, isn\'t it? Nobody in the valley knows we\'re open again. The phone won\'t ring by itself.', 'Your grandad never waited for work. He took that car round every shop and farm in the valley.',
+  'It\'s parked by the front fence. Stand by it and pick where to go: a buyer for an order, or the Courier for an advert. I\'ll mind the phone.'];
 // stand at the driver's door: the town map; step away and back to open it again
 function updateCarDoor(){
   if (!M.car || trip || cardOpen || officeOpen) return;
@@ -5217,7 +5236,7 @@ function step(dt){
   T += dt; S.time += dt;
   for (const m of mixers) m.update(dt);
   if (!officeOpen && !trip) { updateOwner(dt); updateCarDoor(); } else target = null;
-  healthCheck(dt); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateTruck(dt); updateTrip(dt); updateDay(dt); updateTarget(); updateEvents(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); syncCarry(); updateTutorial(dt); updateFx(dt);
+  healthCheck(dt); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateTruck(dt); updateTrip(dt); carTip(); updateDay(dt); updateTarget(); updateEvents(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); syncCarry(); updateTutorial(dt); updateFx(dt);
   saveT += dt; if (saveT > 8) { saveT = 0; save(); }
 }
 const MAX_DPR = Math.min(2, devicePixelRatio || 1); let dpr = MAX_DPR, perfT = 0, perfN = 0, perfGood = 0, perfBad = 0, lastDpr = 0, dprSettled = false, needResize = false;
@@ -5275,7 +5294,7 @@ async function boot(){
   const ld = $('loading'); setTimeout(() => { ld.style.opacity = 0; setTimeout(() => { ld.remove(); try { yt && yt.game.gameReady(); } catch(e){} }, 600); }, 350);
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
-  window.__iv = { startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  window.__iv = { gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });

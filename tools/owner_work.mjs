@@ -32,13 +32,14 @@ check(await ev(() => !window.__iv.S.staff.some(s => s.role === 'helper')), 'no m
 await ev(() => { const v = window.__iv; v.S.call = v.placeSpec('docks', 'big'); v.acceptCall(); v.closeOffice(); v.briefOrder(null); });
 const P = await ev(() => window.__iv.P);
 check(await until(() => window.__iv.sawOn, 300), 'the saw runs on the order (the operator reaches for planks himself)');
-const rate = async secs => { const a = await ev(() => [window.__iv.S.made, window.__iv.S.time]); await wait(secs * 1000); const b = await ev(() => [window.__iv.S.made, window.__iv.S.time]); return (b[0] - a[0]) / Math.max(1, b[1] - a[1]); };
+// crates per game second, over a fixed stretch of game time (headless runs slowly, so real seconds mean little)
+const rate = async gsecs => { const a = await ev(() => [window.__iv.S.made, window.__iv.S.time]); await until(t => window.__iv.S.time >= t, 900, a[1] + gsecs); const b = await ev(() => [window.__iv.S.made, window.__iv.S.time]); return (b[0] - a[0]) / Math.max(1, b[1] - a[1]); };
 await ev(() => { const v = window.__iv; v.S.pallet = 0; v.syncPallet(); });
-const r0 = await rate(20);
+const r0 = await rate(40);
 await walkTo(P.feedRing[0], P.feedRing[1] + 1); await walkTo(...P.feedRing);
 check(await until(() => window.__iv.ownerFeeds(), 10), 'standing at the in-feed, the owner feeds the planks');
 await ev(() => { const v = window.__iv; v.S.pallet = 0; v.syncPallet(); });
-const r1 = await rate(20); console.log('crates per game second', r0.toFixed(3), '->', r1.toFixed(3));
+const r1 = await rate(40); console.log('crates per game second', r0.toFixed(3), '->', r1.toFixed(3));
 check(r1 > r0 * 1.12, 'the machine cuts faster while the owner feeds it');
 await p.screenshot({ path:path.join(out, 'o1_feeding.png') });
 // lending a hand loading
