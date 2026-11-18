@@ -2824,6 +2824,7 @@ function updateStaff(dt){
     try {
       if (r === 'forklift') { updateForkDriver(c, dt); continue; }
       if (updateNeeds(c, dt)) { c.idleT = 0; continue; }
+      if (c.hideTillClear) { if (carAtGate()) { c.play('idle'); continue; } c.hideTillClear = false; c.o.visible = true; }
       if (c.holdUntil) { if (T < c.holdUntil || gateSwinging()) { c.play('idle'); c.faceTo(P.frontIn, dt); continue; } c.holdUntil = 0; }   // the gate leaves are still swinging open
       if (closingStep(c, dt)) { c.idleT = 0; continue; }
       if (lunchStep(c, dt)) { c.idleT = 0; continue; }
@@ -2904,6 +2905,7 @@ function hire(role){
   const st = { id:S.nextId++, name, role, lv:1, xp:0, energy:100, focus:100, look:newLook(role) }; if (S.level === 1 && (role === 'operator' || role === 'loader')) { st.posted = false; st.loyal = true; } if (role === 'operator') { const m = nextOpMachine(); if (m !== 'saw') st.mach = m; } S.staff.push(st);
   const k = [...staffObj.values()].filter(o => o.state === 'arrive').length, q = gateQueue(k);   // hired together: they come in one behind another
   const c = spawnStaff(st, q[0], q[2]); goTo(c, ...P.frontIn); c.state = 'arrive'; if (k) c.holdUntil = T + k * .8;
+  if (carAtGate()) { c.o.visible = false; c.hideTillClear = true; }   // the car is passing the gate: they step out onto the verge once it has gone by
   sfx('hire'); toast(st.posted === false ? `${name} joins as your ${ROLE[role].title.toLowerCase()}. Meet ${name} at the gate and walk them to their post.` : `${name} joins as your ${ROLE[role].title.toLowerCase()}.`, 'good'); save(); checkCharter(); renderOffice();
 }
 function train(id){
@@ -4908,7 +4910,7 @@ function walkerLeave(){ const w = walker; w.state = 'out'; goTo(w.c, ...P.frontO
 function updateWalkin(dt){
   if (!walker) {
     if (!S.tutDone || S.gus.party || cardOpen || dayMin() > SHIFT_MIN - 30 || (S.day && S.day.closing) || rain) return;   // nobody walks in during the last half hour
-    walkT += dt; if (walkT > walkNext) spawnWalker(); return; }
+    walkT += dt; if (walkT > walkNext && !carAtGate()) spawnWalker(); return; }
   const w = walker, c = w.c;
   if (S.day && S.day.closing && w.state !== 'out') {   // knocking-off: they pay for anything already handed over, and go
     if (w.got > 0) { const part = Math.round(w.got * walkUnit(w.def.want) * 1.25); S.cash += part; S.earned += part; S.walk.cash += part; S.walk.served++; floatText(`+${fmt(part)}`, c.o.position.x, 2.0, c.o.position.z); sfx('coin');
@@ -5017,6 +5019,8 @@ function carDrive(path, dt, vmax){
   CAR.v += clamp(want - CAR.v, -5 * dt, 2.6 * dt); CAR.s += Math.max(0, CAR.v) * dt;
   const q = pathAt(path, CAR.s); M.car.position.set(q.x, 0, q.z); M.car.rotation.y = q.yaw; return CAR.s >= path.len - .03;
 }
+// the car is on the road by the main gate (where people step in and out): nobody appears there till it has passed
+const carAtGate = () => !!(trip && M.car && M.car.visible && Math.abs(M.car.position.x - P.frontOut[0]) < 4.5 && M.car.position.z > 13);
 // the car stops for anybody in its way (a gate customer on the verge, a worker crossing the lane) and goes on once
 // they have passed: it looks along the next 3 m of its path, 0.9 m either side
 function carYield(path){
