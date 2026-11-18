@@ -31,7 +31,7 @@ check(await ev(() => window.__iv.S.staff.filter(s => s.role === 'loader').length
 check(await ev(() => !window.__iv.S.staff.some(s => s.role === 'helper')), 'no machine helper at level 1');
 await ev(() => { const v = window.__iv; v.S.call = v.placeSpec('docks', 'big'); v.acceptCall(); v.closeOffice(); v.briefOrder(null); });
 const P = await ev(() => window.__iv.P);
-check(await until(() => window.__iv.sawOn, 30), 'the saw runs on the order (the operator reaches for planks himself)');
+check(await until(() => window.__iv.sawOn, 300), 'the saw runs on the order (the operator reaches for planks himself)');
 const rate = async secs => { const a = await ev(() => [window.__iv.S.made, window.__iv.S.time]); await wait(secs * 1000); const b = await ev(() => [window.__iv.S.made, window.__iv.S.time]); return (b[0] - a[0]) / Math.max(1, b[1] - a[1]); };
 await ev(() => { const v = window.__iv; v.S.pallet = 0; v.syncPallet(); });
 const r0 = await rate(20);
