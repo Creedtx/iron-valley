@@ -98,6 +98,15 @@ button{font:inherit;color:inherit}
 .day .db-g img{width:48px;height:48px;border-radius:50%;border:2px solid #a87615;flex:none}
 .day .db-g .say{background:#fffdf6;color:#1b1408;border-radius:12px;padding:8px 11px;font:600 13.5px/1.35 var(--f-body);margin:0;box-shadow:0 1px 3px rgba(0,0,0,.15)}
 #chips .panel.lunch{color:#9bd26f}
+/* build 0.19: the town map card */
+.tlist{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.trow{display:grid;grid-template-columns:30px 1fr auto;grid-template-rows:auto auto;gap:0 10px;align-items:center;text-align:left;background:rgba(255,255,255,.04);border:1px solid var(--steel-600);border-radius:8px;padding:7px 10px;cursor:pointer;min-height:44px}
+.trow i{grid-row:span 2;width:28px;height:28px;border-radius:50%;background:#e2a72c;color:#2a1d14;font:700 15px/28px Arial;font-style:normal;text-align:center;border:2px solid #fff}
+.trow.ad i{background:#6fa6d6}
+.trow b{font:600 15px/1.15 var(--f-display);letter-spacing:.03em}.trow span{font:600 13px var(--f-display);color:var(--e-gold,#e2a72c);text-align:right}
+.trow small{grid-column:2/-1;color:var(--steel-200);font-size:12px}
+.trow:disabled{opacity:.45;cursor:default}
+.offer .badge{font:700 11px/1 var(--f-display);letter-spacing:.08em;text-transform:uppercase;background:#3d5c2a;color:#d4e6a5;border-radius:4px;padding:4px 7px}
 .person .who{display:flex;gap:12px;align-items:center;margin-bottom:12px}
 .person .who img,.deal .who img,.ppl img{width:64px;height:64px;border-radius:50%;border:2px solid var(--yellow);flex:none;background:#2a2e33}
 .person .who b,.deal .who b{display:block;font:600 19px/1.1 var(--f-display);letter-spacing:.05em}

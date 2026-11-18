@@ -203,6 +203,8 @@ const P = {
   parts:[13.7, -6.3], pressBuild:[16.9, -2.9],
   // build 0.18: where walk-in customers wait, just inside the main gate beside its west post (clear of the gate, the lorry path and the lane)
   trade:[2.35, 10.15],
+  // build 0.19: grandad's car, nose-in by the front fence; the driver's door is on its east side
+  carSpot:[10.6, 10.4], carDoor:[11.75, 10.6],
 };
 const ROAD_X = 40, ROAD_Z = 16.2, RAIL_Z = -24;           // the main road runs past the front gate (east-west)
 const SITE = { x0:-14, x1:24, z0:-12, z1:12.5 };          // the fence line
@@ -223,7 +225,7 @@ const KEY = PREVIEW ? 'iron-valley-wide-preview' : 'iron-valley-save', OLD_KEYS 
 function migrate(o){
   if (!o || typeof o !== 'object' || !(o.v >= 5)) return null;
   const f = fresh(), out = Object.assign(f, o);
-  for (const k of ['mains', 'gus', 'up', 'restored', 'cond', 'lv2', 'lv3', 'lv4', 'l5', 'ticks', 'checked', 'padPaid', 'wh', 'plots', 'met', 'skills', 'perks', 'walk']) out[k] = Object.assign(fresh()[k], o[k] || {});
+  for (const k of ['mains', 'gus', 'up', 'restored', 'cond', 'lv2', 'lv3', 'lv4', 'l5', 'ticks', 'checked', 'padPaid', 'wh', 'plots', 'met', 'skills', 'perks', 'walk', 'sales']) out[k] = Object.assign(fresh()[k], o[k] || {});
   out.power = Object.assign(fresh().power, o.power || {}); out.power.breakers = Object.assign(fresh().power.breakers, (o.power || {}).breakers || {});
   out.level = Math.min(MAX_LEVEL, o.level || 1);
   // build 0.13: games started before the owner worked alone keep their crew and skip the new opening
@@ -281,7 +283,7 @@ function fresh(){
     power:{ fuel:100, breakers:{ saw:true, lights:true, office:true, pipe:true, tool:true } }, cond:{ saw:100, engine:100, wiring:100, pipe:100, tool:100 },
     faults:[], faultSeq:0, fixed:0, lastFault:0, mechIntro:false, tutFault:false,
     tut:0, tutDone:false, levelUp:false, officeSeen:false, checked:{}, owner:[11.0, 6.2], time:0,
-    day:null, walk:{ served:0, lost:0, cash:0, seq:0, last:'' } };
+    day:null, walk:{ served:0, lost:0, cash:0, seq:0, last:'' }, sales:{ acc:{}, visited:{}, ads:{}, trips:0, won:0 }, book:[] };
 }
 let S = fresh();
 const yt = window.ytgame && window.ytgame.IN_PLAYABLES_ENV ? window.ytgame : null;
@@ -306,7 +308,7 @@ function newGame(){
 }
 function save(){
   if (!owner || !saveLoaded || resetting) return;
-  S.owner = [+owner.o.position.x.toFixed(2), +owner.o.position.z.toFixed(2)];
+  S.owner = trip ? [...P.carDoor] : [+owner.o.position.x.toFixed(2), +owner.o.position.z.toFixed(2)];   // out on a trip: a reload puts you back by the car
   // Items in someone's hands live on the character, not in S. Build 0.10 saved without them, so a reload
   // lost every crate a loader was carrying while the order still counted it as cut (Walt idle on order #34).
   // The save now puts carried things back where they came from.
@@ -781,7 +783,7 @@ function buildWorld(){
     for (const [x, sc] of [[-11.35, 1.0], [1.35, .85], [-6.9, .6]]) { const iv = put(inst('site_ivy'), x, Wk[1] + 4.06, 0, 0, sc); iv.userData.dyn = true; if (front) front.nodes.push(iv); }
     const W = [[-11.6, -2.15, 0], [-8.2, -2.2, .4], [-3.1, -2.2, 3.1], [1.6, -2.15, 1.2], [-13.6, 0.5, 1.6], [-13.5, 7.5, 1.4], [-13.6, 11.0, .2], [-9.8, 12.1, 0], [-1.0, 12.15, 3.0],
       [9.0, 12.15, .1], [12.8, 12.1, 2.8], [23.4, 12.1, 0], [23.6, 9.0, 1.6], [23.65, 2.8, 1.5], [23.6, -6.0, 1.6], [7.8, -11.6, 0], [2.4, -11.6, 2.9], [-12.2, -11.6, .3],
-      [P.gen[0] - 1.3, P.gen[1] + 1.05, .7], [P.xfmr[0] - 1.6, P.xfmr[1] + .35, .2], [P.xfmr[0] + 1.1, P.xfmr[1] + .55, 2.6], [P.dock[0] - 1.6, P.dock[1] + 1.6, 1.6], [P.dock[0] - 1.6, P.dock[1] + 2.6, 1.5]];
+      [P.gen[0] - 1.3, P.gen[1] + 1.05, .7], [P.xfmr[0] - 1.6, P.xfmr[1] + .35, .2], [P.xfmr[0] + 1.1, P.xfmr[1] + .55, 2.6], [13.9, 12.15, 1.6], [14.6, 12.1, 1.5]];   // build 0.19: moved off the car's way out
     for (const [x, z, r] of W) put(inst('site_weeds'), x, z, r, 0, .8 + ((x * 7.3 + z * 3.1) % 1 + 1) % 1 * .5);
     for (const [x, z, r] of [[-11.6, 11.75, Math.PI], [23.55, 7.0, -Math.PI / 2], [2.6, -11.55, 0]]) { const h = put(inst('site_rust_heap'), x, z, r); colOf(h, .05); }
     const d1 = put(inst('prop_drum_olive'), -12.9, 9.4, .4); d1.rotation.z = Math.PI / 2; d1.position.y = .3; addCol([-13.4, 9.0, -12.4, 9.8]);
@@ -814,7 +816,7 @@ function buildWorld(){
   // the company board by the road
   const sb = put(inst('env_sale_sign'), -8.5, Z1 + 1.3, 0, 0, 1.6); const sbm = board(textTex([['IRON VALLEY', 70, 52], ['WORKSHOP', 40, 104, 500]], 512, 140, { bg:'#4a3226', fg:'#ecdcb4', border:'#2a1c14', bw:10 }), 1.5, .41); sbm.position.set(0, 1.3, .1); sb.add(sbm);
   // ---- outside: lamps, telegraph poles along the road, the railway, trees ----------------------------------------------------------
-  M.car = put(inst('env_car'), 10.6, 10.4, Math.PI / 2 + .05, 0, .85); M.car.userData.dyn = true; colOf(M.car, .05, 'car');
+  M.car = put(inst('env_car'), P.carSpot[0], P.carSpot[1], Math.PI / 2, 0, .85); M.car.userData.dyn = true; colOf(M.car, .05, 'car');
   for (const [x, z] of [[1.6, 10.8], [-6.0, 4.6], [9.3, 7.6]]) { put(inst('env_lamp_post'), x, z, 0); addCol([x - .15, z - .15, x + .15, z + .15]); }
   for (const x of [-36, -24, -12, 0, 12, 24, 36]) put(inst('env_power_pole'), x, ROAD_Z + 2.7, Math.PI / 2);
   const wireMat = new THREE.LineBasicMaterial({ color:'#202020' });
@@ -2055,6 +2057,9 @@ function nextOrderSpec(){
 }
 const L1_ORDERS = [[20, 240], [40, 480], [50, 600], [60, 720]];
 function newCall(){
+  // build 0.19: an order agreed on a sales call needs no phone call: it starts as soon as the yard is free
+  if (S.book && S.book.length && S.orderSeq > 0) { const o = S.book.shift(); S.call = o; toast(`${o.client}: the order you agreed on your visit starts now.`, 'gold'); acceptCall(); return; }
+  if (S.orderSeq > 0 && S.tutDone) { const cs = callerSpec(); if (cs) { S.call = cs; toast(`The office phone is ringing: ${cs.client} (your regular account).`, 'gold'); save(); return; } }
   if (S.level === 1 && S.orderSeq < L1_ORDERS.length) { const [q, pay] = L1_ORDERS[S.orderSeq];
     S.call = { qty:q, pq:0, tq:0, l2:false, l3:false, l4:false, guided4:false, guided:false, nodl:S.orderSeq === 0, pay, client:CLIENTS[(S.orderSeq + 1) % CLIENTS.length], deadline:Math.max(180, q * 4 + 60) };
     toast(`The office phone is ringing: ${S.call.client}.`, 'gold'); save(); return; }
@@ -2119,12 +2124,12 @@ function updateTruck(dt){
     const done = drive(truck, Tr, dt, ARRIVE.pts.find(q => q.rev).d, truck.state === 'arrive');
     if (done) { if (truck.state === 'arrive') { truck.state = 'docked'; sfxAt('horn', ...P.truck); addCol([P.truck[0] - 1.15, P.truck[1] - 2.45, P.truck[0] + 1.15, P.truck[1] + 2.75], 'truck'); parkedLamps(Tr); } else { truck.state = 'away'; truck.t = 0; callT = 0; S.bed = 0; S.pbed = 0; S.tbed = 0; syncBed(); syncPBed(); syncTBed(); } }
   } else if (truck.state === 'away') { truck.t += dt; Tr.position.set(ROAD_X, 0, -45);
-    if (S.order && truck.t > 9 / dockK() + (S.order.lateBy || 0) && !['arrive', 'leave'].includes(sup.state) && !(truckB.state === 'arrive' && truckB.s < 30)) { truck.state = 'arrive'; truck.s = 0; truck.path = ARRIVE; S.bed = 0; S.pbed = 0; S.tbed = 0; syncTBed(); syncBed(); syncPBed(); } }
+    if (S.order && truck.t > 9 / dockK() + (S.order.lateBy || 0) && !(trip && M.car.visible && M.car.position.x > 12.4 && M.car.position.z > 8.4 && M.car.position.z < 18) && !['arrive', 'leave'].includes(sup.state) && !(truckB.state === 'arrive' && truckB.s < 30)) { truck.state = 'arrive'; truck.s = 0; truck.path = ARRIVE; S.bed = 0; S.pbed = 0; S.tbed = 0; syncTBed(); syncBed(); syncPBed(); } }
   if (tg) tg.rotation.z = lerp(tg.rotation.z, truck.state === 'docked' ? Math.PI / 2 * .96 : 0, Math.min(1, dt * 4));
   if (S.order) S.order.time += dt;
   // the phone rings when there is no order and the truck has gone
   // level 5 opens on the first wage bill (Level Bible: no order until Priya has shown the owner the Finance page)
-  if (!S.order && !S.call && truck.state === 'away' && S.letter && !(S.level >= 5 && !S.l5.paid && S.time - S.l5.t0 < 150)) { callT += dt; if (callT > (S.orderSeq === 0 ? 1.5 : 6)) newCall(); }
+  if (!S.order && !S.call && truck.state === 'away' && S.letter && !(S.level >= 5 && !S.l5.paid && S.time - S.l5.t0 < 150)) { callT += dt; if (callT > (S.orderSeq === 0 ? 1.5 : S.book && S.book.length ? 2 : callGap())) newCall(); }
   if (S.call) { ringT -= dt; if (ringT <= 0) { ringT = 2.4; sfx('ring'); try { if (!officeOpen && navigator.vibrate) navigator.vibrate([60, 60, 60]); } catch(e){} } }
 }
 function updateSupplier(dt){
@@ -3266,6 +3271,11 @@ function nextCard(){
     B.querySelectorAll('[data-gift]').forEach(b => b.onclick = () => { giveGift(b.dataset.gift); cardQueue.unshift(c); nextCard(); });
     const bye = B.querySelector('[data-bye]'); if (bye) bye.onclick = () => { sfx('tap'); nextCard(); gusFarewellDone(); }; }
   else if (c.kind === 'licence') B.innerHTML = licenceHtml();
+  else if (c.kind === 'town') { B.innerHTML = townHtml(); B.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { const [kind, k] = b.dataset.go.split(':'); sfx('tap');
+      if (kind === 'ad' && ADS[k].forever) { cardQueue.unshift({ kind:'advert', key:k, here:true }); nextCard(); } else { nextCard(); startTrip(kind, k); } }); }
+  else if (c.kind === 'visit') { B.innerHTML = visitHtml(c.key); B.classList.add('deal'); B.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { sfx('tap'); if (b.dataset.pick !== 'none') pickOffer(c.key, b.dataset.pick); nextCard(); leaveScene(); }); }
+  else if (c.kind === 'advert') { B.innerHTML = adHtml(c.key); B.classList.add('deal'); const buy = B.querySelector('[data-ad]'); if (buy) buy.onclick = () => { buyAd(c.key); cardQueue.unshift(c); nextCard(); };
+    B.querySelector('[data-pick]').onclick = () => { sfx('tap'); nextCard(); if (!c.here) leaveScene(); }; }
   else if (c.kind === 'day') { B.innerHTML = dayCardHtml(c.d); B.querySelector('[data-next]').removeAttribute('data-next'); B.querySelector('.btn.primary').onclick = () => { sfx('tap'); nextCard(); }; }
   else if (c.kind === 'deal') { B.innerHTML = dealHtml(c.id); B.querySelectorAll('[data-offer]').forEach(b => b.onclick = () => { makeOffer(c.id, b.dataset.offer); nextCard(); });
     B.querySelectorAll('[data-dealloan]').forEach(b => b.onclick = () => { takeLoan(+b.dataset.dealloan); cardQueue.unshift(c); nextCard(); }); }
@@ -3373,6 +3383,7 @@ function updateGus(dt){
     if (g.gs === 'go') { if (walk(g, dt)) { g.gs = 'eat'; sitDown(g, g.lunchI); } return; }
     const s = LUNCH_SPOTS[g.lunchI]; g.play(s[2] ? 'sit' : 'idle'); if (!s[2]) g.faceTo([-9.7, -1.8], dt); return; }
   if (g.job === 'lunch') { if (g.gs === 'eat') standUp(g); g.job = null; g.lunchI = undefined; }
+  if (trip && !S.gus.retired && gusMind(g, dt)) return;
   const want = gusWants(g);
   if (g.job !== want && g.job !== 'back' && !(g.job === 'carry' && g.stack.length && truck.state === 'docked' && S.order && !S.order.ready)) {
     if (g.stack.length) { g.job = 'back'; g.gs = 'toPallet'; goTo(g, P.pallet[0] + .55, P.pallet[1] + .5); }   // the truck left with crates in his arms: put them back
@@ -4217,6 +4228,8 @@ function plotBeat(id){
 }
 function objective(){
   if (showUpg && T < showUpg.until && !officeOpen) return { t:`New: ${showUpg.name}. Take a look`, at:showUpg.at };
+  if (trip) { const d = trip.kind === 'ad' ? ADS[trip.key] : PLACES[trip.key], left = Math.max(0, Math.ceil(trip.min * .8 - trip.t));
+    return { t:trip.phase === 'wait' ? 'Waiting for the lorry to clear the gateway' : trip.phase === 'away' ? `On the road to ${d.name} (${left} s). Gus is minding the yard` : trip.phase === 'home' ? `Driving back from ${d.name} (${left} s)` : trip.phase === 'out' ? `Driving out to ${d.name}` : 'Back at the works: parking the car', at:null }; }
   if (S.tutDone && S.day && S.day.closing) return { t:S.day.closing.shut ? '17:00: the gates are shut for the night' : '17:00: the crew is clocking off. The gates shut when the yard is empty', at:null };
   if (!S.tutDone) { const s = TUT[Math.min(S.tut, TUT.length - 1)]; return { t:s.text ? s.text() : s.t, at:s.atFn ? s.atFn() : s.at && s.at(), alert:s.alert }; }
   const und = S.faults.find(f => !f.diag);
@@ -4769,9 +4782,10 @@ function updateWalkin(dt){
   if (!w.greeted && d < 1.8) { w.greeted = true; c.say = { text:w.def.hi, until:T + 3.2 }; }
   if (!w.nag && WALK_PATIENCE - w.t < 30) { w.nag = true; c.say = { text:pick(['Is anybody serving?', 'I haven\'t got all day.', 'Hello? Anyone?']), until:T + 3 }; }
   // the owner hands the goods over, one at a time
-  if (d < 1.25 && owner.carryType === w.def.want && owner.stack.length && w.got < w.n && !(owner.stack[owner.stack.length - 1].userData.flying)) {
-    w.hand = (w.hand || 0) - dt; if (w.hand <= 0) { w.hand = .22; const m = owner.stack.pop(); if (!owner.stack.length) owner.carryType = null; c.stack.push(m); c.carryType = w.def.want; w.got++;
-      fly(m, c.o, carriedPos(w.def.want, c.stack.length - 1, c.stack.length, !!c.cart), .24, () => layoutCarry(c)); sfx('pick', .6); owner.faceTo([c.o.position.x, c.o.position.z]); } }
+  const gg = trip ? folk.get('gus') : null, srv = d < 1.25 && owner.o.visible ? owner : gg && dist2(gg.o, TRADE) < 1.25 ? gg : null;
+  if (srv && srv.carryType === w.def.want && srv.stack.length && w.got < w.n && !(srv.stack[srv.stack.length - 1].userData.flying)) {
+    w.hand = (w.hand || 0) - dt; if (w.hand <= 0) { w.hand = .22; const m = srv.stack.pop(); if (!srv.stack.length) srv.carryType = null; c.stack.push(m); c.carryType = w.def.want; w.got++;
+      fly(m, c.o, carriedPos(w.def.want, c.stack.length - 1, c.stack.length, !!c.cart), .24, () => layoutCarry(c)); sfx('pick', .6); srv.faceTo([c.o.position.x, c.o.position.z]); } }
   if (w.got >= w.n) {   // paid cash in hand
     const price = walkPrice(w), tip = w.t <= WALK_TIP_S ? Math.max(2, Math.round(price * .08)) : 0, total = price + tip;
     S.cash += total; S.earned += total; S.walk.served++; S.walk.cash += total; repChange(1);
@@ -4796,6 +4810,157 @@ function walkBeat(){
   if (holding >= left || (holding && have === 0)) return { t:`Hand ${w.def.name} the ${type}s at the gate (${price} cash)`, at:TRADE, alert:urgent };
   if (have === 0 && !holding) return { t:`${w.def.name} wants ${what} at the gate, but the ${type === 'pipe' ? 'pipe rack' : 'pallet'} is empty. ${type === 'pipe' ? 'The mill' : 'The saw'} is making more`, at:type === 'pipe' ? P.pmill : P.saw, alert:urgent };
   return { t:`${w.def.name} is at the gate for ${what} (${price}, cash). Fetch them from the ${type === 'pipe' ? 'pipe rack' : 'pallet'}`, at:src, alert:urgent };
+}
+
+/* =====================================================================
+   SALES TRIPS AND ADVERTISING (build 0.19). Nobody in the valley knows the works has reopened, so the phone rarely
+   rings by itself. The owner drives grandad's car out of the lorry gateway to call on buyers in town (an order now, a
+   bigger one against a tight deadline, or a regular account who phones again) and pays for adverts that make the
+   phone ring more often. While he is out, Gus minds the yard: he answers the office phone and briefs the operator,
+   signs the lorry off and serves the gate.
+   ===================================================================== */
+const PLACES = {
+  farm:    { n:'1', name:'Haines Farm', buyer:'Roy Haines', min:10, mix:'crate', size:.8, say:'Potatoes don\'t wait for anybody. Can you do me crates by the end of the week?', x:700, y:1080 },
+  grocer:  { n:'2', name:'Valley Grocers', buyer:'Mr Pell, manager', min:15, mix:'crate', size:1, say:'We buy crates every week from a yard in Dunmore. They\'re late more often than not.', x:600, y:690 },
+  bakery:  { n:'3', name:'Doyle\'s Bakery', buyer:'Mrs Doyle', min:15, mix:'crate', size:.5, say:'Oh, it\'s you! Small lots, mind, but every week for the bread rounds.', x:455, y:680 },
+  hardware:{ n:'4', name:'Hartley Hardware', buyer:'Ted Hartley', min:20, mix:'mix', size:1, say:'Crates for the stockroom, and once your pipe mill runs I\'ll take pipe too.', x:470, y:500 },
+  docks:   { n:'5', name:'Dunmore Docks', buyer:'the shipping clerk', min:40, mix:'crate', size:2, say:'Export packing. Big lots, and the ship sails when it sails.', x:250, y:700 },
+  bottling:{ n:'6', name:'Ashby Bottling', buyer:'Miss Ashby', min:25, mix:'crate', size:1.3, say:'Bottle crates. When a lorry\'s waiting, I need them yesterday.', x:760, y:380 },
+  kerr:    { n:'7', name:'Kerr & Sons', buyer:'Angus Kerr', min:30, mix:'pipe', size:1, lv:2, say:'Builders\' merchant. Drain pipe, every size you can roll.', x:980, y:360 },
+};
+const ADS = {
+  courier: { n:'A', name:'Valley Courier advert', min:15, cost:90, days:4, boost:.8, say:'A quarter page in Thursday\'s Courier. The whole valley reads it.', x:600, y:500 },
+  poster:  { n:'B', name:'Station noticeboard poster', min:20, cost:30, days:2, boost:.4, say:'Pinned by the ticket window. Every commuter sees it twice a day.', x:430, y:330 },
+  show:    { n:'C', name:'County Show stall', min:35, cost:250, days:3, boost:1.6, friday:true, say:'Friday is show day. Farmers, grocers and the docks men all walk past your stall.', x:180, y:840 },
+  sign:    { n:'D', name:'Painted sign on Mill Road', min:0, cost:150, boost:.3, forever:true, say:'A big painted board at the gate: IRON VALLEY WORKS, CRATES AND PIPE.', x:1010, y:1128 },
+};
+for (const [k, p] of Object.entries(PLACES)) Object.assign(PEOPLE, { ['buyer_' + k]:{ name:p.buyer, role:p.name, line:'', skin:pick(SKINS), hair:pick(HAIRS), shirt:pick(SHIRTS), bg:'#c8b48a', hat:k === 'farm' ? '#8a6a3e' : null, stache:k === 'kerr' || k === 'grocer' } });
+const sales = () => S.sales || (S.sales = { acc:{}, visited:{}, ads:{}, trips:0, won:0 });
+const adOn = k => { const a = sales().ads[k]; return k === 'sign' ? !!a : a != null && dayNo() <= a; };
+const accounts = () => Object.keys(sales().acc).filter(k => PLACES[k]);
+// how much the valley talks about the works: word of mouth, accounts, adverts and reputation make the phone ring
+function interest(){ let i = .3 + .35 * accounts().length + Math.max(0, (S.rep - 50) / 100); for (const k of Object.keys(ADS)) if (adOn(k)) i += ADS[k].boost; return i; }
+const callGap = () => clamp(90 / interest(), 20, 240);
+// an order from a place: its usual goods, at the order rate; a big order is bigger, pays a fifth more, and is due sooner
+function placeSpec(k, kind = 'now'){
+  const pl = PLACES[k], big = kind === 'big' ? 1.8 : 1, pipes = S.level >= 2 && millReady(), L1 = S.level === 1, base = L1 ? 24 : 12;
+  let q = 0, pq = 0;
+  if (pl.mix === 'pipe' && pipes) pq = Math.max(4, Math.round(8 * pl.size * big));
+  else if (pl.mix === 'mix' && pipes) { q = Math.max(4, Math.round(base * pl.size * big * .6)); pq = Math.max(2, Math.round(6 * pl.size * big * .5)); }
+  else q = Math.max(4, Math.round(base * pl.size * big / 2) * 2);
+  const pay = Math.round((q * walkUnit('crate') + pq * walkUnit('pipe')) * (kind === 'big' ? 1.2 : 1));
+  const dl = Math.round((L1 ? Math.max(180, q * 4 + 60) : Math.max(180, 60 + q * 10 + pq * 11)) * (kind === 'big' ? .75 : 1));
+  return { qty:q, pq, tq:0, l2:false, l3:false, l4:false, guided4:false, guided:false, nodl:false, pay, client:pl.name, deadline:dl, place:k };
+}
+// who rings: one of your accounts (twice as likely), or someone who heard of you
+function callerSpec(){ const acc = accounts(); if (acc.length && Math.random() < acc.length * 2 / (acc.length * 2 + 1)) return placeSpec(pick(acc)); return null; }
+
+// ---- grandad's car: parked nose-in by the front fence; out by the lorry gateway, back the same way and reversed in
+const CAR_OUT = samplePath([{ bez:true, p:[P.carSpot, [P.carSpot[0], 8.5], [12.4, 8.75]] }, { bez:true, p:[[12.4, 8.75], [14.6, 9.0], [16.4, 11.4]] }, { p:[[16.4, 11.4], [16.4, 13.8]] }, { bez:true, p:[[16.4, 13.8], [16.4, ROAD_Z + .9], [13.6, ROAD_Z + .9]] }, { p:[[13.6, ROAD_Z + .9], [-62, ROAD_Z + .9]] }]);
+const CAR_BACK = samplePath([{ p:[[-62, ROAD_Z - .9], [14.8, ROAD_Z - .9]] }, { bez:true, p:[[14.8, ROAD_Z - .9], [17.0, ROAD_Z - .9], [17.0, 13.4]] }, { p:[[17.0, 13.4], [17.0, 11.6]] }, { bez:true, p:[[17.0, 11.6], [17.0, 9.4], [14.6, 9.0]] }, { p:[[14.6, 9.0], [12.9, 8.8]] }]);
+const CAR_REV = samplePath([{ bez:true, rev:true, p:[[12.9, 8.8], [P.carSpot[0], 8.75], P.carSpot] }]);
+let trip = null;
+const CAR = { s:0, v:0 };
+function carDrive(path, dt, vmax){
+  const left = path.len - CAR.s, want = Math.min(vmax, Math.sqrt(5 * Math.max(0, left)) + .25);
+  CAR.v += clamp(want - CAR.v, -5 * dt, 2.6 * dt); CAR.s += Math.max(0, CAR.v) * dt;
+  const q = pathAt(path, CAR.s); M.car.position.set(q.x, 0, q.z); M.car.rotation.y = q.yaw; return CAR.s >= path.len - .03;
+}
+const lorryMoving = () => truck.state === 'arrive' || truck.state === 'leave';
+const canDrive = () => S.tutDone && !trip && !owner.stack.length && !owner.cart && !S.gus.party && !(S.day && S.day.closing) && !!M.car;
+function startTrip(kind, key){
+  if (!canDrive()) return; const d = kind === 'ad' ? ADS[key] : PLACES[key];
+  trip = { kind, key, phase:'wait', t:0, min:d.min }; CAR.s = 0; CAR.v = 0; COL.delete('car');
+  owner.o.visible = false; owner.o.position.set(...P.carDoor); sfxAt('drop', ...P.carSpot, .6); sales().trips++;
+  toast(`Off to ${d.name}. Gus is minding the yard.`, 'gold'); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, pick(['Go on, I\'ll mind the phone.', 'Bring us back some work, boss.', 'I\'ll keep the kettle and the phone warm.']));
+}
+function endTrip(){
+  M.car.position.set(P.carSpot[0], 0, P.carSpot[1]); M.car.rotation.y = Math.PI / 2; M.car.visible = true; colOf(M.car, .05, 'car');
+  owner.o.position.set(...P.carDoor); owner.o.visible = true; owner.carArm = false; trip = null; save();
+}
+function updateTrip(dt){
+  if (!trip) return; const T_ = trip; T_.t += dt;
+  if (T_.phase === 'wait') { if (!lorryMoving()) { T_.phase = 'out'; CAR.s = 0; } return; }
+  if (T_.phase === 'out') { const road = M.car.position.z > 14; if (!road && lorryMoving() && M.car.position.x > 12.4 && M.car.position.x < 15.2) return;   // wait short of the gateway
+    if (carDrive(CAR_OUT, dt, road ? 9 : 3)) { T_.phase = 'away'; T_.t = 0; M.car.visible = false; }
+    if (M.car.position.x > -14) owner.o.position.set(M.car.position.x, 0, M.car.position.z); else owner.o.position.set(...P.carDoor); return; }
+  if (T_.phase === 'away') { if (T_.t >= T_.min * .8) { T_.phase = 'there'; tripScene(); } return; }
+  if (T_.phase === 'there') return;   // the scene card is open
+  if (T_.phase === 'home') { if (T_.t >= T_.min * .8) { if (lorryMoving()) return; T_.phase = 'back'; CAR.s = 0; CAR.v = 8; M.car.visible = true; } return; }
+  if (T_.phase === 'back') { const road = M.car.position.z > 14; if (road && lorryMoving() && M.car.position.x > 6 && M.car.position.x < 15) return;
+    if (M.car.position.x > -14) owner.o.position.set(M.car.position.x, 0, M.car.position.z);
+    if (carDrive(CAR_BACK, dt, road ? 9 : 3)) { T_.phase = 'park'; CAR.s = 0; CAR.v = 0; } return; }
+  if (T_.phase === 'park') { owner.o.position.set(M.car.position.x, 0, M.car.position.z); if (carDrive(CAR_REV, dt, 1.2)) { endTrip(); toast('Back at the works.', ''); } }
+}
+// the visit itself: a scene card; the drive home starts when it is closed
+function tripScene(){ story({ kind:trip.kind === 'ad' ? 'advert' : 'visit', key:trip.key }); }
+function leaveScene(){ if (trip) { trip.phase = 'home'; trip.t = 0; } }
+function visitHtml(k){
+  const pl = PLACES[k], acc = !!sales().acc[k], booked = (S.book || []).some(o => o.place === k) || (S.order && S.order.place === k), now = placeSpec(k), big = placeSpec(k, 'big');
+  const desc = o => [o.qty ? `${o.qty} crates` : '', o.pq ? `${o.pq} pipes` : ''].filter(Boolean).join(' and ');
+  const offers = booked ? '' : `<div class="offer"><b>Take an order now</b><button class="btn primary" data-pick="now" type="button">${fmt(now.pay)}</button><p>${desc(now)}, due in ${now.deadline} s once it starts.</p></div>
+    <div class="offer"><b>A big order, tight deadline</b><button class="btn primary" data-pick="big" type="button">${fmt(big.pay)}</button><p>${desc(big)} at a fifth over the rate, due in ${big.deadline} s. Late pays half.</p></div>`;
+  const accOffer = acc ? `<div class="offer"><b>Regular account</b><span class="badge">open</span><p>${pl.buyer.split(',')[0]} phones you for orders already.</p></div>`
+    : S.rep >= 55 ? `<div class="offer"><b>Open a regular account</b><button class="btn" data-pick="acc" type="button">Shake on it</button><p>No order today, but they phone you with orders from now on.</p></div>`
+    : `<div class="offer"><b>A regular account</b><p>Not yet: they want to see a reputation of 55% first (you have ${Math.round(S.rep)}%).</p></div>`;
+  return `<div class="who"><img alt="" src="${portrait('buyer_' + k)}"><div><b>${pl.buyer}</b><small>${pl.name} · ${pl.min} min from the works</small></div></div>
+    <p class="quote">"${booked ? 'We\'ll take the lot you\'re making for us first, then we\'ll talk again.' : pl.say}"</p>${offers}${accOffer}
+    <button class="btn" data-pick="none" type="button" style="width:100%;margin-top:8px;min-height:44px">Thank them and drive back</button>`;
+}
+function adHtml(k){ const a = ADS[k], on = adOn(k), fri = !a.friday || dayNo() % 5 === 4;
+  return `<div class="who"><img alt="" src="${portrait('council')}"><div><b>${a.name}</b><small>${a.forever ? 'At the works' : a.min + ' min from the works'}</small></div></div><p class="quote">"${a.say}"</p>
+    ${on ? `<div class="offer"><b>Already running</b><p>${a.forever ? 'The sign is up.' : `Runs until ${dayDate(sales().ads[k]).split(' ').slice(0, 3).join(' ')}.`}</p></div>`
+      : !fri ? `<div class="offer"><b>Not a show day</b><p>The County Show is on Fridays.</p></div>`
+      : `<div class="offer"><b>${a.forever ? 'Paint the sign' : `Run it for ${a.days} days`}</b><button class="btn primary" data-ad="1" type="button" ${S.cash >= a.cost ? '' : 'disabled'}>${fmt(a.cost)}</button><p>The phone rings more often${a.forever ? ', for good' : ' while it runs'}.</p></div>`}
+    <button class="btn" data-pick="none" type="button" style="width:100%;margin-top:8px;min-height:44px">${a.forever ? 'Close' : 'Drive back'}</button>`; }
+function pickOffer(k, what){
+  const pl = PLACES[k]; sales().visited[k] = dayNo();
+  if (what === 'now' || what === 'big') { (S.book ||= []).push(placeSpec(k, what)); sales().won++; sfx('buy'); toast(`${pl.name}: order agreed. It starts as soon as the yard is free.`, 'good'); }
+  else if (what === 'acc') { sales().acc[k] = { since:dayNo() }; sfx('hire'); toast(`${pl.name} is a regular account now: they will phone you for orders.`, 'good'); }
+  save();
+}
+function buyAd(k){ const a = ADS[k]; if (S.cash < a.cost || adOn(k)) return; S.cash -= a.cost; sales().ads[k] = a.forever ? true : dayNo() + a.days - 1; sfx('buy');
+  toast(`${a.name}: paid. The phone will ring more often.`, 'good'); if (k === 'sign') putSign(); save(); }
+function putSign(){ if (M.millSign) return; const sb = put(inst('env_sale_sign'), 8.2, SITE.z1 + 1.3, 0, 0, 1.4); sb.userData.dyn = true;
+  const m = board(textTex([['IRON VALLEY WORKS', 46, 50], ['CRATES · PIPE · MILL ROAD', 30, 98, 500]], 512, 140, { bg:'#2f5d8a', fg:'#efe1bd', border:'#1d3a56', bw:10 }), 1.5, .41); m.position.set(0, 1.3, .1); sb.add(m); M.millSign = sb; }
+// the town map card: a small map of the valley and a row for every place you can drive to
+const TOWN_SVG = () => { const pin = (d, col) => `<g transform="translate(${d.x} ${d.y})"><circle r="30" fill="${col}" stroke="#fff" stroke-width="5"/><text y="11" text-anchor="middle" font-size="30" font-weight="700" fill="#2a1d14">${d.n}</text></g>`;
+  return `<svg viewBox="40 130 1020 1040" style="width:100%;height:auto;display:block;border-radius:8px;background:#e8dfbf;border:2px solid #3a2a1e" font-family="Arial">
+  <path d="M0 520 Q140 560 230 640 T330 900 T260 1160" fill="none" stroke="#7fa6c4" stroke-width="44"/><path d="M0 300 L1080 300" stroke="#3a2a1e" stroke-width="6" stroke-dasharray="16 10"/>
+  <path d="M380 470 L640 450 L690 610 L600 760 L420 750 L360 610Z" fill="#e2c9a5" stroke="#8a6a4e" stroke-width="4"/>
+  <g fill="none" stroke="#6b4a2a" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"><path d="M960 1010 L780 980 L640 900 L560 760 L520 620 L470 470 L430 330"/><path d="M520 620 L360 640 L250 700"/><path d="M640 900 L700 1080"/><path d="M470 470 L760 380 L980 360"/></g>
+  <rect x="930" y="975" width="110" height="80" rx="8" fill="#8a3b1b" stroke="#2a1d14" stroke-width="5"/><text x="985" y="1090" text-anchor="middle" font-size="30" font-weight="700" fill="#2a1d14">YOU</text>
+  ${Object.values(PLACES).filter(p => !p.lv || S.level >= p.lv).map(p => pin(p, '#e2a72c')).join('')}${Object.values(ADS).map(a => pin(a, '#6fa6d6')).join('')}</svg>`; };
+function townHtml(){
+  const s = sales(), row = (k, d, ad) => { const acc = !ad && s.acc[k], seen = !ad && s.visited[k] === dayNo(), on = ad && adOn(k), fri = !ad || !d.friday || dayNo() % 5 === 4, lock = !ad && d.lv && S.level < d.lv;
+    const note = lock ? `opens at level ${d.lv}` : ad ? (on ? 'running' : !fri ? 'Fridays only' : fmt(d.cost)) : acc ? 'account ★' : seen ? 'visited today' : (d.mix === 'pipe' ? 'pipes' : d.mix === 'mix' ? 'crates, pipes' : 'crates');
+    return `<button class="trow ${ad ? 'ad' : ''}" data-go="${ad ? 'ad' : 'visit'}:${k}" type="button" ${lock || seen || (ad && (on || !fri)) ? 'disabled' : ''}><i>${d.n}</i><b>${d.name}</b><span>${d.min ? d.min + ' min' : 'here'}</span><small>${note}</small></button>`; };
+  return `<div class="note" style="letter-spacing:.2em;text-transform:uppercase">Grandad's car · the valley</div><h3 style="margin:4px 0 8px;font:700 22px Georgia,serif">Where to, boss?</h3>${TOWN_SVG()}
+    <div class="tlist">${Object.entries(PLACES).map(([k, d]) => row(k, d)).join('')}${Object.entries(ADS).map(([k, d]) => row(k, d, true)).join('')}</div>
+    <p class="note" style="margin:8px 0">Times are one way. While you are out, Gus answers the phone, starts the orders, signs the lorry off and serves the gate. Phone interest: ${interest().toFixed(1)} (a call about every ${Math.round(callGap())} s when the yard is free).</p>
+    <button class="btn" data-next type="button" style="width:100%;min-height:44px">Stay at the works</button>`;
+}
+// stand at the driver's door: the town map; step away and back to open it again
+function updateCarDoor(){
+  if (!M.car || trip || cardOpen || officeOpen) return;
+  const at = near(owner.o, P.carDoor, .6);
+  if (!at) { owner.carDoorArm = true; return; }
+  if (!owner.carDoorArm || !ownerStill()) return; owner.carDoorArm = false;
+  if (!S.tutDone) { toast('Finish the first day\'s work first: Gus will show you round.', ''); return; }
+  if (owner.stack.length || owner.cart) { toast('Put down what you are carrying (and park the trolley) before you drive off.', ''); return; }
+  story({ kind:'town' });
+}
+// ---- Gus minds the yard while the owner is out: the lorry first, then the gate, then the phone
+function gusMind(g, dt){
+  const go = (job, at) => { if (g.job !== job) { g.job = job; g.gs = 'go'; goTo(g, ...at); } return g.gs === 'go' ? (walk(g, dt) ? (g.gs = 'at', true) : false) : true; };
+  if (S.order && S.order.ready && truck.state === 'docked') { if (go('sign', P.drop)) { g.play('inspect'); g.faceTo(P.truck, dt); g.signT = (g.signT || 0) + dt; if (g.signT > 1.4) { g.signT = 0; signOrder(g); g.job = null; } } return true; }
+  const w = walker; if (w && w.state === 'wait') { const type = w.def.want, left = w.n - w.got;
+    if (g.carryType === type && g.stack.length && (g.stack.length >= Math.min(2, left) || (type === 'pipe' ? S.pipes : S.pallet) === 0)) { if (go('gateHand', [TRADE[0], TRADE[1] - .9])) { g.play('carry', 0); g.faceTo(TRADE, dt); } return true; }
+    const src = type === 'pipe' ? P.prackSpot : [P.pallet[0] + .55, P.pallet[1] + .5], have = type === 'pipe' ? S.pipes : S.pallet;
+    if (have > 0 && (!g.stack.length || g.carryType === type)) { if (go('gateFetch', src)) { g.play('idle'); if (g.wait <= 0 && g.stack.length < Math.min(2, left)) { if (type === 'pipe' ? takeFrom('rack', g, 'pipe') && (S.pipes--, syncPipes(), true) : takeFrom('pallet', g, 'crate') && (S.pallet--, syncPallet(), true)) g.wait = .4; } } return true; } }
+  if (go('office', P.deskRing)) { g.play('idle'); g.faceTo(P.desk, dt);
+    if (S.call) { g.ansT = (g.ansT || 0) + dt; if (g.ansT > 1.6) { g.ansT = 0; gusSay(g, 'Iron Valley Works, Gus speaking.', 2.4); S.answeredGus = (S.answeredGus || 0) + 1; acceptCall(); if (S.order && !S.order.briefed) briefOrder(g); } } }
+  return true;
 }
 
 let cashShown = 0, hudT = 0, cardKey = '';
@@ -4937,8 +5102,8 @@ function step(dt){
   if (paused || cardOpen) return;
   T += dt; S.time += dt;
   for (const m of mixers) m.update(dt);
-  if (!officeOpen) updateOwner(dt); else target = null;
-  healthCheck(dt); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateTruck(dt); updateDay(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); syncCarry(); updateTutorial(dt); updateFx(dt);
+  if (!officeOpen && !trip) { updateOwner(dt); updateCarDoor(); } else target = null;
+  healthCheck(dt); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateTruck(dt); updateTrip(dt); updateDay(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); syncCarry(); updateTutorial(dt); updateFx(dt);
   saveT += dt; if (saveT > 8) { saveT = 0; save(); }
 }
 const MAX_DPR = Math.min(2, devicePixelRatio || 1); let dpr = MAX_DPR, perfT = 0, perfN = 0, perfGood = 0, perfBad = 0, lastDpr = 0, dprSettled = false, needResize = false;
@@ -4960,7 +5125,7 @@ async function boot(){
   try { yt && yt.game.firstFrameReady(); } catch(e){}
   const prog = (p, t) => { try { window.ivLoad && window.ivLoad(p, t); } catch(e){} };
   prog(30, 'Lighting the furnace'); makeTextures(); prog(38, 'Reading the ledger'); await loadSave(); prog(46, 'Unloading the machines'); await ensureModels(S.level);
-  prog(64, 'Building the works'); buildWorld(); buildCartBay(); buildPlots(); buildBeacons(); buildNav(); buildGuide(); buildDock(); prog(80, 'Calling the crew');
+  prog(64, 'Building the works'); buildWorld(); buildCartBay(); if (adOn('sign')) putSign(); buildPlots(); buildBeacons(); buildNav(); buildGuide(); buildDock(); prog(80, 'Calling the crew');
   const batch = bakeStatic(); console.info(`[iv] static meshes ${batch.before} -> ${batch.after} draw calls`);
   if (S.level >= 2) buildLevel2();
   if (S.level >= 3) buildLevel3();
@@ -4996,7 +5161,7 @@ async function boot(){
   const ld = $('loading'); setTimeout(() => { ld.style.opacity = 0; setTimeout(() => { ld.remove(); try { yt && yt.game.gameReady(); } catch(e){} }, 600); }, 350);
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
-  window.__iv = { carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  window.__iv = { get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });
