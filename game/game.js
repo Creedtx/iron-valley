@@ -3274,8 +3274,10 @@ function ownerHands(dt){
   for (const [type, at, have, need, take, back] of picks) {
     if (!at()) continue;
     const gate = walkWant(type) - (t === type ? n : 0);   // a walk-in customer at the gate waiting for these
-    if ((!t || t === type) && n < (type === 'crate' && !owner.cart ? HAND_CRATES : ownerCarry()) && have() > 0 && (need() > 0 || gate > 0) && take()) { handT = .16; sfx('pick', .5); return; }   // build 0.19: you lend a hand loading, loaders or not
-    if (t === type && n && n > walkWant(type) && need() < 0 && back()) { handT = .16; return; }   // more than the truck needs (or the loaders have it): put it back
+    // what the lorry still needs not counting the owner's own load (with loaders on, their loads count but his did not)
+    const held = t === type ? n : 0, excl = need() + (truckBound(owner) ? held : 0);
+    if ((!t || t === type) && n < (type === 'crate' && !owner.cart ? HAND_CRATES : ownerCarry()) && have() > 0 && (excl - held > 0 || gate > 0) && take()) { handT = .16; sfx('pick', .5); return; }   // build 0.19: you lend a hand loading, loaders or not
+    if (held && n > walkWant(type) + Math.max(0, excl) && back()) { handT = .16; return; }   // more than the lorry and the gate want: back where it came from
   }
   // the trolley bay: take a free trolley by standing at its handle; park yours the same way once it is empty
   if (!owner.cart) { const k = carts.find(k => !k.by && near(o, cartSpot(k.slot), .55)); if (k && owner.cartArm !== false) { takeCart(owner, k); owner.cartArm = false; handT = .3; toast('You have a trolley: load up to ' + ownerCarry() + ' crates. Park it back in the bay when you are done.', 'good'); return; } }
@@ -4491,6 +4493,7 @@ function objective(){
   if (S.power.fuel <= 0) return { t:'Out of diesel: your loader is fetching some', at:null, alert:true };
   if (S.call) return { t:`The office phone is ringing: ${S.call.client}. Take the order`, at:P.deskRing, alert:true };
   const wb = walkBeat(); if (wb) return wb;
+  const sp = ownerSurplus(); if (sp) return sp;
   if (S.blade && owner.o.visible) return { t:`The crate machine's blade is blunt (60% speed). Stand at the side of the machine to fit a new one (${fmt(BLADE_COST)})`, at:P.sawFix, alert:true };
   if (!owner.cart && ownerCrates() >= HAND_CRATES && S.pallet > 0 && freeCart() && near(owner.o, P.pallet, 1.6) && ((!loadersHired() && needCrates() - truckCrates() > 0) || walkWant('crate') > HAND_CRATES)) { const k = freeCart(); return { t:'Two crates is all you can carry by hand. Take a trolley from the trolley bay for more', at:cartSpot(k.slot) }; }
   if (S.order && !S.order.briefed) { const sp = supervisor(), op = orderOp(S.order); return sp ? { t:`${sp.st.name} is coming to take the order from you`, at:null } : op ? { t:`Brief ${op.st.name} at the ${op.st.mach === 'pipe' ? 'pipe mill' : op.st.mach === 'tool' ? 'tool press' : 'saw'} about the new order`, at:posOfC(op) } : { t:'Stand at the saw to start the order', at:P.op }; }
@@ -5102,6 +5105,14 @@ function updateWalkin(dt){
     walkerLeave(); save(); }
 }
 // the objective line while someone waits at the gate
+// the owner is holding goods that neither the lorry nor a gate customer wants: say where they go back
+function ownerSurplus(){
+  const t = owner.carryType, n = owner.stack.length; if (!n || !['crate', 'pipe', 'toolbox'].includes(t) || trip) return null;
+  const need = t === 'crate' ? needCrates() - truckCrates() : t === 'pipe' ? needPipes() - truckPipes() : needTools() - truckTools();
+  const excl = need + (truckBound(owner) ? n : 0); if (n <= walkWant(t) + Math.max(0, excl)) return null;
+  const name = t === 'crate' ? 'crates' : t === 'pipe' ? 'pipes' : 'tools', at = t === 'crate' ? P.pallet : t === 'pipe' ? P.prackSpot : P.trackSpot;
+  return { t:`Nobody needs the ${n} ${name} you are holding${S.order && !S.order.ready ? ' (the lorry has enough)' : ''}: put them back on the ${t === 'crate' ? 'pallet' : t === 'pipe' ? 'pipe rack' : 'tool rack'}${whReady() ? ' or in the warehouse' : ''}`, at };
+}
 function walkBeat(){
   if (!walkWaiting() || walker.state !== 'wait') return null;
   const w = walker, left = w.n - w.got, type = w.def.want, what = `${left} ${type}${left === 1 ? '' : 's'}`, price = fmt(walkPrice(w)), urgent = walkPatience() - w.t < 30;
