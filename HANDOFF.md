@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (18 Nov 2026, build 0.20)
+# Handover: where Iron Valley stands (19 Nov 2026, build 0.21)
 
 Read this first when continuing in a new session.
 
@@ -29,7 +29,7 @@ https://claude.ai/artifact/HRZiBVHUvRCSEDexVex18G
 
 Preview artifact (the user plays this): https://claude.ai/artifact/Bgy9pgXzhBNAiqxpS8oXGe
 Publish = copy game/{game.js,index.html,progression.js,models.js} to preview/ and publish preview/index.html with
-those three files. The preview runs levels 1-3 on the "wide yard" (PREVIEW = true, MAX_LEVEL 3).
+those three files. The preview runs levels 1-4 on the "wide yard" (PREVIEW = true, MAX_LEVEL 4).
 
 ## Done in build 0.20b (fixes from phone play, whole-game audit)
 - Gate customers: when the pallet or pipe rack is empty, the owner (and Gus) serve from the warehouse stock
@@ -50,6 +50,26 @@ those three files. The preview runs levels 1-3 on the "wide yard" (PREVIEW = tru
   workers reach for meshes that are not there. Headless tests run slowly: when one fails, check it in game time
   (`__iv.hold = true` then `__iv.step(.05)` in a loop, as audit.mjs and fixes020.mjs do) before calling it a bug.
 - `tools/fixes020.mjs`: the warehouse gate sale and the car at 17:00.
+
+## Done in build 0.21 (level 4: Growing Enterprise, plans/level4_plan.png)
+- The old scrapyard (x -26..-14, z -4..13, bought from Rusty in the level 3 charter) is the forklift yard: gravel, Rusty's
+  parts stall by the road ($30 a part), the forklift's bay and gas cage, the second crate machine (pad at P.saw2 area).
+  At level 4 the west fence beside the stock room (westGap, scrapGate, westFenceA) and the crate bin at the workshop
+  corner (M.northBin) go.
+- Forklift (`fork`): timber from the stock room's west face (P.forkStore) to the second machine's in-feed from its north
+  side (P.forkFeed2, clear of the operator); crates from pallet 2 along the marked lane `LANE4` (painted edge lines:
+  along the workshop front at z -0.45, north of the coil bay at z -4.45, down x 13.4) up the forklift ramp
+  (`FORK_RAMP`, LDOCK.fork, groundY) onto the deck's north end (P.forkDock) and into the lorry; it backs down; a branch
+  serves the warehouse (P.forkWh). `laneRoute` follows the lane between the yards. Nobody walks up the ramp ('forkRamp').
+- Right of way, everywhere: vehicles stop for people ahead (`forkYield`, `roadYield` incl. the yard and reversing); people
+  wait for a moving vehicle and walk round / step aside from a stopped one (`vehInWay`, `stepAside`); the forklift does
+  not turn on the spot with anybody within 1.75 m (`forkSwingClear`). `NAVOUT`: no walking routes across the lorries'
+  turning ground south of bays 1-2; goods-in is reached through the canopy. Paths avoid parked and arriving lorries
+  (`lorryBlocked`, `repathAround`). No route: the walker waits (`path.cut`), never crosses a wall; the watchdog squeezes
+  past people 30 cm at a time.
+- Crew and walk-ins leave at the gate mouth (P.frontOut z 13.9), not on the road. Supervisor never sends anyone to work at
+  lunch or knocking-off. Road-frontage notice inside the fence (PLOTS.road ring 23.35, 11.0).
+- Tests: `tools/level4.mjs` (21 checks, game time), audit.mjs plays levels 1-4 (3 days each: clean), layout_lint `l4`.
 
 ## Done in build 0.20e (from phone play at level 3)
 - No electrician can be hired (Bible 4.1), so the mechanic does the electrical work: he services the wiring and
