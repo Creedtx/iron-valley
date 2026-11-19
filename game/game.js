@@ -3760,7 +3760,9 @@ function buildPlots(){
   // the scrapyard next door, west of the back yard: heaps, a wreck, drums, its own fence and Rusty's sign
   fenceLine(-26, -4, SITE.x0, -4); fenceLine(-26, 13, SITE.x0, 13); fenceLine(-26, -4, -26, 13);
   // the road frontage south of the front fence, between the gate and the road (sold by the council at level 4)
-  fenceLine(13.5, SITE.z1 + .4, 13.5, 21); fenceLine(13.5, 21, 28.2, 21); M.frontEast = fenceLine(28.2, SITE.z1 + .4, 28.2, 21, true, 'frontEast');
+  // build 0.21c: the plot lies across the road (south of it), fenced on all four sides; nothing crosses the road
+  const RS = ROAD_Z + 3.0, RB = RS + 4.5;   // off the road's far edge, on the verge; 4.5 m deep
+  fenceLine(13.5, RS, 28.2, RS); fenceLine(13.5, RS, 13.5, RB); fenceLine(13.5, RB, 28.2, RB); M.frontEast = fenceLine(28.2, RS, 28.2, RB, true, 'frontEast');
   M.roadSign = plotSign(PLOTS.road.sign, 'Road frontage', 'Valley Council · permit office', '#2f5d8a');
   // Rusty's junk is cleared by Big Tom's crew once the yard is bought, so it stays out of the static batch
   M.scrapJunk = [];
