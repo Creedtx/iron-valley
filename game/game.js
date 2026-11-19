@@ -487,7 +487,7 @@ let colSeq = 0;
 const addCol = (r, id) => { const k = id || 'c' + (colSeq++); COL.set(k, r); return k; };
 // where the crew never plan a walk: the lorries' and the car's turning ground between bays 1-2 and the front fence
 // (the lorry gateway). Nobody is pushed out of it; walking routes just go round (to goods-in through the canopy)
-const NAVOUT = [[13.95, 10.3, 22.45, 12.45]];
+const NAVOUT = [[13.95, 9.97, 22.45, 12.45]];   // from the end of the dock and the bays' tails to the front fence
 function segBlocked(ax, az, bx, bz, pad){
   const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 0.15);
   for (let i = 1; i < n; i++) { const t = i / n, x = lerp(ax, bx, t), z = lerp(az, bz, t);
@@ -2112,7 +2112,7 @@ function pathAt(path, d){
   let hx = b.x - a.x, hz = b.z - a.z; if (b.rev) { hx = -hx; hz = -hz; } return { x, z, yaw:Math.atan2(-hz, hx) };
 }
 const ARRIVE = samplePath([{ p:[[-70, ROAD_Z - .9], [P.truck[0] + 6.5, ROAD_Z - .9]] }, { bez:true, rev:true, p:[[P.truck[0] + 6.5, ROAD_Z - .9], [P.truck[0], ROAD_Z - .9], P.truck] }]);
-const LEAVE = samplePath([{ bez:true, p:[P.truck, [P.truck[0], ROAD_Z + .9], [P.truck[0] + 5, ROAD_Z + .9]] }, { p:[[P.truck[0] + 5, ROAD_Z + .9], [80, ROAD_Z + .9]] }]);
+const LEAVE = samplePath([{ bez:true, p:[P.truck, [P.truck[0], ROAD_Z - .9], [P.truck[0] + 5, ROAD_Z - .9]] }, { p:[[P.truck[0] + 5, ROAD_Z - .9], [80, ROAD_Z - .9]] }]);   // keep left: out of the bay and into the near lane, eastbound
 // Orders come in by phone. The owner takes the call in the office; the manager
 // (or, without one, the owner) briefs the operator; only then is anything cut.
 let callT = 0, ringT = 0;
@@ -2193,7 +2193,7 @@ function orderTimber(qty){
 const sup = { state:'away', t:0, s:0, path:null };
 const TRUCK_BOX = [P.truck[0] - 1.15, P.truck[1] - 2.45, P.truck[0] + 1.15, P.truck[1] + 2.75], SUP_BOX = [P.supPark[0] - 1.15, P.supPark[1] - 2.45, P.supPark[0] + 1.15, P.supPark[1] + 2.75];
 const SUP_ARRIVE = samplePath([{ p:[[-80, ROAD_Z - .9], [P.supPark[0] + 6.5, ROAD_Z - .9]] }, { bez:true, rev:true, p:[[P.supPark[0] + 6.5, ROAD_Z - .9], [P.supPark[0], ROAD_Z - .9], P.supPark] }]);
-const SUP_LEAVE = samplePath([{ bez:true, p:[P.supPark, [P.supPark[0], ROAD_Z + .9], [P.supPark[0] + 5, ROAD_Z + .9]] }, { p:[[P.supPark[0] + 5, ROAD_Z + .9], [90, ROAD_Z + .9]] }]);
+const SUP_LEAVE = samplePath([{ bez:true, p:[P.supPark, [P.supPark[0], ROAD_Z - .9], [P.supPark[0] + 5, ROAD_Z - .9]] }, { p:[[P.supPark[0] + 5, ROAD_Z - .9], [90, ROAD_Z - .9]] }]);
 // shared driving: speed profile, wheel spin and steering, lamps, reverse beeper
 function truckNodes(Tr){ return Tr.userData.n || (Tr.userData.n = { wheel_fl:findNode(Tr, 'wheel_fl'), wheel_fr:findNode(Tr, 'wheel_fr'), wheel_rl:findNode(Tr, 'wheel_rl'), wheel_rr:findNode(Tr, 'wheel_rr'), rev:findNode(Tr, 'lamp_rev'), brake:findNode(Tr, 'lamp_brake'), head:findNode(Tr, 'lamp_head') }); }
 function drive(V, Tr, dt, revStart, arriving){
@@ -2450,8 +2450,8 @@ function vehInWay(c, x, z){
   if (c.seated || (c === owner && trip)) return null;
   const cur = [c.o.position.x, c.o.position.z], fresh = V => !(V.yieldT > T - .25);
   const list = [];
-  if (typeof fork !== 'undefined' && fork.o && fork.state !== 'park') list.push([fork.o, /^to/.test(fork.state) && !fork.blockBy, 1.45, 1.7, .85, 1.3, .6]);
-  list.push([M.truck, ['arrive', 'leave'].includes(truck.state) && fresh(truck), 3.5, 3.5, 1.45, 3.3, 1.2], [M.flat, ['arrive', 'leave'].includes(sup.state) && fresh(sup), 3.5, 3.5, 1.45, 3.3, 1.2],
+  if (typeof fork !== 'undefined' && fork.o && fork.state !== 'park') list.push([fork.o, /^to/.test(fork.state) && !fork.blockBy, 1.6, 1.9, 1.0, 1.3, .6]);
+  list.push([M.truck, ['arrive', 'leave'].includes(truck.state) && fresh(truck), 3.5, 3.5, 1.65, 3.3, 1.2], [M.flat, ['arrive', 'leave'].includes(sup.state) && fresh(sup), 3.5, 3.5, 1.65, 3.3, 1.2],
     [M.car, !!trip && ['out', 'back', 'park'].includes(trip.phase) && fresh(CAR), 2.2, 2.2, 1.05, 2.0, .9]);
   for (const [m, driving, back, front, half, len, wid] of list) {
     if (!m || !m.visible || !inFoot(m, x, z, back, front, half) || inFoot(m, ...cur, back, front, half)) continue;
@@ -3671,7 +3671,7 @@ function gusCard(){ const [cap, now] = gusDoing();
 const PLOTS = {
   north:{ name:'North field', lv:2, seller:'abel', price:800, adds:'Tool machine pad and a parts store (level 3)', sign:[13.8, -11.3], ring:[13.8, -10.4],
           sweet:'His two nephews want work: your next two hires cost nothing', quote:'Keep my fence line straight and it\'s yours.' },
-  road:{ name:'Road frontage', lv:4, seller:'council', price:4000, adds:'Second dock and a truck park (level 5)', sign:[23.35, 12.05], ring:[23.35, 11.0], sweetCost:500,
+  road:{ name:'Road frontage', lv:4, seller:'council', price:4000, adds:'Second dock and a truck park (level 5)', sign:[8.8, 12.0], ring:[8.8, 10.9], sweetCost:500,
           sweet:'Pay for the road repair as well ($500): +5 reputation in the valley', quote:'The council sells the frontage to whoever keeps the road fit for lorries.' },
   shop:{ name:'Corner shop plot', lv:5, seller:'ada', price:10000, adds:'Room for the bigger office (level 6)', sign:[18.6, 20.95], ring:[18.6, 19.85],
           sweet:'Give her niece June a job: the clerk\'s hire at level 6 costs nothing', quote:'Forty years behind that counter. Treat my June right and the shop is yours.' },
@@ -5183,9 +5183,9 @@ function callerSpec(){ const acc = accounts(); if (acc.length && Math.random() <
 // gateway, then reversed in like the lorries and back along the lane into its space (build 0.19b; every route is swept
 // against every collision box with a lorry docked: tools/car_sweep.mjs)
 const LANE_Z = P.carSpot[1];
-const CAR_OUT = samplePath([{ p:[P.carSpot, [14.4, LANE_Z]] }, { bez:true, p:[[14.4, LANE_Z], [17.6, LANE_Z], [17.6, 13.9]] }, { bez:true, p:[[17.6, 13.9], [17.6, ROAD_Z + .9], [14.6, ROAD_Z + .9]] }, { p:[[14.6, ROAD_Z + .9], [-62, ROAD_Z + .9]] }]);
+const CAR_OUT = samplePath([{ p:[P.carSpot, [14.4, LANE_Z]] }, { bez:true, p:[[14.4, LANE_Z], [17.6, LANE_Z], [17.6, 13.9]] }, { bez:true, p:[[17.6, 13.9], [17.6, ROAD_Z + 1.15], [14.6, ROAD_Z + 1.15]] }, { p:[[14.6, ROAD_Z + 1.15], [-62, ROAD_Z + 1.15]] }]);   // the far lane, westbound: clear of a lorry in the near lane
 const CAR_BACK = samplePath([{ p:[[-62, ROAD_Z - .9], [21.6, ROAD_Z - .9]] }]);
-const CAR_REV = samplePath([{ bez:true, rev:true, p:[[21.6, ROAD_Z - .9], [17.6, ROAD_Z - .9], [17.6, 13.4]] }, { bez:true, rev:true, p:[[17.6, 13.4], [17.6, LANE_Z], [14.4, LANE_Z]] }, { rev:true, p:[[14.4, LANE_Z], P.carSpot] }]);
+const CAR_REV = samplePath([{ bez:true, rev:true, p:[[21.6, ROAD_Z - .9], [18.6, ROAD_Z - .9], [18.6, 13.4]] }, { bez:true, rev:true, p:[[18.6, 13.4], [18.0, LANE_Z], [14.0, LANE_Z]] }, { rev:true, p:[[14.0, LANE_Z], P.carSpot] }]);   // swings wide: 18 cm clear of a lorry in bay 1, clear of the gate post
 let trip = null;
 const CAR = { s:0, v:0 };
 function carDrive(path, dt, vmax){
@@ -5199,15 +5199,52 @@ const carAtGate = () => !!(trip && M.car && M.car.visible && Math.abs(M.car.posi
 // the car stops for anybody in its way (a gate customer on the verge, a worker crossing the lane) and goes on once
 // they have passed: it looks along the next 3 m of its path, 0.9 m either side
 const carYield = path => roadYield(M.car.position, path, CAR.s, path === CAR_REV ? 3.8 : 4, CAR);   // past its own bumper (2 m from the middle), backing in too
+// the lorry gateway (both bays' mouths, the gate and the road in front of it) holds one moving vehicle at a time: the car,
+// a lorry or the flatbed. The others wait outside it, on the road or in their bay; whoever holds it goes on, so two
+// vehicles can never meet in it or wait for each other (build 0.21f)
+const GATE_ZONE = [14.3, 10.3, 25.6, 16.9];
+let gateHolder = null;
+const inGateZone = (x, z) => x > GATE_ZONE[0] && x < GATE_ZONE[2] && z > GATE_ZONE[1] && z < GATE_ZONE[3];
+function gateFree(V, path, s, look){
+  if (gateHolder === V) return true;
+  const own = V === CAR ? 2.2 : 3.4; let enters = false;
+  for (let k = 0; k <= 4; k++) { const q = pathAt(path, Math.min(path.len, s + (own + 1.2) * k / 4)); if (inGateZone(q.x, q.z)) { enters = true; break; } }
+  if (!enters) return true;
+  if (gateHolder && gateHolderBusy()) return false;
+  gateHolder = V; return true;
+}
+// the holder still in or near the gateway and on the move
+function gateHolderBusy(){
+  const V = gateHolder, m = V === CAR ? M.car : V === truck ? M.truck : V === sup ? M.flat : null;
+  if (!m || !m.visible) return false;
+  const moving = V === CAR ? !!trip && ['out', 'back', 'park'].includes(trip.phase) : ['arrive', 'leave'].includes(V.state);
+  if (!moving) return false;
+  const p = m.position, r = V === CAR ? 2.2 : 3.4;
+  return p.x > GATE_ZONE[0] - r && p.x < GATE_ZONE[2] + r && p.z > GATE_ZONE[1] - r && p.z < GATE_ZONE[3] + r;
+}
+// the other vehicles on the move (a parked lorry is in its bay, clear of every path): [state object, mesh, back, front, half-width]
+function otherVehicles(V){ const out = [];
+  if (V !== CAR && trip && M.car && M.car.visible) out.push([CAR, M.car, 2.0, 2.0, .85]);
+  if (V !== truck && M.truck && M.truck.visible && ['arrive', 'leave'].includes(truck.state)) out.push([truck, M.truck, 3.3, 3.3, 1.15]);
+  if (V !== sup && M.flat && M.flat.visible && ['arrive', 'leave'].includes(sup.state)) out.push([sup, M.flat, 3.3, 3.3, 1.15]);
+  if (typeof truckB !== 'undefined' && V !== truckB && M.truckB && M.truckB.visible && ['arrive', 'leave'].includes(truckB.state)) out.push([truckB, M.truckB, 3.3, 3.3, 1.15]);
+  return out;
+}
 // a vehicle at a on its path at distance s: true if it must wait. It looks along the next `look` metres, 0.9 m either
 // side (1.4 m for a lorry), and, coming along the road towards the main gate's mouth, waits short of it while anybody
 // is there (people step in and out of the yard at that spot)
 function roadYield(a, path, s, look, V){
+  if (!gateFree(V, path, s, look)) { V.yieldT = T; V.queueFor = 'gate'; return true; }
   const ahead = pathAt(path, Math.min(path.len, s + look)), bx = ahead.x - a.x, bz = ahead.z - a.z, L2 = bx * bx + bz * bz || 1, half = V === CAR ? .9 : 1.2;   // half its width; a person's width is added below
   const people = [...staffObj.values(), ...folk.values(), ...(walker ? [walker.c] : []), ...(V !== CAR && owner && owner.o.visible ? [owner] : [])];
   const east = bx > 0, front = a.x + (east ? 1 : -1) * (V === CAR ? 2.2 : 4.2);
   const nearGate = a.z > 13.4 && (east ? front > -3 && front < 2.6 : front < 13 && front > 7.4);
   if (nearGate && people.some(c => c.o.visible && !c.gone && c.o.position.x > 2.2 && c.o.position.x < 7.8 && c.o.position.z > 13.4 && c.o.position.z < 16.6)) { V.yieldT = T; return true; }
+  // another vehicle in the way along its path (the car stopped at the gate, a lorry in front): stop behind it
+  const own = V === CAR ? 2.0 : 3.3, ownHalf = V === CAR ? .85 : 1.15;   // a vehicle in the other lane, going the other way, passes
+  for (const [W, m, back, front, wh] of otherVehicles(V)) for (let k = 1; k <= 6; k++) { const q = pathAt(path, Math.min(path.len, s + own * Math.sign(look) + (look - own) * k / 6));
+    if (inFoot(m, q.x, q.z, back + .8, front + .8, wh + ownHalf)) { V.yieldT = T; V.queueFor = W; return true; } }
+  V.queueFor = null;
   for (const c of people) { if (!c.o.visible || c.gone) continue; const px = c.o.position.x - a.x, pz = c.o.position.z - a.z, t = clamp((px * bx + pz * bz) / L2, 0, 1);
     if (Math.hypot(px - bx * t, pz - bz * t) < half + .25) { V.yieldT = T; if (!V.honk || T - V.honk > 4) { V.honk = T; sfxAt('horn', a.x, a.z, .25); } return true; } }
   return false;
@@ -5227,7 +5264,7 @@ function endTrip(){
 function updateTrip(dt){
   if (!trip) return; const T_ = trip; T_.t += dt;
   if (T_.phase === 'wait') { if (!lorryMoving()) { T_.phase = 'out'; CAR.s = 0; } return; }
-  if (T_.phase === 'out') { const road = M.car.position.z > 14; if (!road && lorryMoving() && M.car.position.x > 12.4 && M.car.position.x < 15.2) return;   // wait short of the gateway
+  if (T_.phase === 'out') { const road = M.car.position.z > 14; 
     if (carYield(CAR_OUT)) { CAR.v = 0; return; }
     if (carDrive(CAR_OUT, dt, road ? 9 : 3)) { T_.phase = 'away'; T_.t = 0; M.car.visible = false; }
     if (M.car.position.x > -14) owner.o.position.set(M.car.position.x, 0, M.car.position.z); else owner.o.position.set(...P.carDoor); return; }
@@ -5235,11 +5272,11 @@ function updateTrip(dt){
   if (T_.phase === 'away') { if (T_.t >= T_.min * .8 * carK) { T_.phase = 'there'; tripScene(); } return; }
   if (T_.phase === 'there') return;   // the scene card is open
   if (T_.phase === 'home') { if (T_.t >= T_.min * .8 * carK) { if (lorryMoving()) return; T_.phase = 'back'; CAR.s = 0; CAR.v = 8; M.car.visible = true; } return; }
-  if (T_.phase === 'back') { const road = M.car.position.z > 14; if (road && lorryMoving() && M.car.position.x > 6 && M.car.position.x < 15) return;
+  if (T_.phase === 'back') { const road = M.car.position.z > 14; 
     if (M.car.position.x > -14) owner.o.position.set(M.car.position.x, 0, M.car.position.z);
     if (carYield(CAR_BACK)) { CAR.v = 0; return; }
     if (carDrive(CAR_BACK, dt, road ? 9 : 3)) { T_.phase = 'park'; CAR.s = 0; CAR.v = 0; } return; }
-  if (T_.phase === 'park') { owner.o.position.set(M.car.position.x, 0, M.car.position.z); if (lorryMoving() && CAR.s < 4) return; if (carYield(CAR_REV)) { CAR.v = 0; return; } if (carDrive(CAR_REV, dt, 1.6)) { endTrip(); toast('Back at the works.', ''); } }
+  if (T_.phase === 'park') { owner.o.position.set(M.car.position.x, 0, M.car.position.z); if (carYield(CAR_REV)) { CAR.v = 0; return; } if (carDrive(CAR_REV, dt, 1.6)) { endTrip(); toast('Back at the works.', ''); } }
 }
 // the visit itself: a scene card; the drive home starts when it is closed
 function tripScene(){ story({ kind:trip.kind === 'ad' ? 'advert' : 'visit', key:trip.key }); }
@@ -5609,7 +5646,7 @@ async function boot(){
   const ld = $('loading'); setTimeout(() => { ld.style.opacity = 0; setTimeout(() => { ld.remove(); try { yt && yt.game.gameReady(); } catch(e){} }, 600); }, 350);
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
-  window.__iv = { syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  window.__iv = { get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });
