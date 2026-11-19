@@ -1908,7 +1908,7 @@ const needsPart = f => S.level >= 3 && !!FAULTS[f.kind].part;
 // a re-inspection costs $40.  licence: 0 none, 1 applied (she is on her way), 3 inspecting, 4 failed, 2 granted
 const REINSPECT_PRICE = 40;
 const INSPECT = [
-  { id:'fire',    text:'Wiring and switchboard in good order', fix:'An electrician services the wiring; no open power faults', at:() => P.boardSpot,
+  { id:'fire',    text:'Wiring and switchboard in good order', fix:'Your mechanic services the wiring at the switchboard (it must be 50% or better); fix any open power fault', at:() => P.boardSpot,
     ok:() => S.cond.wiring >= 50 && !S.faults.some(f => FAULTS[f.kind].trade === 'electrician') },
   { id:'guards',  text:'Machines in working order', fix:'No jams or worn parts open on any machine', at:() => [P.sawFix[0] - .2, P.sawFix[1] + .3],
     ok:() => !S.faults.some(f => FAULTS[f.kind].trade === 'mechanic') },
@@ -2031,7 +2031,7 @@ function addFault(kind, opt = {}){
   if (kind === 'breaker') S.power.breakers[f.circuit] = false;
   const who = staffOf(def.trade)[0], art = def.trade === 'electrician' ? 'an electrician' : 'a mechanic';
   sfx('alarm'); floatText(def.name, ...WHERE[f.where].mark, 'warn');
-  toast(f.guided ? `${def.name}! Stand in the red ring by it to fix it by hand.` : kind === 'powercut' ? `Power cut: machines on the back-up line at half speed. ${who ? `${who.st.name} is on it.` : 'An electrician fixes it; it passes by itself in 30 s.'}`
+  toast(f.guided ? `${def.name}! Stand in the red ring by it to fix it by hand.` : kind === 'powercut' ? `Power cut: machines on the back-up line at half speed. ${who ? `${who.st.name} is on it.` : 'It passes by itself in 30 s.'}`
     : `${def.name}: ${who ? `${who.st.name} is on it.` : `a job for ${art}. Fix it yourself in the red ring (half speed) or hire one.`}`, 'bad'); save();
 }
 const faultById = id => S.faults.find(f => f.id === id);
@@ -2645,10 +2645,10 @@ function updateLoader(c, dt){
 // specialists: their own trade's faults first, then servicing, then the bench
 function serviceTarget(c){
   if (c.forcedService) { c.forcedService = false;
-    if (c.st.role === 'mechanic') { const opts = [{ spot:P.sawFix, face:P.saw, what:'saw' }, { spot:P.genFix, face:P.gen, what:'engine' }, ...(pressReady() ? [{ spot:P.tfix, face:P.tpress, what:'tool' }] : []), ...(millReady() ? [{ spot:P.pfix, face:P.pmill, what:'pipe' }] : [])];
+    if (c.st.role === 'mechanic') { const opts = [{ spot:P.sawFix, face:P.saw, what:'saw' }, { spot:P.genFix, face:P.gen, what:'engine' }, ...(pressReady() ? [{ spot:P.tfix, face:P.tpress, what:'tool' }] : []), ...(millReady() ? [{ spot:P.pfix, face:P.pmill, what:'pipe' }] : []), { spot:P.boardSpot, face:[P.board[0], -1], what:'wiring' }];
       return opts.sort((a, b) => S.cond[a.what] - S.cond[b.what])[0]; }
     return { spot:P.boardSpot, face:[P.board[0], -1], what:'wiring' }; }
-  if (c.st.role === 'mechanic') { if (S.cond.saw < 75 && !sawOn) return { spot:P.sawFix, face:P.saw, what:'saw' }; if (S.cond.engine < 75) return { spot:P.genFix, face:P.gen, what:'engine' }; if (millReady() && S.cond.pipe < 75 && !pipeOn) return { spot:P.pfix, face:P.pmill, what:'pipe' }; if (pressReady() && S.cond.tool < 75 && !toolOn) return { spot:P.tfix, face:P.tpress, what:'tool' }; }
+  if (c.st.role === 'mechanic') { if (S.cond.saw < 75 && !sawOn) return { spot:P.sawFix, face:P.saw, what:'saw' }; if (S.cond.engine < 75) return { spot:P.genFix, face:P.gen, what:'engine' }; if (millReady() && S.cond.pipe < 75 && !pipeOn) return { spot:P.pfix, face:P.pmill, what:'pipe' }; if (pressReady() && S.cond.tool < 75 && !toolOn) return { spot:P.tfix, face:P.tpress, what:'tool' }; if (S.cond.wiring < 75) return { spot:P.boardSpot, face:[P.board[0], -1], what:'wiring' }; }
   else if (S.cond.wiring < 75) return { spot:P.boardSpot, face:[P.board[0], -1], what:'wiring' };
   return null;
 }
@@ -4387,7 +4387,7 @@ function objective(){
     if (S.parts === 0 && S.cash >= PARTS_LOT[1] + 100) return { t:'No spare parts on the shelf: repairs will crawl. Buy some in the office (Stock)', at:P.deskRing };
     if (S.lv3.licence === 3 && inspector) return { t:`Inspector Ada Hale is checking the site (${Object.keys(S.lv3.check || {}).length}/${INSPECT.length})`, at:[inspector.o.position.x, inspector.o.position.z] };
     if (S.lv3.licence === 1 && !licReady()) { const c = INSPECT.find(x => !x.ok()); return { t:`Inspector due in ${Math.max(0, Math.ceil(LICENCE_WAIT - S.lv3.licT))} s. Not ready: ${c.text.toLowerCase()}. ${c.fix}`, at:c.at(), alert:true }; }
-    if (S.lv3.licence === 4) { const c = INSPECT.find(x => !x.ok()); return c ? { t:`Licence failed. Fix: ${c.text.toLowerCase()} (${c.fix})`, at:c.at(), alert:true } : { t:`Everything is ready: book a re-inspection in the office (Town, ${fmt(REINSPECT_PRICE)})`, at:P.deskRing, alert:true }; }
+    if (S.lv3.licence === 4) { const c = INSPECT.find(x => !x.ok()); return c ? { t:`Licence failed. Fix: ${c.text.toLowerCase()} (${c.fix})${c.id === 'fire' ? ` · wiring now ${Math.round(S.cond.wiring)}%${hasRole('mechanic') ? '' : ': hire a mechanic'}` : ''}`, at:c.at(), alert:true } : { t:`Everything is ready: book a re-inspection in the office (Town, ${fmt(REINSPECT_PRICE)})`, at:P.deskRing, alert:true }; }
     if (!S.lv3.licence && S.cash >= LICENCE_PRICE + 200) return { t:`Trading licence: check the council's list and apply in the office (Town, ${fmt(LICENCE_PRICE)})`, at:P.deskRing };
     const ps = plotBeat('scrap'); if (ps) return ps;
   }
