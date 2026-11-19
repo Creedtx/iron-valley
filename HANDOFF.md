@@ -58,7 +58,7 @@ those three files. The preview runs levels 1-3 on the "wide yard" (PREVIEW = tru
 - Knocking-off: the crew leave through the middle of the gateway two abreast (`gateQueue`); with more than six on the
   payroll the last ones used to walk through the front fence beside the posts.
 - audit.mjs now catches walking through thin walls (fences, posts) and runs level 3 with a full crew;
-  scratchpad tool `trails.mjs` (in the session notes) drew everyone's routes at closing and in the morning.
+  `tools/trails.mjs <url> <out>` draws everyone's routes at closing and in the morning.
 
 ## Done in build 0.20 (level 3, Bible v1.3)
 - Level 3 in the North field (bought from Abel via Vera on level 2): tool press pad at `P.tpress`, coil in-feed,
