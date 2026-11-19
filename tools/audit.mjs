@@ -31,7 +31,7 @@ await ev(() => {
   A.note = note;
   const folkList = () => { const a = []; for (const c of v.staffObj.values()) a.push([c.st.name + ' (' + c.st.role + ')', c]); a.push(['owner', v.owner]); for (const [id, c] of v.folk) a.push([id, c]); if (v.walker) a.push(['gate customer ' + v.walker.def.name, v.walker.c]); return a; };
   const inBox = (x, z, b, m = .1) => x > b[0] + m && x < b[2] - m && z > b[1] + m && z < b[3] - m;
-  const vehicles = () => [['lorry', v.M.truck, () => !['away', 'docked'].includes(v.truck.state)], ['flatbed', v.M.flat, () => !['away', 'parked'].includes(v.sup.state)], ['car', v.M.car, () => !!v.trip && !['away', 'there', 'home'].includes(v.trip.phase)]];
+  const vehicles = () => [['forklift', v.fork.o, () => /^to/.test(v.fork.state)], ['lorry', v.M.truck, () => !['away', 'docked'].includes(v.truck.state)], ['flatbed', v.M.flat, () => !['away', 'parked'].includes(v.sup.state)], ['car', v.M.car, () => !!v.trip && !['away', 'there', 'home'].includes(v.trip.phase)]];
   A.check = (dt, i) => {
     const S = v.S; if (A.settle > 0) A.settle--;
     // ---- maths: counts
@@ -41,7 +41,7 @@ await ev(() => {
     if (!Number.isFinite(S.cash)) note('maths', 'cash', 'cash is not a number'); if (!(S.rep >= 0 && S.rep <= 100)) note('maths', 'rep', `reputation ${S.rep}`);
     if (S.order && !(S.order.time >= 0)) note('maths', 'order time', `order time ${S.order.time}`);
     // ---- maths: goods conservation. Everything made is on a stack, carried, on the lorry bed, shipped, or sold at the gate
-    let carC = 0, carP = 0; for (const [, c] of folkList()) { if (c.carryType === 'crate') carC += c.stack.length; if (c.carryType === 'pipe') carP += c.stack.length; if (c.cart && c.cart.crates) carC += 0; }
+    let carC = 0, carP = 0; for (const [, c] of folkList()) { if (c.carryType === 'crate') carC += c.stack.length; if (c.carryType === 'pipe') carP += c.stack.length; if (c.cart && c.cart.crates) carC += 0; } if (v.fork.carryType === 'crate') carC += v.fork.stack.length;
     const w = v.walker; if (w) A.lastWalk = { type:w.def.want, got:w.c.stack.length + (w.c.cart && w.c.cart.load ? w.c.cart.load : 0), st:w.state }; else if (A.lastWalk) { A.sold[A.lastWalk.type] += A.lastWalk.got; A.lastWalk = null; }
     const qc = S.made - (S.pallet + S.wh.c + (S.lv4.pallet2 || 0) + carC + S.shipped + A.sold.crate);
     const qp = (S.pmade || 0) - (S.pipes + S.wh.p + carP + (S.pshipped || 0) + A.sold.pipe);
@@ -61,18 +61,21 @@ await ev(() => {
       A.prev.set(c, { x:o.x, z:o.z, vis });
       if (!vis) continue;
       if (c.stack && c.stack.length && !c.carryType) note('logic', name + ' carry', `${name} carries ${c.stack.length} things with no carry type`);
-      for (const [k, bx] of v.COL) { if ((String(k) === 'car' && name === 'owner') || c.lunch === 'eat' || (c.job === 'lunch' && c.gs === 'eat')) continue; const thin = Math.min(bx[2] - bx[0], bx[3] - bx[1]) < .5; if (inBox(o.x, o.z, bx, thin ? .02 : .1)) { note('physics', name + ' in ' + k, `${name} inside collision box '${k}' [${bx.map(n => n.toFixed(1))}] at ${o.x.toFixed(2)},${o.z.toFixed(2)} (state ${c.state || c.job || '-'}${c.lunch ? ', lunch ' + c.lunch : ''})`); break; } }
+      for (const [k, bx] of v.COL) { if ((String(k) === 'car' && name === 'owner') || c.lunch === 'eat' || (c.job === 'lunch' && c.gs === 'eat') || c.seated) continue; const thin = Math.min(bx[2] - bx[0], bx[3] - bx[1]) < .5; if (inBox(o.x, o.z, bx, thin ? .02 : .1)) { note('physics', name + ' in ' + k, `${name} inside collision box '${k}' [${bx.map(n => n.toFixed(1))}] at ${o.x.toFixed(2)},${o.z.toFixed(2)} (state ${c.state || c.job || '-'}${c.lunch ? ', lunch ' + c.lunch : ''})`); break; } }
       // stuck: on a moving job but not moving for 20 s of game time
       const moving = c.path && c.path.length; const s = A.still.get(c) || { x:o.x, z:o.z, t:0 };
-      if (moving && Math.hypot(o.x - s.x, o.z - s.z) < .05) { s.t += dt; if (s.t > 20) note('logic', name + ' stuck ' + c.state, `${name} has a path but has not moved for 20 s (state ${c.state}) at ${o.x.toFixed(2)},${o.z.toFixed(2)}`); }
+      if (moving && Math.hypot(o.x - s.x, o.z - s.z) < .05) { s.t += dt; if (s.t > 20) note('logic', name + ' stuck ' + c.state, `${name} has a path but has not moved for 20 s (state ${c.state}) at ${o.x.toFixed(2)},${o.z.toFixed(2)}`, JSON.stringify({ path:c.path.slice(0, 4).map(q => q.map(n => +n.toFixed(2))), cut:!!c.path.cut, rnd:c.rnd, hold:c.holdUntil, lunch:c.lunch, fork:v.fork.state, truck:v.truck.state, sup:v.sup.state, trip:v.trip && v.trip.phase, veh:JSON.stringify(v.vehInWay ? v.vehInWay(c, o.x + .1, o.z) : null) })); }
       else { s.x = o.x; s.z = o.z; s.t = 0; } A.still.set(c, s);
     }
     // ---- physics: vehicles moving through people (every 4 steps; footprint from the model's box)
     if (i % 4 === 0) for (const [vn, m, moving] of vehicles()) { if (!m || !m.visible || !moving()) continue;
-      const B = new v.Box3(); B.setFromObject(m);
-      for (const [name, c] of folkList()) { if (!c.o.visible || (vn === 'car' && name === 'owner')) continue; const o = c.o.position; if (o.x > B.min.x + .25 && o.x < B.max.x - .25 && o.z > B.min.z + .25 && o.z < B.max.z - .25) note('physics', vn + ' through ' + name, `the ${vn} drove through ${name} at ${o.x.toFixed(1)},${o.z.toFixed(1)} (${vn === 'lorry' ? v.truck.state : vn === 'flatbed' ? v.sup.state : v.trip.phase})`); } }
+      const dims = { forklift:[1.2, 1.4, .55], lorry:[3.3, 3.3, 1.15], flatbed:[3.3, 3.3, 1.15], car:[2.0, 2.0, .85] }[vn];   // the real footprint, turned with the vehicle
+      for (const [name, c] of folkList()) { if (!c.o.visible || (vn === 'car' && name === 'owner') || (vn === 'forklift' && c.seated)) continue; const o = c.o.position; if (v.inFoot(m, o.x, o.z, dims[0], dims[1], dims[2])) { const mo = m.position, ya = m.rotation.y, rel = vn === 'forklift' ? ` (along ${((o.x - mo.x) * Math.cos(ya) - (o.z - mo.z) * Math.sin(ya)).toFixed(2)}, side ${((o.x - mo.x) * Math.sin(ya) + (o.z - mo.z) * Math.cos(ya)).toFixed(2)}, ${c.state || c.job}, ${c.path && c.path.length ? 'walking' : 'standing'})` : ''; note('physics', vn + ' through ' + name, `the ${vn} drove through ${name}${rel} at ${o.x.toFixed(1)},${o.z.toFixed(1)} (${vn === 'lorry' ? v.truck.state : vn === 'flatbed' ? v.sup.state : vn === 'forklift' ? v.fork.state : v.trip ? v.trip.phase : '-'})`); } } }
+    // ---- logic: the forklift held up for long by somebody standing in its way (a work spot on the lane)
+    if (v.fork.o && v.fork.blockBy) { A.fb = (A.fb || 0) + dt; if (A.fb > 10) note('logic', 'forklift blocked by ' + (v.fork.blockBy.st ? v.fork.blockBy.st.name : 'owner'), `the forklift waited over 10 s for ${v.fork.blockBy.st ? v.fork.blockBy.st.name + ' (' + v.fork.blockBy.state + ')' : 'the owner'} at ${v.fork.o.position.x.toFixed(1)},${v.fork.o.position.z.toFixed(1)}`); } else A.fb = 0;
     // ---- logic: the day book with the car still out
     if (v.cardOpen && /Day book/i.test(document.getElementById('storyBody').innerText) && v.trip) note('logic', 'daybook car', `day book opened while the car trip is at '${v.trip.phase}'`);
+    if (S.day && S.day.closing && S.day.closing.t > 60 && !S.day.closing.shut) note('logic', 'closing held', 'the gates have not shut 60 s after the whistle', JSON.stringify({ empty:v.yardEmpty(), trip:v.trip && v.trip.phase, truck:v.truck.state, sup:v.sup.state, walker:!!v.walker, staff:[...v.staffObj.values()].filter(c => !c.gone && c.st.role !== 'forklift' && c.st.posted !== false).map(c => `${c.st.name}:${c.state}@${c.o.position.x.toFixed(1)},${c.o.position.z.toFixed(1)}${c.stack.length ? '#' + c.stack.length : ''}`), gus:v.folk.get('gus') && [v.folk.get('gus').job, v.folk.get('gus').gone] }));
     if (S.day && S.day.closing && S.day.closing.shut && v.trip) note('logic', 'gates car', `gates shut while the car trip is at '${v.trip.phase}'`);
     // ---- logic: machines running with nobody there
     if (v.sawOn && v.sawBy && v.sawBy.o && Math.hypot(v.sawBy.o.position.x - v.P.op[0], v.sawBy.o.position.z - v.P.op[1]) > 1.2) note('logic', 'saw unmanned', `the saw runs while its operator is ${Math.hypot(v.sawBy.o.position.x - v.P.op[0], v.sawBy.o.position.z - v.P.op[1]).toFixed(1)} m away`);
@@ -86,13 +89,15 @@ await ev(() => {
 });
 // play in chunks: the game's own step() 20 times a game second, cards answered like a player would, calls taken
 const play = async (gsecs, opts = {}) => ev(async ([gsecs, opts]) => {
-  const v = window.__iv, A = window.__aud; v.hold = true; let t = 0, i = 0;
+  const v = window.__iv, A = window.__aud; v.hold = true; let t = 0, i = 0; v.owner.o.position.set(v.P.deskRing[0], 0, v.P.deskRing[1]);   // the owner at his desk, out of everybody's way
   const answer = () => { const B = document.getElementById('storyBody'); const btn = B.querySelector('[data-pick="now"]') || B.querySelector('[data-next]') || B.querySelector('[data-pick]') || B.querySelector('button'); if (btn) btn.click(); else v.nextCard(); };
   while (t < gsecs) {
     if (v.cardOpen) { A.check(0, i++); answer(); if (v.cardOpen) v.nextCard(); continue; }
     const S = v.S;
     if (S.call) { v.acceptCall(); v.closeOffice(); }
     if (S.order && !S.order.briefed) v.briefOrder(null);
+    if (opts.timber && S.store < 8 && !S.delivery && v.orderTimber) v.orderTimber(24);
+    if (opts.timber && S.coils < 2 && !S.delivery && v.orderSteel) v.orderSteel(2);
     if (S.order && S.order.ready && v.truck.state === 'docked' && !v.trip) { A.signT = (A.signT || 0) + .05; if (A.signT > 3) { A.signT = 0; v.signOrder(v.owner); } }   // the owner signs the lorry off
     // now and then the owner drives out on a sales trip (any time: late in the day too, to test the closing)
     if (opts.trips && !v.trip && !S.order && Math.random() < .002) { const ks = Object.keys(v.PLACES).filter(k => !v.PLACES[k].lv || S.level >= v.PLACES[k].lv); v.startTrip('visit', ks[Math.floor(Math.random() * ks.length)]); }
@@ -112,5 +117,10 @@ await ev(async () => { const v = window.__iv; window.__aud.settle = 60; if (!v.S
 await play(480 * DAYS, { trips:true }); await report('level 2');
 await ev(async () => { const v = window.__iv; window.__aud.settle = 60; v.S.plots.north = { st:3 }; v.buyField(false); v.S.levelUp = true; await v.startLevel(3); v.closeOffice(); v.startPressBuild(false); v.finishPress(false); for (const r of ['operator', 'mechanic', 'loader', 'loader', 'helper', 'cleaner', 'supervisor']) v.hire(r); v.closeOffice(); for (const st of v.S.staff) st.posted = true; v.evNext = 1e9; window.__aud.q0 = null; });
 await play(480 * DAYS, { trips:true }); await report('level 3');
+await ev(async () => { const v = window.__iv, S = v.S; window.__aud.settle = 60; S.plots.scrap = { st:3 }; v.openScrapyard(false); S.levelUp = true; await v.startLevel(4); v.closeOffice(); while (v.cardOpen) v.nextCard();
+  v.startSaw2Build(false); v.finishSaw2(false); for (const r of ['operator', 'forklift', 'loader']) v.hire(r); v.closeOffice(); for (const st of S.staff) st.posted = true;
+  const l = S.staff.find(s => s.role === 'loader'); if (l) { v.promote(l.id); v.closeOffice(); const sup = v.supervisor(); S.lv4.post = v.zoneHint(); if (sup) { sup.state = 'toPatrol'; sup.path = null; } }
+  S.cash += 5000; window.__aud.q0 = null; });
+await play(480 * DAYS, { trips:true, timber:true }); await report('level 4');
 console.log(errs.length ? 'page errors:\n' + [...new Set(errs)].slice(0, 20).join('\n') : 'no page errors');
 await b.close();

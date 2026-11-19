@@ -12,8 +12,9 @@ p.on('request', r => { const u = r.url(), pre = 'https://cdn.jsdelivr.net/npm/th
   if (u.includes('fonts.g') || u.endsWith('favicon.ico')) return r.abort(); r.continue(); });
 await p.evaluateOnNewDocument(() => { try { localStorage.clear(); } catch(e){} window.__ivLint = []; });
 await p.goto(url, { waitUntil:'domcontentloaded' }); await p.waitForFunction('window.__iv && window.__iv.owner && window.__iv.frames > 5', { timeout:300000 });
-await p.evaluate(async () => { const v = window.__iv; while (v.cardOpen) v.nextCard(); await v.previewL2Layout(); }); if (mode === 'l3') await p.evaluate(async () => { const v = window.__iv; await v.loadModels(['tool_press', 'level3']); v.S.plots.north.st = 3; v.S.level = 3; v.buyField(false); v.buildLevel3(); v.finishPress(false); });
-const D = await p.evaluate(() => { const v = window.__iv; return { put:window.__ivLint, col:[...v.COL.entries()].map(([k, b]) => ({ k:String(k), b })), P:v.P, ramp:v.LDOCK.ramp, deck:v.LDOCK.deck }; });
+await p.evaluate(async () => { const v = window.__iv; while (v.cardOpen) v.nextCard(); await v.previewL2Layout(); }); if (mode === 'l3' || mode === 'l4') await p.evaluate(async () => { const v = window.__iv; await v.loadModels(['tool_press', 'level3']); v.S.plots.north.st = 3; v.S.level = 3; v.buyField(false); v.buildLevel3(); v.finishPress(false); });
+if (mode === 'l4') await p.evaluate(async () => { const v = window.__iv; v.S.plots.scrap = { st:3 }; v.openScrapyard(false); v.S.levelUp = true; await v.startLevel(4); v.closeOffice(); while (v.cardOpen) v.nextCard(); v.startSaw2Build(false); v.finishSaw2(false); });
+const D = await p.evaluate(() => { const v = window.__iv; return { put:window.__ivLint, col:[...v.COL.entries()].map(([k, b]) => ({ k:String(k), b })), P:v.P, ramp:v.LDOCK.ramp, deck:v.LDOCK.deck, lane:v.S.level === 4 ? v.LANE4 : null, fork:v.LDOCK.fork }; });
 await b.close();
 const P = D.P, sq = (pt, r = .45) => [pt[0] - r, pt[1] - r, pt[0] + r, pt[1] + r];
 const ZONES = [
@@ -27,6 +28,9 @@ const ZONES = [
   ...['op', 'pallet', 'drop', 'cash', 'pop', 'pfeedRing', 'prackSpot', 'coilSpot', 'whSpotC', 'whSpotP', 'whSpotT', 'whBuild', 'deskRing', 'feedRing', 'timberRing', 'gus2', 'dockWait', 'trolleyPark', 'tfeedRing', 'tfix', 'trackSpot', 'unload', 'top', 'loaderHome', 'loaderWait', 'sawFix', 'genFix', 'wsDoor', 'frontIn', 'trade']
     .filter(k => P[k]).map(k => [`work spot ${k}`, sq(P[k]), /^$/]),
 ];
+// level 4: the forklift lane (1.1 m wide truck, 0.2 m to spare each side) and the forklift ramp keep clear of everything
+if (D.lane) { for (const [i, j] of D.lane.links) { const a = D.lane.pts[i], b = D.lane.pts[j]; if (D.fork && a[0] > 14.9 && a[1] > 1.7) continue; ZONES.push([`forklift lane ${i}-${j}`, [Math.min(a[0], b[0]) - .55, Math.min(a[1], b[1]) - .55, Math.max(a[0], b[0]) + .55, Math.max(a[1], b[1]) + .55], /^$/]); }
+  ZONES.push(['forklift ramp', D.fork, /^$/]); for (const k of ['op2', 'feed2Ring', 'forkFeed2', 'saw2Fix', 'stallRing', 'forkStore', 'fork2', 'forkWh']) if (P[k]) ZONES.push([`work spot ${k}`, sq(P[k]), /^$/]); }
 const ov = (a, b) => { const w = Math.min(a[2], b[2]) - Math.max(a[0], b[0]), d = Math.min(a[3], b[3]) - Math.max(a[1], b[1]); return w > .06 && d > .06 ? +(w * d).toFixed(2) : 0; };
 const out = [];
 for (const [zn, z, own] of ZONES) {
