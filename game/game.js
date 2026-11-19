@@ -2029,12 +2029,16 @@ function addFault(kind, opt = {}){
   const f = { id:++S.faultSeq, kind, where:def.where, circuit:opt.circuit || null, diag:true, prog:0, by:null, supBy:null, t:0, diagT:0, contractor:false, guided:!!opt.guided };
   S.faults.push(f); S.lastFault = S.time;
   if (kind === 'breaker') S.power.breakers[f.circuit] = false;
-  const who = staffOf(def.trade)[0], art = def.trade === 'electrician' ? 'an electrician' : 'a mechanic';
+  const who = fixerOf(def.trade)[0], art = def.trade === 'electrician' ? 'an electrician' : 'a mechanic';
   sfx('alarm'); floatText(def.name, ...WHERE[f.where].mark, 'warn');
   toast(f.guided ? `${def.name}! Stand in the red ring by it to fix it by hand.` : kind === 'powercut' ? `Power cut: machines on the back-up line at half speed. ${who ? `${who.st.name} is on it.` : 'It passes by itself in 30 s.'}`
     : `${def.name}: ${who ? `${who.st.name} is on it.` : `a job for ${art}. Fix it yourself in the red ring (half speed) or hire one.`}`, 'bad'); save();
 }
 const faultById = id => S.faults.find(f => f.id === id);
+// who fixes a trade's faults: there is no electrician on the payroll (Bible 4.1), so the mechanic takes the power jobs too
+const fixerOf = tr => { const a = staffOf(tr); return a.length || tr !== 'electrician' ? a : staffOf('mechanic'); };
+const fixerOn = tr => fixerOf(tr).length > 0;
+const myTrade = (c, tr) => tr === c.st.role || (c.st.role === 'mechanic' && tr === 'electrician' && !hasRole('electrician'));
 function faultSymptom(f){
   if (f.kind === 'breaker') return f.circuit === 'saw' ? 'The saw lost power' : f.circuit === 'pipe' ? 'The pipe mill lost power' : f.circuit === 'tool' ? 'The tool press lost power' : f.circuit === 'lights' ? 'The lights went out' : 'The office went dark';
   if (f.where === 'pipe') return 'The pipe mill stopped';
@@ -2044,7 +2048,7 @@ function faultSymptom(f){
 }
 function diagnose(f, by){
   if (f.diag) return; f.diag = true; f.diagT = 0; const def = FAULTS[f.kind];
-  const who = staffOf(def.trade)[0];
+  const who = fixerOf(def.trade)[0];
   floatText(def.name, ...WHERE[f.where].mark, 'info'); sfx('tap');
   const art = def.trade === 'electrician' ? 'an electrician' : 'a mechanic';
   toast(who ? `${def.name}${f.circuit ? ` (${CIRCUITS[f.circuit].name})` : ''}. ${who.st.name} the ${def.trade} is on it.` : `${def.name}: a job for ${art}. You have none. Hire one in the office.`, who ? 'gold' : 'bad');
@@ -2648,7 +2652,11 @@ function serviceTarget(c){
     if (c.st.role === 'mechanic') { const opts = [{ spot:P.sawFix, face:P.saw, what:'saw' }, { spot:P.genFix, face:P.gen, what:'engine' }, ...(pressReady() ? [{ spot:P.tfix, face:P.tpress, what:'tool' }] : []), ...(millReady() ? [{ spot:P.pfix, face:P.pmill, what:'pipe' }] : []), { spot:P.boardSpot, face:[P.board[0], -1], what:'wiring' }];
       return opts.sort((a, b) => S.cond[a.what] - S.cond[b.what])[0]; }
     return { spot:P.boardSpot, face:[P.board[0], -1], what:'wiring' }; }
-  if (c.st.role === 'mechanic') { if (S.cond.saw < 75 && !sawOn) return { spot:P.sawFix, face:P.saw, what:'saw' }; if (S.cond.engine < 75) return { spot:P.genFix, face:P.gen, what:'engine' }; if (millReady() && S.cond.pipe < 75 && !pipeOn) return { spot:P.pfix, face:P.pmill, what:'pipe' }; if (pressReady() && S.cond.tool < 75 && !toolOn) return { spot:P.tfix, face:P.tpress, what:'tool' }; if (S.cond.wiring < 75) return { spot:P.boardSpot, face:[P.board[0], -1], what:'wiring' }; }
+  if (c.st.role === 'mechanic') {   // the most worn first (a machine only between runs); the wiring counts too, it has no electrician
+    const due = [S.cond.saw < 75 && !sawOn && { spot:P.sawFix, face:P.saw, what:'saw' }, S.cond.engine < 75 && { spot:P.genFix, face:P.gen, what:'engine' },
+      millReady() && S.cond.pipe < 75 && !pipeOn && { spot:P.pfix, face:P.pmill, what:'pipe' }, pressReady() && S.cond.tool < 75 && !toolOn && { spot:P.tfix, face:P.tpress, what:'tool' },
+      S.cond.wiring < 75 && { spot:P.boardSpot, face:[P.board[0], -1], what:'wiring' }].filter(Boolean);
+    return due.sort((a, b) => S.cond[a.what] - S.cond[b.what])[0] || null; }
   else if (S.cond.wiring < 75) return { spot:P.boardSpot, face:[P.board[0], -1], what:'wiring' };
   return null;
 }
@@ -2658,7 +2666,7 @@ function updateSpecialist(c, dt){
   if (c.state === 'arrive') { if (walk(c, dt)) c.state = 'idle'; return; }
   const trade = c.st.role;
   if (c.job && !faultById(c.job)) { c.job = null; if (c.state === 'toJob' || c.state === 'fixing') c.state = 'idle'; }
-  if (!c.job && c.state !== 'fixing') { const f = S.faults.find(f => f.diag && FAULTS[f.kind].trade === trade && !f.by && !f.contractor);
+  if (!c.job && c.state !== 'fixing') { const f = S.faults.find(f => f.diag && myTrade(c, FAULTS[f.kind].trade) && !f.by && !f.contractor);
     if (f) { f.by = c.st.id; c.job = f.id; goTo(c, ...WHERE[f.where].spot()); c.state = 'toJob'; } }
   if (c.state === 'toJob') { if (walk(c, dt)) { c.state = 'fixing'; const f = faultById(c.job); if (f && needsPart(f) && f.part === undefined) { f.part = S.parts > 0; if (f.part) { S.parts--; syncParts(); floatText('Spare part fitted', ...WHERE[f.where].mark, 'info'); } else floatText('No spare part: making do', ...WHERE[f.where].mark, 'warn'); } } return; }
   if (c.state === 'fixing') { const f = faultById(c.job); if (!f) { c.state = 'idle'; return; }
@@ -2839,7 +2847,7 @@ function updateStaff(dt){
 // contractors: when a diagnosed fault waits too long with nobody of that trade on staff
 function updateContractors(dt){
   // nobody of that trade on the payroll: a contractor from town after a minute (Master Design Doc), never for the guided jam
-  for (const f of S.faults) if (f.diag && !f.contractor && !f.guided && f.kind !== 'powercut' && !hasRole(FAULTS[f.kind].trade) && f.diagT > 60) {
+  for (const f of S.faults) if (f.diag && !f.contractor && !f.guided && f.kind !== 'powercut' && !fixerOn(FAULTS[f.kind].trade) && f.diagT > 60) {
     f.contractor = true; const trade = FAULTS[f.kind].trade;
     const c = makeChar('worker', ...P.frontOut, { parts:newLook(trade).parts, cols:Object.assign({ skin:pick(SKINS), hair:pick(HAIRS) }, ROLE[trade].col) });
     c.st = { id:-f.id, name:'Contractor', role:trade, lv:1, energy:100, focus:100 }; c.fault = f.id; c.state = 'toJob'; goTo(c, ...WHERE[f.where].spot()); temps.push(c);
@@ -2975,7 +2983,7 @@ function faultStatus(f){
   if (!f.diag) return hasRole('supervisor') ? 'Your supervisor is going to look' : 'Not inspected yet: walk over to it';
   if (fixer) return `${fixer.st.name} is ${fixer.state === 'fixing' ? `fixing it (${Math.floor(f.prog * 100)}%)` : 'on the way'}`;
   if (f.contractor) return `Contractor from town ${f.prog > 0 ? `fixing (${Math.floor(f.prog * 100)}%)` : 'on the way'}`;
-  if (f.kind === 'powercut' && !hasRole('electrician')) return `Half speed. Passes by itself in ${Math.max(0, Math.ceil(30 - f.t))} s`;
+  if (f.kind === 'powercut' && !fixerOn('electrician')) return `Half speed. Passes by itself in ${Math.max(0, Math.ceil(30 - f.t))} s`;
   if (f.guided) return `Fix it yourself: stand in the ring (${Math.floor(f.prog * 100)}%)`;
   if (!hasRole(def.trade)) return `Fix it yourself in the ring, or a contractor comes in ${Math.max(0, Math.ceil(60 - f.diagT))} s ($45)`;
   return `Waiting for the ${def.trade}`;
@@ -4333,7 +4341,7 @@ function objective(){
   const guided = S.faults.find(f => f.guided);
   if (guided) return { t:`${FAULTS[guided.kind].name}! Stand in the red ring to fix it by hand (${Math.round(guided.prog * 100)}%)`, at:WHERE[guided.where].spot(), alert:true };
   if (und && !hasRole('supervisor')) return { t:`${faultSymptom(und)}. Go and inspect the ${WHERE[und.where].name}`, at:WHERE[und.where].spot(), alert:true };
-  const orphan = S.faults.find(f => f.diag && !hasRole(FAULTS[f.kind].trade) && !f.contractor);
+  const orphan = S.faults.find(f => f.diag && !fixerOn(FAULTS[f.kind].trade) && !f.contractor);
   if (orphan && orphan.kind !== 'powercut') { const tr = FAULTS[orphan.kind].trade, cost = hireCost(tr); return { t:S.cash >= cost && capOf(tr) > 0 ? `${FAULTS[orphan.kind].name}: fix it yourself in the red ring, or hire ${tr === 'electrician' ? 'an electrician' : 'a mechanic'} in the office` : `${FAULTS[orphan.kind].name}: fix it yourself in the red ring, or a contractor comes in ${Math.max(0, Math.ceil(60 - orphan.diagT))} s`, at:WHERE[orphan.where].spot(), alert:true }; }
   if (S.power.fuel <= 0) return { t:'Out of diesel: your loader is fetching some', at:null, alert:true };
   if (S.call) return { t:`The office phone is ringing: ${S.call.client}. Take the order`, at:P.deskRing, alert:true };
@@ -4808,7 +4816,7 @@ function closingStep(c, dt){
     if (c.st.role === 'forklift' || c.stack.length || c.trolley || (c.tplanks && c.tplanks.length) || c.state === 'fixing') return false;   // finish what is in hand first
     if (c.lunch) { if (c.lunch === 'eat') standUp(c); c.lunch = null; c.lunchI = undefined; }
     releaseCart(c); c.state = 'leave'; if (cartHome(c, dt)) return true;
-    const k = [...staffObj.values()].filter(o => o.leaving || o.gone).length; c.leaving = true; c.state = 'leave'; c.task = null; c.path = null; goTo(c, P.frontOut[0] + (k % 2 ? 1 : -1) * (.5 + Math.floor(k / 2) * .7), P.frontOut[1] + .5); c.say = { text:pick(GOODNIGHT), until:T + 2.6 }; }
+    const k = [...staffObj.values()].filter(o => o.leaving || o.gone).length; c.leaving = true; c.state = 'leave'; c.task = null; c.path = null; const q = gateQueue(k % 2); goTo(c, q[0], q[2]); /* out through the middle of the gateway, two abreast: never past the posts */ c.say = { text:pick(GOODNIGHT), until:T + 2.6 }; }
   if (walk(c, dt)) { c.gone = true; c.leaving = false; c.o.visible = false; }
   return true;
 }

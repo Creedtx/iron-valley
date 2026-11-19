@@ -51,6 +51,15 @@ those three files. The preview runs levels 1-3 on the "wide yard" (PREVIEW = tru
   (`__iv.hold = true` then `__iv.step(.05)` in a loop, as audit.mjs and fixes020.mjs do) before calling it a bug.
 - `tools/fixes020.mjs`: the warehouse gate sale and the car at 17:00.
 
+## Done in build 0.20e (from phone play at level 3)
+- No electrician can be hired (Bible 4.1), so the mechanic does the electrical work: he services the wiring and
+  switchboard (the most worn item first, wiring included) and takes breaker, junction-box, alternator and power-cut
+  jobs (`fixerOf`, `myTrade`). Before this nobody serviced the wiring and the trading licence could never pass.
+- Knocking-off: the crew leave through the middle of the gateway two abreast (`gateQueue`); with more than six on the
+  payroll the last ones used to walk through the front fence beside the posts.
+- audit.mjs now catches walking through thin walls (fences, posts) and runs level 3 with a full crew;
+  scratchpad tool `trails.mjs` (in the session notes) drew everyone's routes at closing and in the morning.
+
 ## Done in build 0.20 (level 3, Bible v1.3)
 - Level 3 in the North field (bought from Abel via Vera on level 2): tool press pad at `P.tpress`, coil in-feed,
   fitter spot, tool rack. Valley Garage (new buyer), Hartley Hardware and Kerr & Sons order tools.
