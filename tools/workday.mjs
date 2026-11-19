@@ -78,7 +78,7 @@ await ev(() => { const v = window.__iv, l = [...v.staffObj.values()].find(c => c
 await walkTo(P.saw[0] + 3, P.saw[1] + 3);
 await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * 480 + 239; });
 check(await until(() => window.__iv.lunchTime(), 10), 'lunch whistle at 12:00');
-check(await until(() => [...window.__iv.staffObj.values()].every(c => c.lunch === 'eat'), 120), 'the crew is on the bench');
+check(await until(() => [...window.__iv.staffObj.values()].every(c => c.lunch === 'eat'), 400), 'the crew is on the bench (a loader mid-run finishes it and parks the trolley first)');
 check(await ev(() => window.__iv.carts.every(k => !k.by)), 'the trolleys were parked in the bay before lunch');
 await until(() => (window.__iv.folk.get('gus') || {}).gs === 'eat', 60);
 console.log('lunch', await st());
