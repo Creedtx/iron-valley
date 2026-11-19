@@ -41,7 +41,7 @@ check(await ev(() => { const v = window.__iv; return !!v.M.stall && !!v.fork.o &
 check(await ev(() => { const v = window.__iv, f = v.LDOCK.fork; return !!f && v.groundY((f[0] + f[2]) / 2, f[3] - .05) > .9 && v.groundY((f[0] + f[2]) / 2, f[1] + .3) < .2; }), 'the forklift ramp rises from the yard to deck height');
 // 2. the second crate machine: pay at its pad in the forklift yard
 check(await ev(() => window.__iv.visiblePads().some(p => p.id === 'saw2')), 'the second crate machine\'s pad is offered');
-await ev(() => { const v = window.__iv, pd = v.PADS.find(p => p.id === 'saw2'); v.owner.o.position.set(pd.at[0], 0, pd.at[1]); });
+await ev(() => { const v = window.__iv, pd = v.PADS.find(p => p.id === 'saw2'); v.closeOffice(); v.owner.o.position.set(pd.at[0], 0, pd.at[1]); });   // the level-up opens the office (charter): close it first, as a player does
 check(await run(120, 'S.lv4.saw2 >= 1') < 120, 'standing on the pad pays for it; Big Tom\'s crew starts');
 check(await run(200, 'S.lv4.saw2 >= 2') < 200, 'the second crate machine is built in the forklift yard');
 await ev(() => { const v = window.__iv; v.owner.o.position.set(v.P.deskRing[0], 0, v.P.deskRing[1]); v.hire('operator'); v.hire('forklift'); v.hire('loader'); v.closeOffice(); for (const st of v.S.staff) st.posted = true; v.S.store = 30; v.syncStore && v.syncStore(); });
