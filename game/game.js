@@ -213,7 +213,7 @@ const P = {
   trade:[2.35, 10.15],
   // build 0.19: grandad's car, nose-in by the front fence; the driver's door is on its east side
   // build 0.19b: in the lane along the front fence, facing the lorry gateway; you get in on the yard side
-  carSpot:[12.0, 11.3], carDoor:[11.6, 10.0],
+  carSpot:[12.0, 11.3], carDoor:[11.6, 9.25],
 };
 const ROAD_X = 40, ROAD_Z = 16.2, RAIL_Z = -24;           // the main road runs past the front gate (east-west)
 const SITE = { x0:-14, x1:24, z0:-12, z1:12.5 };          // the fence line
@@ -764,7 +764,7 @@ function buildWorld(){
   M.saw = put(A.saw_bench.scene.clone(true), ...P.saw, 0, 0, SAW_S); M.saw.userData.dyn = true; addCol([P.saw[0] - 1.72 * SAW_S, P.saw[1] - 1.08 * SAW_S, P.saw[0] + 1.72 * SAW_S, P.saw[1] + .55 * SAW_S]);
   M.saw.updateMatrixWorld(true); const op = M.saw.getObjectByName('op_spot').getWorldPosition(new THREE.Vector3()), out = M.saw.getObjectByName('out_spot').getWorldPosition(new THREE.Vector3());
   P.op = [op.x, op.z]; P.pallet = [out.x + .15, out.z - .1];
-  put(inst('prop_pallet'), ...P.pallet);
+  put(inst('prop_pallet'), ...P.pallet); addCol([P.pallet[0] - .5, P.pallet[1] - .5, P.pallet[0] + .5, P.pallet[1] + .5], 'palletStack');   // nobody stands in the crate stack
   dashRect(P.saw[0] - 3.0, P.saw[1] - 2.1, P.saw[0] + 3.0, P.saw[1] + 3.0, M.dashMat);
   dashRect(P.op[0] - .5, P.op[1] - .45, P.op[0] + .5, P.op[1] + .5, Object.assign(paintMat('#ece6d9'), { isPaint:true }), .22, .14, .07);     // the operator's spot
   M.labels.push(groundLabel('CRATE MACHINE', P.saw[0] - .4, P.saw[1] + 2.0, 2.4), groundLabel('OUTPUT', P.pallet[0] + 1.25, P.pallet[1] + .2, 1.1, Math.PI / 2));
@@ -810,7 +810,7 @@ function buildWorld(){
   { const [x0, z0, x1, z1] = LDOCK.deck, [rx0, rz0, , rz1] = LDOCK.ramp;
     addCol([x1 - .12, z0, x1 + .04, z1]); addCol([x0, z0 - .08, x1, z0 + .08], 'dockN'); addCol([x0, z1 - .08, x1, z1 + .08]);       // face, ends
     addCol([x0 - .06, z0, x0 + .06, rz0 - .02]); addCol([x0 - .06, rz1 + .02, x0 + .06, z1]);                              // back, either side of the ramp
-    addCol([rx0 + .3, rz0 - .16, x0, rz0 - .02]); addCol([rx0 + .3, rz1 + .02, x0, rz1 + .16]); }                           // the ramp's kerbs (open at the foot)
+    addCol([rx0 + .3, rz0 - .3, x0, rz0 - .02]); addCol([rx0 + .3, rz1 + .02, x0, rz1 + .3]); }                           // the ramp's kerbs and rails (open at the foot)
   // ---- the electricity board's pole transformer in the yard's south-east corner, a span over the road to the line ------
   const Xf = P.xfmr; M.xfmr = put(inst('site_transformer'), Xf[0], Xf[1], 0); M.xfmr.userData.dyn = true;
   M.xfTank = findNode(M.xfmr, 'xf_tank'); M.xfLamp = findNode(M.xfmr, 'xf_lamp');
@@ -2329,7 +2329,10 @@ function inspectStaff(c){
 function updateOwner(dt){
   const [dx, dz, k] = inputDir(), o = owner.o, sp = 3.4 * (1 + .12 * S.up.boots);
   if (owner.lock > 0) owner.lock -= dt;
-  if (k > 0 && !(owner.lock > 0)) { o.position.x += dx * sp * dt; o.position.z += dz * sp * dt; collide(o.position); owner.face(dx, dz, dt); S.moved = true; }
+  if (k > 0 && !(owner.lock > 0)) { const n = Math.max(1, Math.ceil(sp * dt / .07)); for (let i = 0; i < n; i++) { o.position.x += dx * sp * dt / n; o.position.z += dz * sp * dt / n; collide(o.position); }   // short steps: never through a thin kerb or fence on a slow frame
+    owner.face(dx, dz, dt); S.moved = true; owner.stepTo = null; }
+  else if (owner.stepTo && !(owner.lock > 0)) { const ddx = owner.stepTo[0] - o.position.x, ddz = owner.stepTo[1] - o.position.z, d = Math.hypot(ddx, ddz);   // stepping out of the car and clear of it
+    if (d < .05) owner.stepTo = null; else { const st = Math.min(d, 1.6 * dt); o.position.x += ddx / d * st; o.position.z += ddz / d * st; collide(o.position); owner.face(ddx, ddz, dt); owner.play('walk'); } }
   target = ownerTarget();
   if (!target || target.key !== dwell.key) dwell = { key:target && target.key, t:0 }; else dwell.t += dt;
   if (target && target.type === 'staff' && target.c.st.id > 0 && dwell.t > .45 && !dwell.done) { dwell.done = true; inspectStaff(target.c); }
@@ -2437,7 +2440,7 @@ function inFoot(m, x, z, back, front, half){ const o = m.position, a = m.rotatio
 function stepAside(c, m){
   const o = m.position, a = m.rotation.y, fx = Math.cos(a), fz = -Math.sin(a), nx = -fz, nz = fx, p = c.o.position, side = (p.x - o.x) * nx + (p.z - o.z) * nz, sg = side >= 0 ? 1 : -1;
   for (const [ux, uz] of [[nx * sg, nz * sg], [-nx * sg, -nz * sg], [(nx * sg - fx) * .7, (nz * sg - fz) * .7], [(-nx * sg - fx) * .7, (-nz * sg - fz) * .7]]) {
-    const e = [p.x + ux * 1.4, p.z + uz * 1.4]; if (!segBlocked(p.x, p.z, e[0], e[1], .15)) return e; }
+    const e = [p.x + ux * 1.8, p.z + uz * 1.8]; if (!segBlocked(p.x, p.z, e[0], e[1], .15)) return e; }
   return null;
 }
 // the box round a vehicle's footprint (axis-aligned), for walking round it while it stands
@@ -3903,7 +3906,7 @@ function forkDrive(dt){
   const s = Math.min(d, (groundY(fork.o.position.x, fork.o.position.z) > .02 ? .55 : 1) * sp * dt); fork.o.position.x += dx / d * s; fork.o.position.z += dz / d * s; forkLevel();
   const back = groundY(fork.o.position.x, fork.o.position.z) > .02 && dz < -.05, want = back ? Math.atan2(dz, -dx) : Math.atan2(-dz, dx);   // down the ramp in reverse, forks to the lorry
   let a = ((want - fork.o.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
-  if (Math.abs(a) > .25 && forkSwingClear()) { fork.o.position.x -= dx / d * s; fork.o.position.z -= dz / d * s; forkLevel(); return false; }   // somebody within the swing: wait
+  if (Math.abs(a) > .25 && forkSwingClear(a)) { fork.o.position.x -= dx / d * s; fork.o.position.z -= dz / d * s; forkLevel(); return false; }   // somebody within the swing: wait
   fork.o.rotation.y += a * Math.min(1, dt * 8);
   return false;
 }
@@ -3919,9 +3922,13 @@ function forkYield(ux, uz, reach = 2.6){
   return false;
 }
 // anybody inside the circle the forklift sweeps when it turns on the spot (forks 1.45 m ahead, tail 1.2 m behind)
-function forkSwingClear(){ const o = fork.o.position, drv = forkDriver();
+// only somebody inside the arc the forks (ahead) or the tail (behind) will actually sweep through this turn holds it up
+function forkSwingClear(a){ const o = fork.o.position, yaw = fork.o.rotation.y, drv = forkDriver(), wrap = v => ((v + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+  const inArc = (d, from, to) => { const lo = Math.min(from, to) - .35, hi = Math.max(from, to) + .35; return d >= lo && d <= hi; };
   for (const c of [...staffObj.values(), ...folk.values(), owner, ...(walker ? [walker.c] : [])]) { if (!c || c === drv || !c.o.visible || c.gone || c.seated) continue;
-    if (Math.hypot(c.o.position.x - o.x, c.o.position.z - o.z) < 1.75) { fork.blockBy = c; fork.o.userData.swingT = T; return true; } }
+    const px = c.o.position.x - o.x, pz = c.o.position.z - o.z, r = Math.hypot(px, pz); if (r > 1.6) continue;
+    const d = wrap(Math.atan2(-pz, px) - yaw);   // where the person stands, seen from the driver's seat (0 = dead ahead)
+    if (inArc(d, 0, a) || inArc(wrap(d - Math.PI), 0, a)) { fork.blockBy = c; return true; } }
   return false; }
 function forkFace(xz, dt){ const want = Math.atan2(-(xz[1] - fork.o.position.z), xz[0] - fork.o.position.x); let a = ((want - fork.o.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; fork.o.rotation.y += a * Math.min(1, dt * 6); }
 function forkTake(arr, type, posMesh){ const m = arr.pop(); if (!m) return false; fork.carryType = type; fork.stack.push(m); fly(m, fork.forks, forkLoadPos(fork.stack.length - 1), .25, () => { m.rotation.set(0, type === 'plank' ? 0 : 0, 0); }); m.rotation.set(0, 0, 0); return true; }
@@ -5215,7 +5222,7 @@ function startTrip(kind, key){
 }
 function endTrip(){
   M.car.position.set(P.carSpot[0], 0, P.carSpot[1]); M.car.rotation.y = 0; M.car.visible = true; colOf(M.car, .05, 'car');
-  owner.o.position.set(...P.carDoor); owner.o.visible = true; owner.carArm = false; trip = null; save();
+  owner.o.position.set(P.carDoor[0], 0, 10.15); owner.stepTo = P.carDoor.slice(); owner.o.visible = true; owner.carDoorArm = false; trip = null; save();   // out of the driver's door, then a step away from the car
 }
 function updateTrip(dt){
   if (!trip) return; const T_ = trip; T_.t += dt;
@@ -5296,7 +5303,7 @@ const CAR_TIP = ['Quiet, isn\'t it? Nobody in the valley knows we\'re open again
 function updateCarDoor(){
   if (!M.car || trip || cardOpen || officeOpen) return;
   const at = near(owner.o, P.carDoor, .6);
-  if (!at) { owner.carDoorArm = true; return; }
+  if (!at) { if (!owner.stepTo) owner.carDoorArm = true; return; }   // stepping out of the car does not count as walking up to it
   if (!owner.carDoorArm || !ownerStill()) return; owner.carDoorArm = false;
   if (!S.tutDone) { toast('Finish the first day\'s work first: Gus will show you round.', ''); return; }
   if (owner.stack.length || owner.cart) { toast('Put down what you are carrying (and park the trolley) before you drive off.', ''); return; }
@@ -5344,13 +5351,53 @@ function updateBlade(dt){
 }
 const bladeK = () => S.blade ? .6 : 1;
 // the shower: rain streaks over the screen, a darker sky, a patter; the crew walks 10% slower and nobody walks in
-function startRain(){ rain = { t:0, dur:rand(40, 70) }; toast('A shower over the valley: the yard is wet and the crew goes carefully (10% slower).', ''); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, pick(['Here it comes. Mind the timber.', 'Rain! The farmers will be happy.']));
+function startRain(){ rain = { t:0, dur:rand(40, 70) }; buildRainFx(); toast('A shower over the valley: the yard is wet and the crew goes carefully (10% slower).', ''); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, pick(['Here it comes. Mind the timber.', 'Rain! The farmers will be happy.']));
   let el = document.getElementById('rain'); if (!el) { el = document.createElement('div'); el.id = 'rain'; $('stage').insertBefore(el, $('labels')); } el.hidden = false; }
+// build 0.21e: real rain. Streaks fall through the scene around the camera's view (one line batch, wind-slanted, a little
+// longer the nearer they are to the camera), and drops burst into small rings on the yard; the old screen overlay of
+// painted stripes is gone (it read as lines, and on phones the blended overlay cost frames)
+const RAIN_N = 900, SPLASH_N = 70, rainFx = { mesh:null, pos:null, d:null, splash:null, sp:[] };
+// each drop is a thin streak (a quad 2.5 cm wide, facing the camera: GL lines are one pixel, too faint on a phone screen)
+function buildRainFx(){
+  if (rainFx.mesh) return;
+  const g = new THREE.BufferGeometry(), pos = new Float32Array(RAIN_N * 12), idx = new Uint32Array(RAIN_N * 6), al = new Float32Array(RAIN_N * 4);
+  for (let i = 0; i < RAIN_N; i++) { idx.set([i * 4, i * 4 + 1, i * 4 + 2, i * 4 + 2, i * 4 + 1, i * 4 + 3], i * 6); al.set([0, 0, 1, 1], i * 4); }
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('a', new THREE.BufferAttribute(al, 1)); g.setIndex(new THREE.BufferAttribute(idx, 1));
+  const mat = new THREE.ShaderMaterial({ transparent:true, depthWrite:false, uniforms:{ k:{ value:0 } },
+    vertexShader:'attribute float a; varying float va; void main(){ va = a; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader:'uniform float k; varying float va; void main(){ gl_FragColor = vec4(.84, .88, .93, k * (.15 + .55 * va)); }' });   // fainter at the tail, like a falling drop
+  const R = new THREE.Mesh(g, mat); R.frustumCulled = false; R.renderOrder = 6; scene.add(R);
+  rainFx.mesh = R; rainFx.pos = pos; rainFx.d = [];
+  for (let i = 0; i < RAIN_N; i++) { rainFx.d.push({ x:0, y:0, z:0, v:rand(10, 13), len:.4 }); rainDrop(i, rand(0, 13)); }
+  const ring = new THREE.RingGeometry(.05, .085, 14); ring.rotateX(-Math.PI / 2);
+  const sm = new THREE.MeshBasicMaterial({ color:'#e3ebf2', transparent:true, opacity:0, depthWrite:false });
+  const I = new THREE.InstancedMesh(ring, sm, SPLASH_N); I.frustumCulled = false; I.renderOrder = 6; scene.add(I); rainFx.splash = I;
+  for (let i = 0; i < SPLASH_N; i++) rainFx.sp.push({ x:0, z:0, t:rand(0, .4), y:0 });
+}
+// a drop somewhere over the part of the yard the camera sees (the view is a box round camPos, deeper away from the camera)
+function rainDrop(i, y){ const d = rainFx.d[i]; d.x = camPos.x + rand(-16, 16); d.z = camPos.z + rand(-20, 12); d.y = y; d.len = rand(.35, .6); }
+function rainQuad(i){ const d = rainFx.d[i], p = rainFx.pos, j = i * 12, w = .0125, tx = d.x - .08 * d.len;
+  p[j] = d.x - w; p[j + 1] = d.y; p[j + 2] = d.z; p[j + 3] = d.x + w; p[j + 4] = d.y; p[j + 5] = d.z;
+  p[j + 6] = tx - w; p[j + 7] = d.y + d.len; p[j + 8] = d.z; p[j + 9] = tx + w; p[j + 10] = d.y + d.len; p[j + 11] = d.z; }
+const _rm = new THREE.Matrix4();
+function rainFxTick(dt, k){
+  if (!rainFx.mesh) return;
+  rainFx.mesh.material.uniforms.k.value = k; rainFx.splash.material.opacity = .45 * k; rainFx.mesh.visible = rainFx.splash.visible = k > .01;
+  if (k <= .01) return;
+  for (let i = 0; i < RAIN_N; i++) { const d = rainFx.d[i]; d.y -= d.v * dt; d.x += .9 * dt; d.z += .35 * dt;   // a light wind from the west
+    if (d.y < groundY(d.x, d.z)) rainDrop(i, rand(11, 14)); rainQuad(i); }
+  rainFx.mesh.geometry.attributes.position.needsUpdate = true;
+  for (let i = 0; i < SPLASH_N; i++) { const sp = rainFx.sp[i]; sp.t += dt;
+    if (sp.t > .35) { sp.t = 0; sp.x = camPos.x + rand(-14, 14); sp.z = camPos.z + rand(-14, 10); sp.y = groundY(sp.x, sp.z) + .02; }
+    const sc = .3 + sp.t / .35 * 1.7; _rm.makeScale(sc, 1, sc).setPosition(sp.x, sp.y, sp.z); rainFx.splash.setMatrixAt(i, _rm); }
+  rainFx.splash.instanceMatrix.needsUpdate = true;
+}
 function tickRain(dt){
   const k = rain ? Math.min(1, rain.t / 3, (rain.dur - rain.t) / 3) : 0; hemi.intensity = 1.0 - .3 * k; sun.intensity = 2.0 - 1.1 * k;
   if (!rain) return; rain.t += dt; if (Math.random() < dt * 2.5) noiseS(.5, 4200, .006 * k, 'highpass');
   const el = document.getElementById('rain'); if (el) el.style.opacity = (.75 * k).toFixed(2);
-  if (rain.t >= rain.dur) { rain = null; if (el) el.hidden = true; toast('The shower has passed.', ''); }
+  rainFxTick(dt, k);
+  if (rain.t >= rain.dur) { rain = null; rainFxTick(dt, 0); if (el) el.hidden = true; toast('The shower has passed.', ''); }
 }
 const rainK = () => rain ? .9 : 1;
 function rivalHtml(k){ const pl = PLACES[k];

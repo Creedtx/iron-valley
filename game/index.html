@@ -99,9 +99,7 @@ button{font:inherit;color:inherit}
 .day .db-g .say{background:#fffdf6;color:#1b1408;border-radius:12px;padding:8px 11px;font:600 13.5px/1.35 var(--f-body);margin:0;box-shadow:0 1px 3px rgba(0,0,0,.15)}
 #chips .panel.lunch{color:#9bd26f}
 #chips .panel.ok{color:#9bd26f}
-#rain{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .4s;background:repeating-linear-gradient(105deg,rgba(200,215,230,.0) 0 9px,rgba(200,215,230,.28) 9px 10px,rgba(200,215,230,0) 10px 23px);background-size:120px 120px;animation:rainfall .35s linear infinite;mix-blend-mode:screen}
-@keyframes rainfall{to{background-position:-30px 120px}}
-@media (prefers-reduced-motion:reduce){#rain{animation:none}}
+#rain{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .6s;background:radial-gradient(ellipse at 50% 40%,rgba(120,135,150,0) 40%,rgba(70,82,95,.28) 100%),linear-gradient(rgba(150,165,180,.10),rgba(150,165,180,.10))}
 .terms{display:flex;flex-direction:column;gap:6px;margin-top:10px}.terms .btn{text-align:left;white-space:normal;min-height:48px}.terms .btn b{display:block;font-size:14px}
 #ticket .rush{background:var(--red);color:#fff;border-radius:3px;padding:0 4px}
 /* build 0.19: the town map card */
