@@ -4959,7 +4959,7 @@ function closingStep(c, dt){
 }
 // people waiting on the road to come in at the main gate stand in two files inside the gateway's width, so walking
 // straight in they never cross the swung-open gate leaves (x 3.1-3.8 and 6.2-6.9)
-const gateQueue = k => [P.frontOut[0] + (k % 2 ? .45 : -.45), 0, P.frontOut[1] + .3 + Math.floor(k / 2) * .75];
+const gateQueue = k => [P.frontOut[0] + (k % 2 ? .45 : -.45), 0, P.frontOut[1] + .6 + Math.floor(k / 2) * .75];   // the first pair stands 2.5 m from the hinges: clear of the leaves' swing
 // 07:00: the clock moves on to the next working day and the crew clock in through the main gate, a step apart
 function clockIn(){
   const D = S.day; if (!D || !D.closing) return;
