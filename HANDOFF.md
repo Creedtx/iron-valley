@@ -44,7 +44,11 @@ those three files. The preview runs levels 1-3 on the "wide yard" (PREVIEW = tru
   a lorry leaving without its load returns tools too and un-counts the shipped goods (`unloadBed`); Gus puts pipes
   back on the pipe rack; the crew queue in two files inside the gateway (not through the open gate leaves); the car
   stops for people ahead and waits short of the main gate's mouth; hires and gate customers do not step out while the
-  car passes the gate; the timber trolley parks clear of the scrap bins (it sat inside one).
+  car passes the gate; the timber trolley parks clear of the scrap bins (it sat inside one). Lorries give way on the road the same
+  way (`roadYield`, shared with the car). The coil bay re-lays itself if its count and its coils ever disagree.
+- Tests that set stock counts directly must call the matching sync (`syncCoilBay`, `syncWh`, `syncPallet`) or the
+  workers reach for meshes that are not there. Headless tests run slowly: when one fails, check it in game time
+  (`__iv.hold = true` then `__iv.step(.05)` in a loop, as audit.mjs and fixes020.mjs do) before calling it a bug.
 - `tools/fixes020.mjs`: the warehouse gate sale and the car at 17:00.
 
 ## Done in build 0.20 (level 3, Bible v1.3)
