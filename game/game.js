@@ -504,14 +504,19 @@ function repathAround(){
 // only the parked lorry and flatbed (bays 1 and 2): checked when a path is asked for, since they come and go
 function lorryBlocked(ax, az, bx, bz){
   // a bay counts as closed from the moment its lorry starts backing in; vehTmp: a stopped vehicle somebody is walking round
-  const boxes = [COL.get('truck') || (truck.state === 'arrive' ? [P.truck[0] - 1.15, P.truck[1] - 2.45, P.truck[0] + 1.15, P.truck[1] + 2.75] : null),
-    COL.get('supply') || (sup.state === 'arrive' ? [P.supPark[0] - 1.15, P.supPark[1] - 2.45, P.supPark[0] + 1.15, P.supPark[1] + 2.75] : null), COL.get('vehTmp')]
-    .filter(b => b && !(ax > b[0] - .3 && ax < b[2] + .3 && az > b[1] - .3 && az < b[3] + .3));   // already inside one: the way out is open
-  if (!boxes.length) return false;
-  const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 0.15);
-  for (let i = 0; i <= n; i++) { const t = i / Math.max(1, n), x = lerp(ax, bx, t), z = lerp(az, bz, t);
-    for (const [x0, z0, x1, z1] of boxes) if (x > x0 - .3 && x < x1 + .3 && z > z0 - .3 && z < z1 + .3) return true; }
+  const t1 = COL.get('truck') || (truck.state === 'arrive' ? TRUCK_BOX : null), t2 = COL.get('supply') || (sup.state === 'arrive' ? SUP_BOX : null), t3 = COL.get('vehTmp');
+  for (const b of [t1, t2, t3]) { if (!b) continue; const x0 = b[0] - .3, z0 = b[1] - .3, x1 = b[2] + .3, z1 = b[3] + .3;
+    if (ax > x0 && ax < x1 && az > z0 && az < z1) continue;   // already inside one: the way out is open
+    if (segHitsBox(ax, az, bx, bz, x0, z0, x1, z1)) return true; }
   return false;
+}
+// does the segment a-b cross the box (slab test: exact and cheap, so it can run on every edge of a path search)
+function segHitsBox(ax, az, bx, bz, x0, z0, x1, z1){
+  let t0 = 0, t1 = 1; const dx = bx - ax, dz = bz - az;
+  for (const [p, d, lo, hi] of [[ax, dx, x0, x1], [az, dz, z0, z1]]) {
+    if (Math.abs(d) < 1e-9) { if (p <= lo || p >= hi) return false; continue; }
+    let a = (lo - p) / d, b = (hi - p) / d; if (a > b) { const k = a; a = b; b = k; } if (a > t0) t0 = a; if (b < t1) t1 = b; if (t0 > t1) return false; }
+  return true;
 }
 const NAV = [];
 function buildNav(){
@@ -2186,6 +2191,7 @@ function orderTimber(qty){
   sfx('buy'); toast(`Ordered ${qty} planks. The timber lorry unloads at goods-in by bay 2; the loaders take them to the stock room.`, 'good'); save(); renderOffice();
 }
 const sup = { state:'away', t:0, s:0, path:null };
+const TRUCK_BOX = [P.truck[0] - 1.15, P.truck[1] - 2.45, P.truck[0] + 1.15, P.truck[1] + 2.75], SUP_BOX = [P.supPark[0] - 1.15, P.supPark[1] - 2.45, P.supPark[0] + 1.15, P.supPark[1] + 2.75];
 const SUP_ARRIVE = samplePath([{ p:[[-80, ROAD_Z - .9], [P.supPark[0] + 6.5, ROAD_Z - .9]] }, { bez:true, rev:true, p:[[P.supPark[0] + 6.5, ROAD_Z - .9], [P.supPark[0], ROAD_Z - .9], P.supPark] }]);
 const SUP_LEAVE = samplePath([{ bez:true, p:[P.supPark, [P.supPark[0], ROAD_Z + .9], [P.supPark[0] + 5, ROAD_Z + .9]] }, { p:[[P.supPark[0] + 5, ROAD_Z + .9], [90, ROAD_Z + .9]] }]);
 // shared driving: speed profile, wheel spin and steering, lamps, reverse beeper
