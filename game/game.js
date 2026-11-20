@@ -881,6 +881,7 @@ function buildWorld(){
     const prog = new THREE.Mesh(new THREE.RingGeometry(r + .02, r + .12, 48, 1, Math.PI / 2, 0.001), new THREE.MeshBasicMaterial({ color:'#ffffff', transparent:true, opacity:.95, depthWrite:false })); prog.rotation.x = -Math.PI / 2; prog.visible = false; g.add(prog);
     M.rings[id] = { g, m, f, prog, r, x, z, col }; return M.rings[id]; };
   M.ring = ring;
+  ring('car', ...P.carDoor, '#e2a72c', .6);   // build 0.21g: stand in it and you get in the car
   ring('drop', ...P.drop, '#e8ab2c', .72).g.position.y = LDOCK.H + .02; ring('cash', ...P.cash, '#9bd26f', .8); ring('desk', ...P.deskRing, '#6fa6d6', .6).g.position.y = .03;
   const n = 140, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { pos[i * 3] = rand(wx0 + .5, wx1 - .5); pos[i * 3 + 1] = rand(.3, 3.4); pos[i * 3 + 2] = rand(wz0 + .5, wz1 - .5); }
   const dgeo = new THREE.BufferGeometry(); dgeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -2368,7 +2369,10 @@ function updateOwner(dt){
   else { signT = Math.max(0, signT - dt * 2); dr.prog.visible = signT > 0; setArc(dr, signT); }
   actT -= dt; if (actT > 0) return;
   // cash
-  if (near(o, P.cash, .85) && S.cashPile > 0) { const amt = Math.min(S.cashPile, 25); S.cashPile -= amt; S.cash += amt; S.earned += amt; const b = pile.pop(); if (b) fly(b, o, new THREE.Vector3(0, 1.2, 0), .2, () => b.removeFromParent()); sfx('coin'); actT = .05; checkCharter(); return; }
+  if (near(o, P.cash, .85) && S.cashPile > 0) {   // build 0.21g: step on the circle and take the lot, every bundle at once
+    const amt = S.cashPile; S.cashPile = 0; S.cash += amt; S.earned += amt;
+    pile.splice(0).forEach((b, i) => fly(b, o, new THREE.Vector3(0, 1.1, 0), .22 + i * .025, () => b.removeFromParent(), .35 + (i % 3) * .12));
+    floatText(`+${fmt(amt)}`, o.position.x, 2.1, o.position.z); sfx('coin'); setTimeout(() => sfx('coin'), 110); setTimeout(() => sfx('coin'), 230); actT = .4; checkCharter(); return; }
   // pads
   for (const p of visiblePads()) { if (!near(o, p.at, .7) || S.cash <= 0) continue; const paid = S.padPaid[p.id] || 0, step = Math.max(1, Math.ceil(p.price / 30)), d = Math.min(step, p.price - paid, S.cash);
     S.cash -= d; S.padPaid[p.id] = paid + d; if (S.padPaid[p.id] >= p.price) { if (p.id === 'mill') startMillBuild(true); else if (p.id === 'wh') startWhBuild(true); else if (p.id === 'press') startPressBuild(true); else if (p.id === 'saw2') startSaw2Build(true); else if (p.id === 'mill2') startMill2Build(true); else { applyRestore(p.id, true); toast(`${p.label}: done.`, 'good'); save(); checkCharter(); } } else sfx('tick'); actT = .045; return; }
@@ -3899,20 +3903,27 @@ function forkLoadPos(i){ const t = fork.carryType; if (t === 'plank') return new
   const layer = Math.floor(i / 4), k = i % 4; return new THREE.Vector3(.32 + (k % 2) * .34, .2 + layer * .3, -.17 + Math.floor(k / 2) * .34); }
 function forkGo(to, state){ fork.path = findPath(fork.o.position.x, fork.o.position.z, to[0], to[1]); fork.goal = to; fork.state = state; }
 function forkDrive(dt){
-  if (!fork.path || !fork.path.length) return true;
-  const [tx, tz] = fork.path[0], dx = tx - fork.o.position.x, dz = tz - fork.o.position.z, d = Math.hypot(dx, dz), sp = forkSpeed() * crewSpeed(forkDriver() || { st:{ lv:1, focus:100 } });
-  if (forkYield(dx / (d || 1), dz / (d || 1), d + .6)) return false;
-  if (d < Math.max(.08, sp * dt * 1.4)) { fork.o.position.x = tx; fork.o.position.z = tz; fork.path.shift(); forkLevel(); return !fork.path.length; }
-  const s = Math.min(d, (groundY(fork.o.position.x, fork.o.position.z) > .02 ? .55 : 1) * sp * dt); fork.o.position.x += dx / d * s; fork.o.position.z += dz / d * s; forkLevel();
-  const back = groundY(fork.o.position.x, fork.o.position.z) > .02 && dz < -.05, want = back ? Math.atan2(dz, -dx) : Math.atan2(-dz, dx);   // down the ramp in reverse, forks to the lorry
-  let a = ((want - fork.o.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
-  if (Math.abs(a) > .25 && forkSwingClear(a)) { fork.o.position.x -= dx / d * s; fork.o.position.z -= dz / d * s; forkLevel(); return false; }   // somebody within the swing: wait
-  fork.o.rotation.y += a * Math.min(1, dt * 8);
+  if (!fork.path || !fork.path.length) { fork.v = 0; return true; }
+  const o = fork.o.position, [tx, tz] = fork.path[0], dx = tx - o.x, dz = tz - o.z, d = Math.hypot(dx, dz), sp = forkSpeed() * crewSpeed(forkDriver() || { st:{ lv:1, focus:100 } });
+  if (forkYield(dx / (d || 1), dz / (d || 1), d + .6)) { fork.v = Math.max(0, (fork.v || 0) - 6 * dt); return false; }   // brakes for somebody in front
+  const onRamp = groundY(o.x, o.z) > .02, back = onRamp && dz < -.05, want = back ? Math.atan2(dz, -dx) : Math.atan2(-dz, dx);   // down the ramp in reverse, forks to the lorry
+  const a = ((want - fork.o.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+  if (Math.abs(a) > .25 && forkSwingClear(a)) { fork.v = 0; return false; }   // somebody within the swing: wait
+  // build 0.21g: it drives like a truck: speeds up and brakes, slows for corners and the ramp, crawls round a tight turn
+  let target = sp * (onRamp ? .5 : 1) * clamp(1 - Math.abs(a) / 1.1, .12, 1);
+  if (fork.path.length === 1) target = Math.min(target, Math.sqrt(2 * 2.2 * d) + .15);   // easing in to where it stops
+  fork.v = (fork.v || 0) + clamp(target - (fork.v || 0), -3.5 * dt, 1.6 * dt);
+  const turn = clamp(a, -1.9 * dt, 1.9 * dt); fork.o.rotation.y += turn;                    // a steady turning rate
+  const step = Math.min(d, fork.v * dt);
+  if (d < .06 || d <= step) { o.x = tx; o.z = tz; fork.path.shift(); forkLevel(dt); if (!fork.path.length) { fork.v = 0; return true; } return false; }
+  o.x += dx / d * step; o.z += dz / d * step; forkLevel(dt);
   return false;
 }
 // height on the ramp or the deck, nose up the slope (forks along +X, so the pitch is about the forklift's own Z)
-function forkLevel(){ const o = fork.o, a = o.rotation.y, fx = Math.cos(a), fz = -Math.sin(a), y = groundY(o.position.x, o.position.z);
-  o.position.y = y; o.rotation.z = Math.atan2(groundY(o.position.x + fx * .9, o.position.z + fz * .9) - groundY(o.position.x - fx * .9, o.position.z - fz * .9), 1.8); }
+function forkLevel(dt = 1){ const o = fork.o, a = o.rotation.y, fx = Math.cos(a), fz = -Math.sin(a);
+  const front = groundY(o.position.x + fx * .75, o.position.z + fz * .75), rear = groundY(o.position.x - fx * .75, o.position.z - fz * .75);
+  o.position.y = (front + rear) / 2;   // sits on its wheels, front and rear axles 1.5 m apart
+  const pitch = Math.atan2(front - rear, 1.5); o.rotation.z += (pitch - o.rotation.z) * Math.min(1, dt * 10); }
 // people have right of way: the forklift waits (and gives a toot) while anybody stands in the next 2.4 m of its way
 function forkYield(ux, uz, reach = 2.6){
   const o = fork.o.position, drv = forkDriver(), people = [...staffObj.values(), ...folk.values(), owner, ...(walker ? [walker.c] : [])];
@@ -4085,8 +4096,8 @@ function buildForkLane(){
     else { const z0 = Math.min(a[1], b[1]) - W, z1 = Math.max(a[1], b[1]) + W, len = z1 - z0; for (const o of [-W, W]) paintStrip(a[0] + o, (z0 + z1) / 2, len, .07, 'z', ln); } }
   // the ramp: a concrete slope from the yard up to deck height, kerbed on the west (the canopy rail is its east side)
   const [x0, z0, x1, z1] = FORK_RAMP, len = Math.hypot(z1 - z0, LDOCK.H), ang = Math.atan2(LDOCK.H, z1 - z0);
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, .16, len), std('#9a958a', .95)); slab.position.set((x0 + x1) / 2, LDOCK.H / 2 - .06, (z0 + z1) / 2); slab.rotation.x = ang; slab.castShadow = slab.receiveShadow = true; slab.userData.dyn = true; world.add(slab);
-  const kerb = new THREE.Mesh(new THREE.BoxGeometry(.1, .2, len), std('#e3b23c', .8)); kerb.position.set(x0 - .05, LDOCK.H / 2 + .06, (z0 + z1) / 2); kerb.rotation.x = ang; kerb.userData.dyn = true; world.add(kerb);
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, .16, len), std('#9a958a', .95)); slab.position.set((x0 + x1) / 2, LDOCK.H / 2 - .06, (z0 + z1) / 2); slab.rotation.x = -ang; slab.castShadow = slab.receiveShadow = true; slab.userData.dyn = true; world.add(slab);
+  const kerb = new THREE.Mesh(new THREE.BoxGeometry(.1, .2, len), std('#e3b23c', .8)); kerb.position.set(x0 - .05, LDOCK.H / 2 + .06, (z0 + z1) / 2); kerb.rotation.x = -ang; kerb.userData.dyn = true; world.add(kerb);
   LDOCK.fork = FORK_RAMP; addCol([x0 - .12, z0 + .7, x0, z1], 'forkKerb');
   addCol([x0, z0 + .5, x1, z1 - .1], 'forkRamp');   // a forklift ramp, not a walkway: people use the steps at the back of the dock
   // the dock's north end opens where the ramp lands; the rest of it keeps its edge
@@ -5338,6 +5349,7 @@ const CAR_TIP = ['Quiet, isn\'t it? Nobody in the valley knows we\'re open again
   'It\'s parked by the front fence. Stand by it and pick where to go: a buyer for an order, or the Courier for an advert. I\'ll mind the phone.'];
 // stand at the driver's door: the town map; step away and back to open it again
 function updateCarDoor(){
+  if (M.rings && M.rings.car) M.rings.car.g.visible = !!M.car && !trip && S.tutDone && !(S.day && S.day.closing);
   if (!M.car || trip || cardOpen || officeOpen) return;
   const at = near(owner.o, P.carDoor, .6);
   if (!at) { if (!owner.stepTo) owner.carDoorArm = true; return; }   // stepping out of the car does not count as walking up to it
