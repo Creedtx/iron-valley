@@ -4246,7 +4246,7 @@ const onFront = p => p[1] > 13.9 && p[0] > 11.5;
 function laneRoute(from, to){
   const L = LANE4.pts, near0 = q => { let b = 0, bd = 1e9; L.forEach((n, i) => { const d = Math.hypot(n[0] - q[0], n[1] - q[1]); if (d < bd) { bd = d; b = i; } }); return b; };
   const a = near0(from), b = near0(to);
-  if (a === b || Math.hypot(to[0] - from[0], to[1] - from[1]) < 5) return findPath(from[0], from[1], to[0], to[1]);
+  if (a === b || (Math.hypot(to[0] - from[0], to[1] - from[1]) < 5 && groundY(...from) < .02 && groundY(...to) < .02)) return findPath(from[0], from[1], to[0], to[1]);   // off the deck it keeps to the ramp
   const dist = L.map(() => 1e9), prev = L.map(() => -1), open = new Set(L.map((_, i) => i)); dist[a] = 0;
   while (open.size) { let u = -1; for (const i of open) if (u < 0 || dist[i] < dist[u]) u = i; open.delete(u); if (u === b) break;
     for (const [i, j] of LANE4.links) { const v = i === u ? j : j === u ? i : -1; if (v < 0 || !open.has(v)) continue; const d = dist[u] + Math.hypot(L[v][0] - L[u][0], L[v][1] - L[u][1]); if (d < dist[v]) { dist[v] = d; prev[v] = u; } } }
@@ -4955,7 +4955,7 @@ function updateDay(dt){
   // the day book opens once the yard is empty, or after 40 s if somebody is still finishing a job
   if (D.closing && D.closing.card && !cardOpen) { morning(); return; }   // the day book was closed: next morning
   if (D.closing) { S.time = D.closing.at; if (S.order) S.order.time = Math.max(0, S.order.time - dt); D.closing.t += dt;
-    if (!D.closing.shut && ((D.closing.t > 4 && yardEmpty()) || (D.closing.t > 40 && !trip && !lorryMoving()))) { D.closing.shut = true; D.closing.st = 0; sfxAt('clank', 5, SITE.z1); toast('The gates are shut for the night.', ''); }
+    if (!D.closing.shut && ((D.closing.t > 4 && yardEmpty()) || (D.closing.t > 40 && !trip && !lorryMoving() && ![...staffObj.values()].some(c => c.leaving && !c.gone)))) { /* never shut on somebody walking out */ D.closing.shut = true; D.closing.st = 0; sfxAt('clank', 5, SITE.z1); toast('The gates are shut for the night.', ''); }
     if (D.closing.shut) { D.closing.st = (D.closing.st || 0) + dt; if (D.closing.st > .9 && !D.closing.lock) { D.closing.lock = true; sfxAt('clank', 5, SITE.z1); sfx('drop'); } }   // the leaves meet, the bolt drops
     if (D.closing.shut && D.closing.st > 2.2 && !D.closing.card && !cardOpen) { D.closing.card = true; endOfDay(D.n); }
     return; }
@@ -5014,6 +5014,7 @@ function closingStep(c, dt){
     if (c.st.role === 'forklift' || c.stack.length || c.trolley || (c.tplanks && c.tplanks.length) || c.state === 'fixing') return false;   // finish what is in hand first
     if (c.lunch) { if (c.lunch === 'eat') standUp(c); c.lunch = null; c.lunchI = undefined; }
     releaseCart(c); c.state = 'leave'; if (cartHome(c, dt)) return true;
+    if (S.day.closing.shut) { c.gone = true; c.o.visible = false; return true; }   // done after the gates were shut: out by the wicket door, the day book is already open
     const k = [...staffObj.values()].filter(o => o.leaving || o.gone).length; c.leaving = true; c.state = 'leave'; c.task = null; c.path = null; goTo(c, P.frontOut[0] + (k % 2 ? .45 : -.45), P.frontOut[1] - .1); /* out through the middle of the gateway, two abreast, off along the pavement: never past the posts, never onto the road */ c.say = { text:pick(GOODNIGHT), until:T + 2.6 }; }
   if (walk(c, dt)) { c.gone = true; c.leaving = false; c.o.visible = false; }
   return true;
