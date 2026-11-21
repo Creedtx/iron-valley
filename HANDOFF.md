@@ -51,6 +51,20 @@ those three files. The preview runs levels 1-4 on the "wide yard" (PREVIEW = tru
   (`__iv.hold = true` then `__iv.step(.05)` in a loop, as audit.mjs and fixes020.mjs do) before calling it a bug.
 - `tools/fixes020.mjs`: the warehouse gate sale and the car at 17:00.
 
+## Done in build 0.21b (from phone play: a stand-off at the gate, level 2 marked out in stages)
+- The car home from a trip and a loaded lorry leaving no longer stand nose to nose: `roadYield` follows another
+  vehicle with a small pad only when that vehicle is itself waiting for the gate held by this one (`still`), so the
+  holder of the gate always gets through and the other follows.
+- Level 2 floor markings come with what they mark (`syncL2Marks`): the pipe machine's outline when it is paid for;
+  the loading lane and both bays are a purchase, the new pad "Mark out the loading lane and bays" ($120, by the
+  dock, once the pipe machine is built, `applyRestore('lanes')`); the warehouse plot and Big Tom appear only when
+  the warehouse can be built, and go once it is paid for (Tom no longer stands in the yard from the start).
+- Forklift: it never parks across the loaders' way on the deck. With nothing to load into it waits at the foot of
+  the ramp (`P.forkHold`, states toHold/hold); a route does not start by nosing forward to a node it is already at;
+  a person who has held it up for 3 s steps 1.8 m out of its line (`forkGiveWay`); people already inside a moving
+  vehicle's margin may only step out of it (`vehInWay`); standing, it is walked round by its own outline.
+- `AUDIT_ONLY4=1 node tools/audit.mjs <url> <days>` passes quickly through levels 1-3 and plays level 4.
+
 ## Done in build 0.21 (level 4: Growing Enterprise, plans/level4_plan.png)
 - The old scrapyard (x -26..-14, z -4..13, bought from Rusty in the level 3 charter) is the forklift yard: gravel, Rusty's
   parts stall by the road ($30 a part), the forklift's bay and gas cage, the second crate machine (pad at P.saw2 area).

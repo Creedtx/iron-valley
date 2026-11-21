@@ -93,6 +93,7 @@ const PADS = [
   { id:'urn',     label:'Tea urn for the crew', price:90, at:[-8.3, -.75], icon:'cup', after:s => s.delivered >= 2, note:'The crew works 5% faster' },
   { id:'counter', label:'Trade counter at the gate', price:120, at:[1.0, 8.6], icon:'box', after:s => s.walk && s.walk.served >= 1, note:'Customers wait longer, pay 10% more' },
   { id:'car',     label:'Service and signwrite the car', price:200, at:[13.6, 9.3], icon:'truck', after:s => s.sales && s.sales.trips >= 1, note:'Trips 20% quicker; the car advertises' },
+  { id:'lanes',   label:'Mark out the loading lane and bays', price:120, at:[6.0, 8.3], icon:'brush', after:s => s.level >= 2 && s.lv2.mill >= 2, note:'Lines for the lane to the dock and both lorry bays', lv:2 },
   { id:'mill',    label:'Install the pipe machine', price:MILL_PRICE, at:[4.9, 3.6], icon:'gear', after:s => s.level >= 2, note:'A contractor builds it', lv:2 },
   // level 2, later: a finished-goods warehouse in the cleared back yard, once the pipe line has proved itself
   // level 3: the tool press on the North field (bought in level 2 through Vera Lind)
@@ -1088,6 +1089,7 @@ function applyUpgradeVisuals(){
 function applyRestore(id, fx){
   S.restored[id] = true;
   if (id === 'paint') { M.floor.material.map = TX.floorClean; M.floor.material.needsUpdate = true; M.dashMat.color.set('#f2c230'); }
+  if (id === 'lanes') syncL2Marks();
   if (id === 'windows') { M.boards.forEach(b => { M.fade.forEach(f => { const i = f.nodes.indexOf(b); if (i >= 0) f.nodes.splice(i, 1); }); b.removeFromParent(); }); M.boards = []; M.windows.forEach(w => w.material.emissiveIntensity = .9); M.dust.material.opacity = .25; }
   if (id === 'coffee') { M.coffee.visible = true; addCol([P.coffee[0] - .52, P.coffee[1] - .3, P.coffee[0] + .52, P.coffee[1] + .3], 'coffee'); }
   if (id === 'urn' && !M.urn) { const g = new THREE.Group(), wood = std('#7a5636', .8), steel = std('#b8bec4', .35, .7); const tb = new THREE.Mesh(BX(.55, .62, .42), wood); tb.position.y = .31; g.add(tb);
@@ -1704,7 +1706,7 @@ function buildLevel2(){
   rebuildNav();
 }
 function startMillBuild(fx){
-  S.lv2.mill = Math.max(1, S.lv2.mill);
+  S.lv2.mill = Math.max(1, S.lv2.mill); syncL2Marks();
   if (!M.scaffold) { M.scaffold = put(inst('l2_scaffold'), ...P.pmill, 0); M.scaffold.userData.dyn = true; }
   if (!M.builder) M.builder = makeBuilder([P.pmill[0] - .2, P.pmill[1] + 1.25], -99);
   if (fx) { toast('Paid. A contractor from town is on his way to install the pipe mill.', 'good'); sfx('buy'); for (let i = 0; i < 10; i++) puff(P.pmill[0] + rand(-1, 1), P.pmill[1] + rand(-.6, .6), '#d8d2c4'); save(); }
@@ -2454,11 +2456,14 @@ function vehInWay(c, x, z){
   if (c.seated || (c === owner && trip)) return null;
   const cur = [c.o.position.x, c.o.position.z], fresh = V => !(V.yieldT > T - .25);
   const list = [];
-  if (typeof fork !== 'undefined' && fork.o && fork.state !== 'park') list.push([fork.o, /^to/.test(fork.state) && !fork.blockBy, 1.6, 1.9, 1.0, 1.3, .6]);
+  if (typeof fork !== 'undefined' && fork.o && fork.state !== 'park') { const drv = /^to/.test(fork.state) && !fork.blockBy; list.push(drv ? [fork.o, true, 1.6, 1.9, 1.0, 1.3, .6] : [fork.o, false, 1.3, 1.5, .62, 1.3, .6]); }   // moving: a margin round it; standing: its own outline
   list.push([M.truck, ['arrive', 'leave'].includes(truck.state) && fresh(truck), 3.5, 3.5, 1.65, 3.3, 1.2], [M.flat, ['arrive', 'leave'].includes(sup.state) && fresh(sup), 3.5, 3.5, 1.65, 3.3, 1.2],
     [M.car, !!trip && ['out', 'back', 'park'].includes(trip.phase) && fresh(CAR), 2.2, 2.2, 1.05, 2.0, .9]);
   for (const [m, driving, back, front, half, len, wid] of list) {
-    if (!m || !m.visible || !inFoot(m, x, z, back, front, half) || inFoot(m, ...cur, back, front, half)) continue;
+    if (!m || !m.visible || !inFoot(m, x, z, back, front, half)) continue;
+    if (inFoot(m, ...cur, back, front, half)) {   // already inside its margin (it set off beside them): only a step out of its way is taken
+      if (!driving) continue; const a = m.rotation.y, fx = Math.cos(a), fz = -Math.sin(a), sd = (px, pz) => Math.abs(-(px - m.position.x) * fz + (pz - m.position.z) * fx);
+      if (sd(x, z) >= sd(...cur) - 1e-4) continue; return 'wait'; }
     if (driving) return 'wait';
     if (Math.hypot(x - m.position.x, z - m.position.z) > Math.hypot(cur[0] - m.position.x, cur[1] - m.position.z)) continue;   // stepping away from it
     if (m === fork.o || ['arrive', 'leave'].includes(m === M.truck ? truck.state : m === M.flat ? sup.state : '') || (m === M.car && trip)) return { round:footBox(m, len, wid, .3), m };
@@ -3410,7 +3415,7 @@ function placeFolk(){
   if (S.level >= 2 && S.plots.north.st === 0) { spawnFolk('vera', P.veraL2, 0); if (!M.veraBoard) { M.veraBoard = put(inst('env_sale_sign'), P.veraL2[0] - 1.6, P.veraL2[1] - .05, 0); M.veraBoard.userData.dyn = true; } } else if (S.level >= 3 && S.plots.scrap.st === 0) spawnFolk('vera', [-6.6, 10.3], -Math.PI / 2); else despawnFolk('vera');
   if (S.level >= 3 && S.plots.scrap.st === 0) spawnFolk('rusty', [-6.9, 8.6], -Math.PI / 2); else if (S.level >= 4 && M.stall) spawnFolk('rusty', [P.stall[0], P.stall[1] + .72], Math.PI); else despawnFolk('rusty');
   if (M.veraBoard) M.veraBoard.visible = S.level >= 2 && S.plots.north.st === 0;
-  if (S.level === 2 && !(S.lv2.wh >= 1)) spawnFolk('tom', P.tomL2, .3); else despawnFolk('tom');
+  if (S.level === 2 && whUnlocked(S) && !(S.lv2.wh >= 1)) spawnFolk('tom', P.tomL2, .3); else despawnFolk('tom');
   if (S.level >= 2 && S.plots.north.st === 0) spawnFolk('abel', P.abelL2, .2); else despawnFolk('abel');
   if (S.level >= 5 && M.l5Built) { spawnFolk('priya', P.priya, Math.PI * .75); spawnFolk('eldon', [30.5, 14.9], -Math.PI / 2);
     if (S.plots.shop.st === 0) { spawnFolk('ada', [19.6, 19.6], Math.PI); spawnFolk('vera', [17.5, 19.7], Math.PI * .9); } else { despawnFolk('ada'); despawnFolk('vera'); } }
@@ -3491,23 +3496,39 @@ function gusStart(g, job){
   else if (job === 'watch') { g.gs = 'toWatch'; goTo(g, ...GUS_WATCH()); }
 }
 // ---- level 2 ground works (build 0.17): the pipe machine's pad, the loading lane to the dock, bay 2, the warehouse plot
+// build 0.21h: nothing paints itself. The pipe machine's pad is pegged out when it is paid for; the loading lane and the
+// bays are marked when the owner buys the paint (a pad, like the floor lines at level 1); the warehouse plot is pegged
+// out with cones once the warehouse can be built, and Big Tom waits there for the job then, not before
 function l2Ground(){
   if (M.l2Ground) return; M.l2Ground = true;
-  const pad = paintMat('#e3b23c'), lane = paintMat('#f2efe6', .9);
+  const pad = paintMat('#e3b23c'), lane = paintMat('#f2efe6', .9), grab = () => { const n0 = world.children.length; return () => world.children.slice(n0); };
+  M.l2Mill = new THREE.Group(); M.l2Mill.userData.dyn = true; world.add(M.l2Mill);
+  M.l2Lane = new THREE.Group(); M.l2Lane.userData.dyn = true; world.add(M.l2Lane);
+  let got = grab();
   dashRect(P.pmill[0] - 2.5, P.pmill[1] - 1.5, P.prack[0] + 1.15, P.prack[1] + .95, pad, .55, .35, .1);
   groundLabel('PIPE MACHINE', P.pmill[0] - .6, P.prack[1] + .45, 2.6);
+  for (const m of got()) if (m !== M.l2Mill && m !== M.l2Lane) M.l2Mill.attach(m);
+  got = grab();
   for (const z of [P.dock[1] - 2.05, P.dock[1] - .35]) paintStrip((2.6 + 9.9) / 2, z, 9.9 - 2.6, .1, 'x', lane);
   groundLabel('LOADING LANE', 6.0, P.dock[1] - 1.2, 2.8, 0, '#f2efe6');
   paintStrip(P.bay2[0] + 1.55, P.bay2[1] + .2, 6.0, .16, 'z', pad);
   for (let k = 0; k < 6; k++) paintStrip(P.bay2[0] - 1.25 + k * .5, P.bay2[1] - 2.75, .5, .16, 'x', paintMat(k % 2 ? '#1b1b1b' : '#e3b23c'));
   groundLabel('BAY 1', P.truck[0], P.truck[1] + 2.6, 1.6); groundLabel('BAY 2', P.bay2[0], P.bay2[1] + 2.6, 1.6);
+  for (const m of got()) M.l2Lane.attach(m);
   // the warehouse plot: pegged out with cones until the warehouse goes up
   M.whPlot = new THREE.Group(); M.whPlot.userData.dyn = true; world.add(M.whPlot);
   const d0 = M.dashes.length; dashRect(P.wh[0] - 3.7, P.wh[1] - 2.9, P.wh[0] + 3.7, P.wh[1] + 3.3, paintMat('#f2efe6', .8), .45, .3, .08); M.dashes.slice(d0).forEach(m => M.whPlot.attach(m));
   M.whPlot.attach(groundLabel('WAREHOUSE PLOT', P.wh[0], P.wh[1] + .2, 3.2, 0, '#f2efe6'));
   const cone = new THREE.ConeGeometry(.16, .5, 10), coneM = std('#e5772b', .7);
   for (const [dx, dz] of [[-3.7, -2.9], [3.7, -2.9], [-3.7, 3.3], [3.7, 3.3], [0, 3.3]]) { const c = new THREE.Mesh(cone, coneM); c.position.set(P.wh[0] + dx, .25, P.wh[1] + dz); c.castShadow = true; M.whPlot.add(c); }
-  M.whPlot.visible = !(S.lv2.wh >= 1);
+  syncL2Marks();
+}
+let whOpenSeen = false;
+function syncL2Marks(){
+  if (!M.l2Ground) return;
+  M.l2Mill.visible = S.lv2.mill >= 1; M.l2Lane.visible = !!S.restored.lanes;
+  const whOpen = S.level === 2 && whUnlocked(S) && !(S.lv2.wh >= 1); M.whPlot.visible = whOpen;
+  if (whOpen !== whOpenSeen) { whOpenSeen = whOpen; if (whOpen) spawnFolk('tom', P.tomL2, .3); else despawnFolk('tom'); if (whOpen && S.tutDone) toast('Big Tom has pegged out the warehouse plot in the back yard. Pay at its pad when you are ready to build.', 'gold'); }
 }
 // test hook: the level 2 layout on a level 1 game, for map shots
 async function previewL2Layout(){ await loadModels(['pipe_machine', 'level2']); A.level2.scene.traverse(o => { if (/^l2_/.test(o.name) && !o.isMesh && !PROTO[o.name]) PROTO[o.name] = o; });
@@ -3708,6 +3729,7 @@ function makeOffer(id, kind){
   placeFolk(); save(); checkCharter(); renderOffice();
 }
 function updatePlots(dt){
+  if (S.level === 2) syncL2Marks();
   for (const id of Object.keys(PLOTS)) { const p = S.plots[id];
     if (p.st === 1) { p.t += dt; if (p.t >= p.permit) { p.st = 2; p.t = 0; toast(`Council permit approved for the ${PLOTS[id].name}. Big Tom's crew starts the site work.`, 'good'); if (!M['site_' + id]) M['site_' + id] = makeBuilder(PLOTS[id].ring, -96 - Object.keys(PLOTS).indexOf(id)); save(); } }
     if (p.st === 2) { if (!M['site_' + id]) M['site_' + id] = makeBuilder(PLOTS[id].ring, -96 - Object.keys(PLOTS).indexOf(id)); runBuilder('site_' + id, PLOTS[id].sign, p, 't', ACT_TIMERS.site, () => finishPlot(id, true), dt); }
@@ -3817,7 +3839,7 @@ const SAW2_PRICE = 3000, SAW2_BUILD = 24, PALLET2_CAP = 24, FEED2_CAP = 12, FORK
 // room; the second crate machine stands in it, the forklift parks at its back, Rusty keeps a parts stall by the road.
 P.saw2 = [-19.0, 3.0]; P.feed2 = [-21.1, 3.25]; P.feed2Ring = [-21.1, 4.6]; P.saw2Fix = [-18.2, 4.4];
 P.forkPark = [-23.4, 10.2]; P.forkHome = [-22.0, 11.7]; P.stall = [-19.5, 11.7]; P.stallRing = [-19.5, 10.6];
-P.forkDock = [15.03, 5.75]; P.forkStore = [-13.35, 4.0]; P.forkWh = [18.2, -4.45]; P.forkFeed2 = [-21.1, 1.55];   // the in-feed from its north side, clear of the operator
+P.forkDock = [15.03, 5.75]; P.forkHold = [13.4, 1.75]; P.forkStore = [-13.35, 4.0]; P.forkWh = [18.2, -4.45]; P.forkFeed2 = [-21.1, 1.55];   // the in-feed from its north side, clear of the operator
 // the marked forklift lane: from pallet 2 in the forklift yard, along the front of the workshop, round the coil bay and up
 // the forklift ramp onto the north end of the dock; a branch runs up to the warehouse. People have right of way on it.
 // build 0.21b: the east end runs north of the coil bay (the gap between the pipe mill and the coil bay is the crew's walkway)
@@ -3905,10 +3927,11 @@ function forkGo(to, state){ fork.path = findPath(fork.o.position.x, fork.o.posit
 function forkDrive(dt){
   if (!fork.path || !fork.path.length) { fork.v = 0; return true; }
   const o = fork.o.position, [tx, tz] = fork.path[0], dx = tx - o.x, dz = tz - o.z, d = Math.hypot(dx, dz), sp = forkSpeed() * crewSpeed(forkDriver() || { st:{ lv:1, focus:100 } });
-  if (forkYield(dx / (d || 1), dz / (d || 1), d + .6)) { fork.v = Math.max(0, (fork.v || 0) - 6 * dt); return false; }   // brakes for somebody in front
+  if (forkYield(dx / (d || 1), dz / (d || 1), d + .6)) { fork.v = Math.max(0, (fork.v || 0) - 6 * dt); forkGiveWay(dx, dz, dt); return false; }   // brakes for somebody in front
   const onRamp = groundY(o.x, o.z) > .02, back = onRamp && dz < -.05, want = back ? Math.atan2(dz, -dx) : Math.atan2(-dz, dx);   // down the ramp in reverse, forks to the lorry
   const a = ((want - fork.o.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
-  if (Math.abs(a) > .25 && forkSwingClear(a)) { fork.v = 0; return false; }   // somebody within the swing: wait
+  if (Math.abs(a) > .25 && forkSwingClear(a)) { fork.v = 0; forkGiveWay(dx, dz, dt); return false; }   // somebody within the swing: wait
+  fork.heldBy = null; fork.heldT = 0;
   // build 0.21g: it drives like a truck: speeds up and brakes, slows for corners and the ramp, crawls round a tight turn
   let target = sp * (onRamp ? .5 : 1) * clamp(1 - Math.abs(a) / 1.1, .12, 1);
   if (fork.path.length === 1) target = Math.min(target, Math.sqrt(2 * 2.2 * d) + .15);   // easing in to where it stops
@@ -3924,6 +3947,11 @@ function forkLevel(dt = 1){ const o = fork.o, a = o.rotation.y, fx = Math.cos(a)
   const front = groundY(o.position.x + fx * .75, o.position.z + fz * .75), rear = groundY(o.position.x - fx * .75, o.position.z - fz * .75);
   o.position.y = (front + rear) / 2;   // sits on its wheels, front and rear axles 1.5 m apart
   const pitch = Math.atan2(front - rear, 1.5); o.rotation.z += (pitch - o.rotation.z) * Math.min(1, dt * 10); }
+// the driver waits and toots; after 3 s the person in the way steps 1.8 m out of its line (as a yard hand would) and lets it by
+function forkGiveWay(dx, dz, dt){ const c = fork.blockBy; if (!c) return; if (fork.heldBy !== c) { fork.heldBy = c; fork.heldT = 0; } fork.heldT += dt;
+  if (fork.heldT < 3 || c === owner || !c.path || c.giveWayT > T) return;
+  const e = stepAside(c, { position:fork.o.position, rotation:{ y:Math.atan2(-dz, dx) } }); if (!e) return;
+  c.path.unshift(e); c.giveWayT = T + 4; c.wd = null; fork.heldT = 0; }
 // people have right of way: the forklift waits (and gives a toot) while anybody stands in the next 2.4 m of its way
 function forkYield(ux, uz, reach = 2.6){
   const o = fork.o.position, drv = forkDriver(), people = [...staffObj.values(), ...folk.values(), owner, ...(walker ? [walker.c] : [])];
@@ -3981,11 +4009,14 @@ function updateForklift(dt){
   if (fork.state === 'drop') {
     if (!fork.stack.length) { fork.state = 'idle'; fork.liftTo = 0; S.lv4.trips = (S.lv4.trips || 0) + 1; if (drv) giveXp(drv.st, 8); return; }
     if (fork.dest === 'truck') { if (groundY(fork.o.position.x, fork.o.position.z) < .5) forkFace([P.truck[0], P.truck[1]], dt);   // on the deck it stays square to the lorry's side, no room to turn
-      const o = S.order; if (truck.state !== 'docked' || !o || o.ready || S.bed >= o.qty) { fork.dest = whReady() ? 'wh' : 'truck'; if (fork.dest === 'wh') forkRoute(P.forkWh, 'toDrop'); else fork.wait = 1; return; }
+      const o = S.order; if (truck.state !== 'docked' || !o || o.ready || S.bed >= o.qty) { fork.dest = whReady() ? 'wh' : 'truck'; if (fork.dest === 'wh') forkRoute(P.forkWh, 'toDrop'); else forkRoute(P.forkHold, 'toHold'); return; }   // nothing to load into: off the deck, not parked across the loaders' way
       if (forkGive(crates.bed, M.truck, bedPos, () => syncBed())) { S.bed++; S.shipped++; sfx('drop', .5); checkLoaded(); fork.wait = .16; } return; }
     forkFace(P.wh, dt);
     if (S.wh.c >= whCapC()) { fork.dest = 'truck'; forkRoute(P.forkDock, 'toDrop'); fork.wait = 2; return; }
     if (forkGive(crates.wh, world, whCratePos, () => syncWh())) { S.wh.c++; fork.wait = .16; } return; }
+  if (fork.state === 'toHold') { if (forkDrive(dt)) { fork.state = 'hold'; fork.wait = 1; } return; }
+  if (fork.state === 'hold') { const o = S.order; fork.wait = 1;   // at the foot of the ramp with its load, until a lorry can take it (or the warehouse can)
+    if (truck.state === 'docked' && o && !o.ready && S.bed < o.qty) { fork.dest = 'truck'; forkRoute(P.forkDock, 'toDrop'); } else if (whReady() && S.wh.c < whCapC()) { fork.dest = 'wh'; forkRoute(P.forkWh, 'toDrop'); } return; }
   if (fork.state === 'toStore') { if (!forkDrive(dt)) return; fork.state = 'loadStore'; return; }
   if (fork.state === 'loadStore') { forkFace(P.storeRack, dt);
     if (fork.stack.length < FORK_LOAD && S.store > 0 && S.lv4.feed2 + fork.stack.length < FEED2_CAP) { if (forkTake(planks.store, 'plank')) { S.store--; syncStore(); fork.wait = .14; } return; }
@@ -4225,7 +4256,8 @@ function laneRoute(from, to){
 }
 function forkRoute(to, state){
   const from = [fork.o.position.x, fork.o.position.z];
-  if (S.level === 4) { fork.path = laneRoute(from, to); fork.goal = to; fork.state = state; return; }
+  if (S.level === 4) { fork.path = laneRoute(from, to); while (fork.path.length > 1 && Math.hypot(fork.path[0][0] - from[0], fork.path[0][1] - from[1]) < .6) fork.path.shift();   // it is already there: no nosing forward first
+    fork.goal = to; fork.state = state; return; }
   if (S.level < 5 || onFront(from) === onFront(to)) return forkGo(to, state);
   const lane = onFront(to) ? LANE5 : [...LANE5].reverse(), last = lane[lane.length - 1];
   const head = onFront(from) ? [] : findPath(from[0], from[1], lane[0][0], lane[0][1]), tail = onFront(to) ? [to] : findPath(last[0], last[1], to[0], to[1]);
@@ -5253,8 +5285,9 @@ function roadYield(a, path, s, look, V){
   if (nearGate && people.some(c => c.o.visible && !c.gone && c.o.position.x > 2.2 && c.o.position.x < 7.8 && c.o.position.z > 13.4 && c.o.position.z < 16.6)) { V.yieldT = T; return true; }
   // another vehicle in the way along its path (the car stopped at the gate, a lorry in front): stop behind it
   const own = V === CAR ? 2.0 : 3.3, ownHalf = V === CAR ? .85 : 1.15;   // a vehicle in the other lane, going the other way, passes
-  for (const [W, m, back, front, wh] of otherVehicles(V)) for (let k = 1; k <= 6; k++) { const q = pathAt(path, Math.min(path.len, s + own * Math.sign(look) + (look - own) * k / 6));
-    if (inFoot(m, q.x, q.z, back + .8, front + .8, wh + ownHalf)) { V.yieldT = T; V.queueFor = W; return true; } }
+  for (const [W, m, back, front, wh] of otherVehicles(V)) { const still = W.queueFor === 'gate' && gateHolder === V, pad = still ? .15 : .8;   // waiting for us to clear the gateway: it will not move
+    for (let k = 1; k <= 6; k++) { const q = pathAt(path, Math.min(path.len, s + own * Math.sign(look) + (look - own) * k / 6));
+      if (inFoot(m, q.x, q.z, back + pad, front + pad, wh + ownHalf - (still ? .2 : 0))) { V.yieldT = T; V.queueFor = W; return true; } } }
   V.queueFor = null;
   for (const c of people) { if (!c.o.visible || c.gone) continue; const px = c.o.position.x - a.x, pz = c.o.position.z - a.z, t = clamp((px * bx + pz * bz) / L2, 0, 1);
     if (Math.hypot(px - bx * t, pz - bz * t) < half + .25) { V.yieldT = T; if (!V.honk || T - V.honk > 4) { V.honk = T; sfxAt('horn', a.x, a.z, .25); } return true; } }
