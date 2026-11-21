@@ -11,7 +11,7 @@ Read this first when continuing in a new session.
 
 ## What the game is
 Iron Valley: Factory Rising, a 1973 idle factory game in three.js for YouTube Playables. The user owns a master
-Gameplay Bible, now a Claude Doc at v1.3 (https://claude.ai/artifact/N96Ctn22YPsAps1dRZiAPd) and concept images for levels 1-4; the game must follow them, period-correct for 1973.
+Gameplay Bible, now a Claude Doc at v1.4 (https://claude.ai/artifact/N96Ctn22YPsAps1dRZiAPd) and concept images for levels 1-4; the game must follow them, period-correct for 1973.
 A Claude Doc "Iron Valley — Bible Addendum: Gus, Supplies and the Farewell" records every rule added since:
 https://claude.ai/artifact/HRZiBVHUvRCSEDexVex18G
 
