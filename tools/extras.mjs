@@ -62,10 +62,10 @@ await walkTo(13.6, 6.5); await walkTo(P.sawFix[0], P.sawFix[1] + 1); await walkT
 const fitted = await until(() => !window.__iv.S.blade, 150); if (!fitted) console.log('blade:', await ev(() => { const v = window.__iv, o = v.owner.o.position; return JSON.stringify({ at:[+o.x.toFixed(2), +o.z.toFixed(2)], fix:v.P.sawFix, vis:v.owner.o.visible, card:v.cardOpen }); }));
 check(fitted, 'standing at the side of the machine, the owner fits a new blade');
 // 5. rain
-await ev(() => window.__iv.startRain());
-check(await ev(() => !!window.__iv.rain && !document.getElementById('rain').hidden), 'a shower starts');
+await ev(() => window.__iv.startRain(60));
+check(await until(() => !!window.__iv.rain && window.__iv.wx.kind === 'shower', 10), 'a shower starts (the weather system blends it in, rain in the 3D scene)');
 await wait(2500); await p.screenshot({ path:path.join(out, 'x4_rain.png') });
-await ev(() => { window.__iv.rain.t = window.__iv.rain.dur; });
+await ev(() => { const v = window.__iv; v.setWx('clear'); });
 check(await until(() => !window.__iv.rain, 5), 'the shower passes');
 // 6. a rival
 await ev(() => { const v = window.__iv; v.sales().acc.grocer = { since:0 }; v.story({ kind:'rival', key:'grocer' }); });
