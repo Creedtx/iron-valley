@@ -51,6 +51,15 @@ those three files. The preview runs levels 1-4 on the "wide yard" (PREVIEW = tru
   (`__iv.hold = true` then `__iv.step(.05)` in a loop, as audit.mjs and fixes020.mjs do) before calling it a bug.
 - `tools/fixes020.mjs`: the warehouse gate sale and the car at 17:00.
 
+## Bible v1.5 and v1.6 (23 Nov 2026): read before building
+- v1.5 (the user's PDF, 71 pages): 10-minute day, calendar 1973-1981, Friday pay and weekly accounts, 16 levels in
+  four Acts, Defence Works from Level 13, weather (17 kinds), Playables compliance layer, decision log.
+- v1.6 (Claude Doc, https://claude.ai/artifact/D95UzZSKrLDS8CVwttkM19) adds: gap study of v1.5 vs build 0.21b,
+  real physics numbers (2 pipes by hand, forklift ramp 7.6 m at 1 in 8 and 2.2 m/s, 1 power unit = 5 kW),
+  every interaction, 24 logic rules (L-01..L-24) for the audit, valley lore, and Phase 0 in 12 steps.
+- Section 8 of v1.6 holds 8 decisions (V-01..V-08) awaiting the user's Approved before Phase 0 starts.
+  Phase 0 step 1: one GameClock (600 s day, real dates, Fridays, level start dates).
+
 ## Done in build 0.21b (from phone play: a stand-off at the gate, level 2 marked out in stages)
 - The car home from a trip and a loaded lorry leaving no longer stand nose to nose: `roadYield` follows another
   vehicle with a small pad only when that vehicle is itself waiting for the gate held by this one (`still`), so the
