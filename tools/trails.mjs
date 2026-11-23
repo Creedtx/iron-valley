@@ -20,7 +20,7 @@ const res = await p.evaluate(() => { const v = window.__iv, S = v.S; v.hold = tr
   const people = () => { const a = [...v.staffObj.values()].map(c => [c.st.name + ' ' + c.st.role, c]); const g = v.folk.get('gus'); if (g) a.push(['Gus', g]); return a; };
   const rec = ph => { for (const [n, c] of people()) { if (!c.o.visible) continue; const k = ph + ':' + n; if (!tr.has(k)) tr.set(k, []); const a = tr.get(k), q = c.o.position; const l = a[a.length - 1]; if (!l || Math.hypot(l[0] - q.x, l[1] - q.z) > .15) a.push([+q.x.toFixed(2), +q.z.toFixed(2)]); } };
   const run = (secs, ph, stop) => { for (let i = 0; i < secs * 20; i++) { if (v.cardOpen) { if (/Day book/i.test(document.getElementById('storyBody').innerText) && ph === 'pm') return; v.nextCard(); } if (S.call) { v.acceptCall(); v.closeOffice(); } if (S.order && !S.order.briefed) v.briefOrder(null); v.step(.05); t += .05; if (i % 2 === 0) rec(ph); if (stop && stop()) return; } };
-  run(60, 'x'); tr.clear(); S.time = v.dayNo() * 480 + 474; run(200, 'pm');
+  run(60, 'x'); tr.clear(); S.time = v.dayNo() * v.DAY_S + v.DAY_S - 6; run(200, 'pm');
   v.nextCard(); run(90, 'am', () => [...v.staffObj.values()].every(c => c.state !== 'arrive' && !c.holdUntil) && false);
   v.hold = false; return { trails:[...tr.entries()], col:[...v.COL.entries()].map(([k, b]) => [String(k), b]) }; });
 fs.writeFileSync(out + '.json', JSON.stringify(res));

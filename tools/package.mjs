@@ -48,7 +48,7 @@ await build({
 for (const f of fs.readdirSync(path.join(ROOT, 'models'))) if (f.endsWith('.glb')) fs.copyFileSync(path.join(ROOT, 'models', f), path.join(OUT, 'models', f));
 
 // 3. fonts: the faces and weights the page uses, Latin subset
-const FONTS = [['oswald', 'Oswald', [500, 600, 700]], ['barlow', 'Barlow', [500, 600, 700]], ['special-elite', 'Special Elite', [400]], ['alfa-slab-one', 'Alfa Slab One', [400]]];
+const FONTS = [['oswald', 'Oswald', [500, 600, 700]], ['barlow', 'Barlow', [500, 600, 700]], ['special-elite', 'Special Elite', [400]], ['alfa-slab-one', 'Alfa Slab One', [400]], ['roboto-slab', 'Roboto Slab', [500, 600, 700]], ['roboto-mono', 'Roboto Mono', [500, 700]]];   // v2.0 20.2 (D-30)
 let faces = '';
 for (const [pkg, family, weights] of FONTS) for (const w of weights) {
   const file = `${pkg}-latin-${w}-normal.woff2`; fs.copyFileSync(path.join(NM, '@fontsource', pkg, 'files', file), path.join(OUT, 'fonts', file));

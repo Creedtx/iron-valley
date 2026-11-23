@@ -27,7 +27,7 @@ const fail = []; const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL
 // gateway, Gus answers the phone and serves the gate meanwhile, the visit wins an order, the car comes back and
 // reverses into its space, and the agreed order starts. Adverts and the painted sign raise the phone's interest.
 await ev(() => { const v = window.__iv; while (v.cardOpen) v.nextCard(); const S = v.S; S.letter = true; S.tutDone = true; S.tut = 99; S.met.gus = true; S.cash = 1500; S.rep = 60; S.orderSeq = 4; S.delivered = 4; S.sales.told = false;
-  v.hire('operator'); v.hire('loader'); v.closeOffice(); for (const st of S.staff) st.posted = true; v.S.time = Math.floor(v.S.time / 480) * 480 + 40; v.speed = 3; });
+  v.hire('operator'); v.hire('loader'); v.closeOffice(); for (const st of S.staff) st.posted = true; v.S.time = Math.floor(v.S.time / v.DAY_S) * v.DAY_S + 40; v.speed = 3; });
 await wait(4000);
 const P = await ev(() => window.__iv.P);
 // the phone: interest before any selling

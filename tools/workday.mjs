@@ -32,7 +32,7 @@ const closeOthers = () => ev(() => { const v = window.__iv; while (v.cardOpen &&
 setInterval(() => closeOthers().catch(() => {}), 400);
 const P = await ev(() => window.__iv.P);
 // 1. the walk-in sale
-await ev(() => { const v = window.__iv; v.S.pallet = 6; v.syncPallet(); v.S.time = Math.floor(v.S.time / 480) * 480 + 60; v.spawnWalker(true); });
+await ev(() => { const v = window.__iv; v.S.pallet = 6; v.syncPallet(); v.S.time = Math.floor(v.S.time / v.DAY_S) * v.DAY_S + 60; v.spawnWalker(true); });
 check(await until(() => window.__iv.walker && window.__iv.walker.state === 'wait', 120), 'walk-in customer reaches the gate');
 console.log('at gate', await st());
 check(await ev(() => { const o = window.__iv.walker.c.o; return o.visible && Math.abs(o.position.y) < .01; }), 'customer stands on the ground at the gate');
@@ -76,7 +76,7 @@ check(await until(() => [...window.__iv.staffObj.values()].some(c => c.st.role =
 await ev(() => { const v = window.__iv, l = [...v.staffObj.values()].find(c => c.st.role === 'loader'); v.camLock = [l.o.position.x, l.o.position.z]; }); await wait(1500); await p.screenshot({ path:path.join(out, 'w3b_loader_trolley.png') }); await ev(() => { window.__iv.camLock = null; });
 // 2. lunch: 11:58 to 12:31
 await walkTo(P.saw[0] + 3, P.saw[1] + 3);
-await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * 480 + 239; });
+await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * v.DAY_S + 299; });
 check(await until(() => window.__iv.lunchTime(), 90), 'lunch whistle at 12:00');
 check(await until(() => [...window.__iv.staffObj.values()].every(c => c.lunch === 'eat'), 400), 'the crew is on the bench (a loader mid-run finishes it and parks the trolley first)');
 check(await ev(() => window.__iv.carts.every(k => !k.by)), 'the trolleys were parked in the bay before lunch');
@@ -103,7 +103,7 @@ await hide(false); check(await until(() => window.__iv.audio === 'running', 5), 
 // 4. knocking off: the whistle, the crew walks out of the gate, the day book, then they clock in next morning
 await p.keyboard.press('Shift'); await wait(300);
 check(await ev(() => { try { window.__iv.whistle(.3); return true; } catch(e) { return false; } }), `the whistle plays (audio ${await ev(() => window.__iv.audio)})`);
-await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * 480 + 478; });
+await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * v.DAY_S + v.DAY_S - 2; });
 check(await until(() => /CLOSING/.test(document.getElementById('clock').textContent), 20), 'clock reads 17:00 CLOSING');
 check(await until(() => [...window.__iv.staffObj.values()].some(c => c.leaving), 20), 'the crew sets off for the gate');
 await ev(() => { const v = window.__iv; v.camLock = [v.P.frontIn[0], v.P.frontIn[1] - 2]; }); await wait(2500); await p.screenshot({ path:path.join(out, 'w5_going_home.png') });

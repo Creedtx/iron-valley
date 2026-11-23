@@ -28,7 +28,7 @@ const walkTo = async (x, z) => { await ev(([x, z]) => { window.__stop = () => Ma
 await ev(() => { const v = window.__iv; while (v.cardOpen) v.nextCard(); const S = v.S; S.letter = true; S.tutDone = true; S.tut = 99; S.met.gus = true; S.cash = 20000; S.rep = 60; S.orderSeq = 6; S.delivered = 6; S.sales.told = true;
   v.hire('operator'); v.hire('loader'); v.closeOffice(); for (const st of S.staff) st.posted = true; v.evNext = 1e9; });
 await ev(async () => { const v = window.__iv; v.applyRestore('yard', false); v.S.levelUp = true; await v.startLevel(2); v.startMillBuild(false); v.finishMill(false); v.startWhBuild(false); v.finishWh(false); v.closeOffice(); while (v.cardOpen) v.nextCard();
-  v.S.time = Math.floor(v.S.time / 480) * 480 + 60; });
+  v.S.time = Math.floor(v.S.time / v.DAY_S) * v.DAY_S + 60; });
 const P = await ev(() => window.__iv.P);
 // ---- 1. the gate customer, the empty pallet, the warehouse stock
 await ev(() => { const v = window.__iv, S = v.S; S.order = null; S.pallet = 0; v.syncPallet(); S.wh.c = 6; v.syncWh && v.syncWh(); for (const c of v.staffObj.values()) c.o.position.set(-12, 0, -9);
@@ -50,14 +50,14 @@ for (let k = 0; k < 4 && await ev(() => !!window.__iv.walker && window.__iv.walk
 check(await ev(() => !window.__iv.walker || window.__iv.walker.got >= window.__iv.walker.n), `the customer gets all ${want} crates from the warehouse stock`);
 // ---- 2. the car and 17:00
 await ev(() => { window.__each = null; }); await run(30);
-await ev(() => { const v = window.__iv; if (v.walker) v.walker.t = 1e4; v.S.time = Math.floor(v.S.time / 480) * 480 + 480 - 20; });   // 16:35
+await ev(() => { const v = window.__iv; if (v.walker) v.walker.t = 1e4; v.S.time = Math.floor(v.S.time / v.DAY_S) * v.DAY_S + v.DAY_S - 20; });   // 16:35
 check(await ev(() => window.__iv.tooLate(window.__iv.PLACES.grocer)), 'at 16:35 a 15-minute trip each way is too late');
 await ev(() => { const v = window.__iv; v.owner.o.position.set(...v.P.carDoor); v.startTrip('visit', 'grocer'); });
 check(await ev(() => !window.__iv.trip), 'so the car does not go');
-await ev(() => { const v = window.__iv; v.S.time = Math.floor(v.S.time / 480) * 480 + 480 - 140; while (v.owner.stack.length) v.owner.stack.pop().removeFromParent(); v.owner.carryType = null; if (v.owner.cart) v.parkCart(v.owner); v.startTrip('visit', 'farm'); });   // 14:05, the farm is 10 min each way
+await ev(() => { const v = window.__iv; v.S.time = Math.floor(v.S.time / v.DAY_S) * v.DAY_S + v.DAY_S - 140; while (v.owner.stack.length) v.owner.stack.pop().removeFromParent(); v.owner.carryType = null; if (v.owner.cart) v.parkCart(v.owner); v.startTrip('visit', 'farm'); });   // 14:05, the farm is 10 min each way
 check(await ev(() => !!window.__iv.trip), 'earlier, a short trip starts');
 await ev(() => { window.__stop = () => { const v = window.__iv; return v.trip && ['away', 'there'].includes(v.trip.phase); }; }); await run(120);
-await ev(() => { const v = window.__iv; window.__stop = null; v.S.time = Math.floor(v.S.time / 480) * 480 + 480 + .5; });   // 17:00 while the owner is out
+await ev(() => { const v = window.__iv; window.__stop = null; v.S.time = Math.floor(v.S.time / v.DAY_S) * v.DAY_S + v.DAY_S + .5; });   // 17:00 while the owner is out
 // the knocking-off whistle with the owner in town: watch the order of things
 await ev(() => { const v = window.__iv; window.__log = []; window.__stop = () => { const S = v.S, c = S.day && S.day.closing; const e = `${v.trip ? v.trip.phase : 'parked'}|${c ? (c.shut ? 'shut' : 'open') : '-'}|${v.cardOpen ? (document.getElementById('storyBody').innerText.match(/Day book|Valley|Farm|order/i) || ['card'])[0] : ''}`; if (window.__log[window.__log.length - 1] !== e) window.__log.push(e);
   if (v.cardOpen && /Day book/i.test(document.getElementById('storyBody').innerText)) return true; if (v.cardOpen) { const B = document.getElementById('storyBody'); (B.querySelector('[data-pick="none"]') || B.querySelector('[data-next]') || B.querySelector('button')).click(); } return false; }; });

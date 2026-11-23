@@ -31,7 +31,7 @@ await ev(async () => { const v = window.__iv; while (v.cardOpen) v.nextCard(); c
   await v.startLevel(2); v.startMillBuild(false); v.finishMill(false); v.startWhBuild(false); v.finishWh(false); v.hire('operator'); v.hire('loader'); v.hire('helper'); v.closeOffice();
   S.plots.north = { st:3 }; v.buyField(false); S.levelUp = true; await v.startLevel(3); v.closeOffice(); v.startPressBuild(false); v.finishPress(false); v.hire('operator'); v.hire('mechanic'); v.closeOffice();
   S.plots.scrap = { st:3 }; v.openScrapyard(false); for (const st of S.staff) st.posted = true; S.levelUp = true; await v.startLevel(4); v.closeOffice(); while (v.cardOpen) v.nextCard();
-  v.owner.o.position.set(v.P.deskRing[0], 0, v.P.deskRing[1]); S.time = v.dayNo() * 480 + 20; });
+  v.owner.o.position.set(v.P.deskRing[0], 0, v.P.deskRing[1]); S.time = v.dayNo() * v.DAY_S + 20; });
 const P = await ev(() => window.__iv.P);
 // 1. the yards join
 check(await ev(() => window.__iv.S.level === 4), 'level 4 opens');

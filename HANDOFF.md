@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (19 Nov 2026, build 0.21)
+# Handover: where Iron Valley stands (24 Nov 2026, build 0.22, Bible v2.0)
 
 Read this first when continuing in a new session.
 
@@ -59,6 +59,53 @@ those three files. The preview runs levels 1-4 on the "wide yard" (PREVIEW = tru
   every interaction, 24 logic rules (L-01..L-24) for the audit, valley lore, and Phase 0 in 12 steps.
 - Section 8 of v1.6 holds 8 decisions (V-01..V-08) awaiting the user's Approved before Phase 0 starts.
   Phase 0 step 1: one GameClock (600 s day, real dates, Fridays, level start dates).
+
+## Bible v2.0 (24 Nov 2026): the only Bible now
+The user's PDF `uploads/bible_v2.0.pdf` (106 pages, "Master Gameplay Bible v2.0") replaces v1.4, v1.5 and v1.6. Follow it
+alone; keep what is built; add what v2.0 asks of Levels 1-4 (Act I). Levels 5+ wait for the user's go-ahead (show a map first).
+
+## Done in build 0.22 (Bible v2.0, Act I re-fit)
+- One clock (v2.0 3): a working day is 600 s (one game minute a second), lunch 12:00-12:30 (30 s). The calendar counts
+  working days from Monday 2 April 1973 (`CAL0`, `wdOf`, `calDay`, `dateOf`, `weekday`, `isFriday`); `S.cal.off` maps play
+  days to calendar days. Levels open on their dates (`LV_START`: L2 Wed 18 Apr, L3 Tue 5 Jun, L4 Tue 7 Aug 1973, L5 Mon 14
+  Jan 1974). Deadlines read as weekday and clock ("due Wed 12:00", `dueAt`, `hrsOf`). Saves from the 8-minute day migrate
+  (v8: same day number, the hour stretched by 1.25, time stamps moved with it).
+- Level change: with the charter done, "Open level N" blows the whistle early (`S.nextLevel`, `knockOff`), the day book
+  offers "turn the calendar", then the skip card tears the office calendar's pages to the new date (`skipHtml`,
+  `SKIP_BUILT`) and the Courier prints the finished level's v2.0 headline (`HEADLINES`). Gates open at 07:00 on day one.
+- Friday pay day (3.3): 16:30, the wages hatch on the workshop front (`PAY_AT`, `buildHatch`), the crew queue three at a
+  time (`PAY_Q`, `payStep`), the owner in the ring hands each packet (envelope flies, cap tipped); grandad's estate pays on
+  Levels 1-4 (`estatePays`); anyone unpaid gets it at the gate (`payAtGate`). Friday's day book closes the week (`weekHtml`).
+- Charters (7): L1 7 lines, L2 8, L3 9, L4 8, each with its own `id` (ticks keyed `level:id`). Goals 4K/10K/24K/55K;
+  upgrades of Levels 3-4 cost 2/4/8% of the goal; plots 10-20% of the goal; land only from Level 3 (North field lv 3).
+- Staffing matrix (12.2) in `progression.js` `ROLE_CAPS` (+ `workerCap`). One helper per machine (`helperOf`: crate
+  machine, pipe mill, tool press); loaders leave coil runs to a coil helper (`coilHelper`); auto-feed lets the crate helper
+  also feed the mill. Named crew (2.3, `CREW_CAST`): Alf Pryce, Wilf Dunn, Bert Coombes, Danny Moss, Stan Kowalczyk,
+  Reggie Platt; others from the v2.0 pools (`crewName`, `st.sur`). Old saves keep their names.
+- Weather (17, `WX`, `wxPlan`, `updateWeather`, `applyWeather`): clear, overcast, drizzle, shower, fog, heat wave,
+  thunderstorm; set pieces per level (L1 Tue shower, L2 Thu shower + rainbow, L3 Wed fog, L4 Thu heat wave + ice-cream van,
+  Fri storm), seasonal weather after. Effects: shower crew -10% and no walk-ins; drizzle stops walk-ins unless the gate
+  awning; fog lorries +15 min; heat Old Faithful -10%; storm power cuts x3, lightning and thunder by distance. Forecast at
+  07:00 (wireless toast), the office barometer (tap = tomorrow), "Weather tomorrow" in the day book. `startRain()` and
+  `__iv.setWx(k)` force weather in tests.
+- Bolt (2.1): arrives at Level 2 Thursday lunch, follows the owner, sits, naps in the pocket by Old Faithful (`BOLT_NAP`),
+  shade in a heat wave, barks at lorries, shakes after rain; vehicles stop for him and he sidesteps any moving vehicle
+  (`boltDodge`, clear side first).
+- Yard purchases (18.4): gate awning (L2 $200), yard lamps (L3 $480), counter bell (L3 $250, patience 160 s), shop window
+  (L4 $500, walk-ins every 45-90 s), loading-lane canopy (L4 $1,100, loaders not slowed by rain). Ice-cream van in the
+  heat wave ($10, crew +5% for the day).
+- Chalkboard (18.6, D-04) from Level 3 replaces the daily target: three jobs a day on the workshop wall (`CHALK`), a bonus
+  each, +2 rep for all three. Wrong timber (L3 Thursday + rare): send back a day or run at 80%. Blunt blade on L3 Thursday.
+- Returns: "While you were away" envelope from L2 (50% of normal takings x staffed share, 2 h cap, `S.seenAt`); login
+  calendar from L3 (7 real days). Each level names its strategic choice (`CHOICE`). Letter: v2.0 words, Walter Ashford.
+  Signs: "Iron Valley Workshop · Est. 1921" (`signName`).
+- Works Board HUD (20, D-01): olive painted plates with cream pinstripe and brass rivets, Roboto Slab / Alfa Slab One /
+  Roboto Mono / Special Elite (bundled in package.mjs), rolling drum cash counter (`drums`), reputation dial (`repDial`),
+  date on the clock, cream objective strip with a red-oxide arrow, the order sign on two chains, the clipboard office with
+  typewriter text and DONE stamps. Playables: no page-visibility listeners and no FPS meter in that build.
+- Tests: `tools/calendar.mjs` (calendar, pay day, level dates, migration) and `tools/v2_act1.mjs` (42 Act I checks);
+  `tools/v2_shots.mjs` and `tools/hud_shot.mjs` take pictures; `tools/spot_shot.mjs` and `tools/col_dump.mjs` help place
+  things; layout_lint checks the new purchases, the pay queue, the ice-cream ring and Bolt's spots.
 
 ## Done in build 0.21b (from phone play: a stand-off at the gate, level 2 marked out in stages)
 - The car home from a trip and a loaded lorry leaving no longer stand nose to nose: `roadYield` follows another

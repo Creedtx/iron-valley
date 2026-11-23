@@ -14,6 +14,9 @@ await p.evaluateOnNewDocument(() => { try { localStorage.clear(); } catch(e){} w
 await p.goto(url, { waitUntil:'domcontentloaded' }); await p.waitForFunction('window.__iv && window.__iv.owner && window.__iv.frames > 5', { timeout:300000 });
 await p.evaluate(async () => { const v = window.__iv; while (v.cardOpen) v.nextCard(); await v.previewL2Layout(); }); if (mode === 'l3' || mode === 'l4') await p.evaluate(async () => { const v = window.__iv; await v.loadModels(['tool_press', 'level3']); v.S.plots.north.st = 3; v.S.level = 3; v.buyField(false); v.buildLevel3(); v.finishPress(false); });
 if (mode === 'l4') await p.evaluate(async () => { const v = window.__iv; v.S.plots.scrap = { st:3 }; v.openScrapyard(false); v.S.levelUp = true; await v.startLevel(4); v.closeOffice(); while (v.cardOpen) v.nextCard(); v.startSaw2Build(false); v.finishSaw2(false); });
+// v2.0: every new purchase placed, so the checker sees its posts and cases
+await p.evaluate(() => { const v = window.__iv; for (const id of ['counter', 'urn', 'awning', 'bell', 'window', 'lamps', ...(v.S.level >= 4 ? ['canopy'] : [])]) v.applyRestore(id, false); });
+const V2 = await p.evaluate(() => { const v = window.__iv; return { pay:v.PAY_AT, q:v.PAY_Q, ice:v.ICE_AT, nap:v.BOLT_NAP, shade:v.BOLT_SHADE }; });
 const D = await p.evaluate(() => { const v = window.__iv; return { put:window.__ivLint, col:[...v.COL.entries()].map(([k, b]) => ({ k:String(k), b })), P:v.P, ramp:v.LDOCK.ramp, deck:v.LDOCK.deck, lane:v.S.level === 4 ? v.LANE4 : null, fork:v.LDOCK.fork }; });
 await b.close();
 const P = D.P, sq = (pt, r = .45) => [pt[0] - r, pt[1] - r, pt[0] + r, pt[1] + r];
@@ -25,6 +28,7 @@ const ZONES = [
   ['North field gateway', [12.25, -12.7, 15.35, -11.3], /gate|fence/],
   ['loading lane', [2.6, 5.0, 9.95, 6.6], /^$/],
   ['trolley bay', [-2.65, 6.35, .4, 7.15], /^$/], ...[[-2.25, 5.9], [-1.5, 5.9], [-.75, 5.9], [0, 5.9]].map((s, i) => [`trolley handle ${i + 1}`, sq(s, .3), /^$/]),
+  ['pay hatch', sq(V2.pay, .4), /^$/], ...V2.q.map((q, i) => [`pay queue ${i + 1}`, sq(q, .3), /^$/]), ['ice-cream ring', sq(V2.ice, .4), /^$/], ['Bolt nap spot', sq(V2.nap, .3), /^$/], ['Bolt shade spot', sq(V2.shade, .3), /^$/],
   ...['op', 'pallet', 'drop', 'cash', 'pop', 'pfeedRing', 'prackSpot', 'coilSpot', 'whSpotC', 'whSpotP', 'whSpotT', 'whBuild', 'deskRing', 'feedRing', 'timberRing', 'gus2', 'dockWait', 'trolleyPark', 'tfeedRing', 'tfix', 'trackSpot', 'unload', 'top', 'loaderHome', 'loaderWait', 'sawFix', 'genFix', 'wsDoor', 'frontIn', 'trade']
     .filter(k => P[k]).map(k => [`work spot ${k}`, sq(P[k]), /^$/]),
 ];

@@ -26,7 +26,7 @@ const fail = []; const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL
 // Build 0.19: a small crew at level 1 and the owner's own work counting: one loader only, no helper; the owner
 // feeding planks makes the crate machine a quarter faster; the owner picks up crates for the lorry beside the loader.
 await ev(() => { const v = window.__iv; while (v.cardOpen) v.nextCard(); const S = v.S; S.letter = true; S.tutDone = true; S.tut = 99; S.met.gus = true; S.cash = 3000; S.orderSeq = 4; S.delivered = 4; S.sales.told = true;
-  v.hire('operator'); v.hire('loader'); v.hire('loader'); v.hire('helper'); v.closeOffice(); for (const st of S.staff) st.posted = true; v.S.time = Math.floor(v.S.time / 480) * 480 + 40; v.speed = 2; });
+  v.hire('operator'); v.hire('loader'); v.hire('loader'); v.hire('helper'); v.closeOffice(); for (const st of S.staff) st.posted = true; v.S.time = Math.floor(v.S.time / v.DAY_S) * v.DAY_S + 40; v.speed = 2; });
 check(await ev(() => window.__iv.S.staff.filter(s => s.role === 'loader').length === 1), 'level 1 hires one loader only');
 check(await ev(() => !window.__iv.S.staff.some(s => s.role === 'helper')), 'no machine helper at level 1');
 await ev(() => { const v = window.__iv; v.S.call = v.placeSpec('docks', 'big'); v.acceptCall(); v.closeOffice(); v.briefOrder(null); });

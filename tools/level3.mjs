@@ -58,7 +58,7 @@ check(await until(() => window.__iv.S.lv3.press === 2, 400), 'the press is built
 await ev(() => { window.__iv.camLock = [14, -14.5]; }); await wait(2000); await p.screenshot({ path:path.join(out, 'l3_press.png') }); await ev(() => { window.__iv.camLock = null; });
 check(await ev(() => { const v = window.__iv, P = v.P; return P.top && P.top[1] < -12.5 && P.top[1] > -20.5; }), 'the operator spot is in the field');
 // 5. tools for the Valley Garage
-await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * 480 + 60; v.hire('operator'); v.hire('mechanic'); v.closeOffice(); for (const st of v.S.staff) st.posted = true; v.S.coils = 4; v.syncCoilBay && v.syncCoilBay(); v.S.order = null; v.S.call = v.placeSpec('garage'); v.acceptCall(); v.closeOffice(); v.briefOrder(null); });
+await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * v.DAY_S + 60; v.hire('operator'); v.hire('mechanic'); v.closeOffice(); for (const st of v.S.staff) st.posted = true; v.S.coils = 4; v.syncCoilBay && v.syncCoilBay(); v.S.order = null; v.S.call = v.placeSpec('garage'); v.acceptCall(); v.closeOffice(); v.briefOrder(null); });
 check(await ev(() => (window.__iv.S.order || {}).tq > 0), 'the Valley Garage orders tools');
 const stamped = await until(() => window.__iv.toolOn || (window.__iv.S.tmade || 0) > 0, 900); if (!stamped) console.log('press:', await ev(() => { const v = window.__iv, S = v.S; return JSON.stringify({ why:v.toolReason().label.join('/'), tcoil:S.tcoil, tfeed:S.tfeed, coils:S.coils, op:[...v.staffObj.values()].filter(c => c.st.role === 'operator').map(c => `${c.st.mach}:${c.state}`), order:S.order && [S.order.tq, S.order.briefed], staff:[...v.staffObj.values()].map(c => `${c.st.role}:${c.state}`) }); }));
 check(stamped, 'the tool press stamps tools');

@@ -40,7 +40,7 @@ await ev(() => { const v = window.__iv; window.__rec = { bad:[], last:new Map(),
       R.last.set(c, [x, z]); } requestAnimationFrame(tick); };
   requestAnimationFrame(tick); });
 const shots = async (name, n, gap) => { for (let i = 0; i < n; i++) { await ev(() => { window.__iv.camLock = [5, 11.5]; }); await wait(gap); await p.screenshot({ path:path.join(out, `${name}${i}.png`) }); } };
-await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * 480 + 478; });
+await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * v.DAY_S + v.DAY_S - 2; });
 await shots('out', 6, 1500);
 await until(() => window.__iv.cardOpen && /Day book/i.test(document.getElementById('storyBody').innerText), 150);
 const closing = await ev(() => window.__rec.bad.length + (window.__iv.S.unstuck || 0) - window.__rec.unstuck0);

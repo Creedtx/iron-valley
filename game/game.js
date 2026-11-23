@@ -19,6 +19,8 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 /* =====================================================================
    DESIGN DATA — Level 1
    ===================================================================== */
+// v2.0 2.5: the company's name on the sign grows with it: Workshop (1-4), Manufacturing (5-8), Industries (9-15), Corporation (16)
+const signName = () => 'Iron Valley ' + (S.level >= 16 ? 'Corporation' : S.level >= 9 ? 'Industries' : S.level >= 5 ? 'Manufacturing' : 'Workshop');
 const LEVELS = { 1:{ name:'Inherited Workshop', next:'Reopened Factory' }, 2:{ name:'Reopened Factory', next:'Local Manufacturer' }, 3:{ name:'Local Manufacturer', next:'Growing Enterprise' }, 4:{ name:'Growing Enterprise', next:'Regional Manufacturer' }, 5:{ name:'Regional Manufacturer', next:'Industrial Company' } };
 const PREVIEW = true;                                    // build 0.16 preview: the new wide level 1 only, its own save
 const MAX_LEVEL = PREVIEW ? 4 : 5;                       // levels built so far
@@ -47,7 +49,17 @@ const ORDER_QTY = [3, 5, 6, 8, 8, 10, 10, 12, 12, 14];
 const CLIENTS = ['Hartley Hardware', 'Valley Grocers', 'Mill Road Farm', 'Dunmore Docks', 'Ashby Bottling', 'Kerr & Sons'];
 // worker training grows with the company level (progression.js): level 1 caps workers at 5, each level adds 2
 const maxLv = () => PG.workerLvCap(S.level);
-const NAMES = ['Walt', 'Rita', 'Kim', 'Dale', 'June', 'Earl', 'Bev', 'Hank', 'Dot', 'Otis', 'Fay', 'Marv', 'Lou', 'Ida'];
+// Bible v2.0 2.3: the named crew join in this order in their roles; every other hire takes a first name and a surname from
+// the pools, never a cast name. Saves from before keep the names their crew already have.
+const CREW_CAST = { operator:[['Alf', 'Pryce']], loader:[['Wilf', 'Dunn'], ['Bert', 'Coombes']], helper:[['Danny', 'Moss']], mechanic:[['Stan', 'Kowalczyk']], forklift:[['Reggie', 'Platt']] };
+const FIRST_POOL = ['Frank', 'Harry', 'Ivan', 'Jean', 'Kofi', 'Les', 'Maureen', 'Mohan', 'Norm', 'Pat', 'Pietro', 'Ray', 'Ron', 'Sheila', 'Ted', 'Vic', 'Winston', 'Carlos'];
+const SUR_POOL = ['Baxter', 'Fenwick', 'Garside', 'Hughes', 'Lowe', 'Novak', 'Okoro', 'Romano', 'Singh', 'Tate', 'Walsh', 'Crowther'];
+const FEM = new Set(['Jean', 'Maureen', 'Sheila', 'Doris', 'June', 'Ada', 'Vera', 'Priya', 'Rosa', 'Edna', 'Ruth', 'Imani', 'Nora', 'Peg', 'Beatrice', 'Dolores']);
+const CAST_FIRST = new Set(['Gus', 'Tom', 'Vera', 'Abel', 'Rusty', 'Eldon', 'Priya', 'Ada', 'June', 'Hollis', 'Cyrus', 'Dolores', 'Victor', 'Joe', 'Rosa', 'Edna', 'Jack', 'Billy', 'Sam', 'Alan', 'Imani', 'Henrik', 'Peg', 'Nora', 'Beatrice', 'Doris', 'Hank', 'Tommy', 'Len', 'Mickey', 'Ruth', 'Ken']);
+function crewName(role){ const used = new Set(S.staff.map(x => x.name)), usedFull = new Set(S.staff.map(x => x.name + ' ' + (x.sur || '')));
+  for (const [f, l] of CREW_CAST[role] || []) if (!used.has(f) && !(S.castHired || {})[f]) return [f, l];
+  const firsts = FIRST_POOL.filter(f => !used.has(f) && !CAST_FIRST.has(f)), f = firsts.length ? pick(firsts) : pick(FIRST_POOL), l = pick(SUR_POOL.filter(x => !usedFull.has(f + ' ' + x))) || pick(SUR_POOL); return [f, l]; }
+const NAMES = FIRST_POOL;   // older code paths that only need a first name
 // Every role is a trade: people only do their own job.
 const ROLE = {
   operator:    { title:'Operator', dept:'production', cap:1, cost:[80, 220], icon:'saw', col:{ suit:'#3f6c94', hat:'#e3a52a', muff:'#c23b2a' }, gear:['hat_hard', 'earmuffs'],
@@ -78,21 +90,27 @@ const DEPTS = [
 // upgrades and equipment are data rows in progression.js; the number of steps open grows with the level
 const GONE = ['wc', 'cooler', 'mop', 'gen', 'ppe', 'meter'];   // welfare, diesel, timber runs, focus and the electrician are not in the Bible's game
 const LATER = { surge:3, tools:3, fuel:3, supply:3 };   // fuel saver and the bigger trolley matter once timber and diesel are bought (level 3)                                              // these belong to the issues system (level 3)
-const GOAL_OF = { 1:2000, 2:4000, 3:8000, 4:20000, 5:50000 };
-const UPGRADES = PG.UPGRADES.filter(u => !GONE.includes(u.id)).map(u => Object.assign({}, u, LATER[u.id] ? { lv:LATER[u.id] } : {})).map(u => Object.assign(u, u.lv <= 2 || u.id === 'fuel' || u.id === 'supply' ? { cost:[.02, .04, .08].slice(0, u.cost.length).map(k => Math.round(GOAL_OF[u.lv] * k / 10) * 10) } : {})).map(u => Object.assign({}, u, { desc:`Each step: ${u.per}.` }));
+const GOAL_OF = { 1:4000, 2:10000, 3:24000, 4:55000, 5:120000 };   // Bible v2.0 6.1
+const UPGRADES = PG.UPGRADES.filter(u => !GONE.includes(u.id)).map(u => Object.assign({}, u, LATER[u.id] ? { lv:LATER[u.id] } : {})).map(u => Object.assign(u, u.lv >= 3 && u.lv <= 4 ? { cost:[.02, .04, .08].slice(0, u.cost.length).map(k => Math.round(GOAL_OF[u.lv] * k / 10) * 10) } : {})).map(u => Object.assign({}, u, { desc:`Each step: ${u.per}.` }));
 const upSteps = u => PG.maxSteps(u, S.level);
 const upCost = u => PG.stepCost(u, S.up[u.id] || 0);
 const upgVisible = u => (u.lv || 1) <= S.level && (u.need !== 'warehouse' || S.lv2.wh >= 2) && (u.need !== 'field' || !!S.lv3.field) && (u.need !== 'gen2' || S.up.gen2 >= 1);
 const PADS = [
   { id:'lights',  label:'Rewire the lights',   price:100, at:[3.6, -2.4], icon:'bulb', after:s => s.delivered >= 1, note:'Brighter, fewer power faults' },
   { id:'paint',   label:'Paint floor lines',   price:80,  at:[-8.4, -1.0], icon:'brush', after:s => s.delivered >= 1 },
-  { id:'yard',    label:'Clear the back yard', price:400, at:[16.3, -1.9], icon:'broom', after:s => s.delivered >= 2, note:'Charter: room to grow' },
+  { id:'yard',    label:'Clear the back yard', price:400, at:[16.3, -1.9], icon:'broom', after:s => s.delivered >= 2, note:'Room to grow: the warehouse goes here' },
   { id:'coffee',  label:'Coffee machine',      price:150, at:[2.6, 7.4], icon:'cup', after:() => false, note:'Breaks twice as short' },
   { id:'windows', label:'Replace the windows', price:200, at:[-1.6, -1.0], icon:'window', after:s => s.restored.lights },
   // build 0.19: small things a reopened works buys as the money comes in
   { id:'urn',     label:'Tea urn for the crew', price:90, at:[-8.3, -.75], icon:'cup', after:s => s.delivered >= 2, note:'The crew works 5% faster' },
   { id:'counter', label:'Trade counter at the gate', price:120, at:[1.0, 8.6], icon:'box', after:s => s.walk && s.walk.served >= 1, note:'Customers wait longer, pay 10% more' },
   { id:'car',     label:'Service and signwrite the car', price:200, at:[13.6, 9.3], icon:'truck', after:s => s.sales && s.sales.trips >= 1, note:'Trips 20% quicker; the car advertises' },
+  // Bible v2.0 18.4: purchases that change what you see
+  { id:'awning',  label:'Gate awning', price:200, at:[-.75, 9.65], icon:'window', after:s => s.level >= 2 && s.lv2.mill >= 2, note:'Walk-ins keep coming in light rain', lv:2 },
+  { id:'lamps',   label:'Yard lamps', price:480, at:[-4.6, 8.4], icon:'bulb', after:s => s.level >= 3, note:'Work on into dusk: the gate trade runs to 16:50, a lit yard at the whistle', lv:3 },
+  { id:'bell',    label:'Counter bell (trade counter, step 2)', price:250, at:[-.75, 8.25], icon:'box', after:s => s.level >= 3 && s.restored.counter, note:'You hear a walk-in from anywhere; they wait 160 s', lv:3 },
+  { id:'window',  label:'Shop window (trade counter, step 3)', price:500, at:[-2.0, 9.65], icon:'window', after:s => s.level >= 4 && s.restored.bell, note:'Walk-ins every 45 to 90 s', lv:4 },
+  { id:'canopy',  label:'Loading-lane canopy', price:1100, at:[4.4, 8.35], icon:'brush', after:s => s.level >= 4, note:'No rain slow-down on the lane', lv:4 },
   { id:'lanes',   label:'Mark out the loading lane and bays', price:120, at:[6.0, 8.3], icon:'brush', after:s => s.level >= 2 && s.lv2.mill >= 2, note:'Lines for the lane to the dock and both lorry bays', lv:2 },
   { id:'mill',    label:'Install the pipe machine', price:MILL_PRICE, at:[4.9, 3.6], icon:'gear', after:s => s.level >= 2, note:'A contractor builds it', lv:2 },
   // level 2, later: a finished-goods warehouse in the cleared back yard, once the pipe line has proved itself
@@ -102,41 +120,48 @@ const PADS = [
   { id:'press',   label:'Install the tool press', price:PRESS_PRICE, at:[14.0, -13.5], icon:'gear', after:s => s.level >= 3 && s.lv3.field && !s.lv3.press, note:'A contractor builds it', lv:3 },
   { id:'wh',      label:'Build the warehouse',  price:WH_PRICE, at:[18.7, -4.3], icon:'box', after:s => whUnlocked(s) && !s.lv2.wh, note:'Make to stock. A contractor builds it', lv:2 },
 ];
-const CHARTER = [   // level 1 (Level Bible): the owner starts alone, so the people line is the first two hires
-  { k:'Money', text:'Earn $2,000', need:2000, get:s => s.earned, money:true },
-  { k:'Standing', text:'Reputation 60%', need:60, get:s => Math.round(s.rep), pct:true },
-  { k:'Output', text:'Deliver 2 orders', need:2, get:s => s.delivered },
-  { k:'Growth', text:'Clear the back yard', need:1, get:s => +s.restored.yard },
-  { k:'People', text:'Hire an operator and a loader and post them', need:2, get:s => +s.staff.some(x => x.role === 'operator' && x.posted !== false) + +s.staff.some(x => x.role === 'loader' && x.posted !== false) },
+// Bible v2.0 7: every Act I level has its charter lines. Money is cash earned during the level (the $400 starting cash
+// does not count); a ticked line stays ticked; each line has its own id, so two lines of one kind never share a tick.
+const posted = role => S.staff.filter(x => x.role === role && x.posted !== false).length;
+const CHARTER = [
+  { id:'money', k:'Money', text:'Earn $4,000', need:4000, get:s => s.earned, money:true },
+  { id:'tut', k:'Output', text:'Deliver the 4 first orders', need:4, get:s => Math.min(4, s.delivered) },
+  { id:'crates', k:'Output', text:'Ship 200 crates', need:200, get:s => s.shipped },
+  { id:'crew', k:'People', text:'Post an operator and a loader', need:2, get:() => +(posted('operator') > 0) + +(posted('loader') > 0) },
+  { id:'gate', k:'Standing', text:'Serve 5 gate customers', need:5, get:s => s.walk.served },
+  { id:'visit', k:'Growth', text:'Make 1 sales visit', need:1, get:s => (s.sales && s.sales.trips) || 0, detail:() => 'Stand at the door of grandad\'s car' },
+  { id:'rep', k:'Standing', text:'Reputation 62%', need:62, get:s => Math.round(s.rep), pct:true },
 ];
-// level 2 charter (strategy doc). Growth follows the doc's plot table: the back half of the hall becomes the pipe bay.
 const CHARTER2 = [
-  { k:'Money', text:'Earn $4,000 at this level', need:4000, get:s => s.earned - s.lv2.e0, money:true },
-  { k:'Standing', text:'Reputation 60%', need:60, get:s => Math.round(s.rep), pct:true },
-  // the doc's first guess was 100 crates; the level 2 playtest finished the money line at ~10 minutes with ~55 crates
-  // shipped, so 60 keeps every line finishing together (strategy doc: lines within ~20% of each other)
-  { k:'Output', text:'Ship 60 crates and 20 pipes (in total)', need:80, get:s => Math.min(60, s.shipped) + Math.min(20, s.pshipped), detail:s => `${Math.min(60, s.shipped)} crates · ${Math.min(20, s.pshipped)} pipes` },
-  // Level Bible: each level buys the plot the next one builds on
-  { k:'Growth', text:'Buy the North field', need:1, get:s => +(s.plots.north.st >= 1), detail:s => s.plots.north.st ? 'Bought' : 'Stand at Abel Thorne\'s sign by the back fence' },
-  { k:'Papers', text:'Generator Mk II installed', need:1, get:s => +(s.up.gen2 >= 1) },
+  { id:'money', k:'Money', text:'Earn $10,000 at this level', need:10000, get:s => s.earned - s.lv2.e0, money:true },
+  { id:'pipes', k:'Output', text:'Ship 100 pipes', need:100, get:s => s.pshipped - (s.lv2.ps0 || 0) },
+  { id:'crew', k:'People', text:'Post a second loader and a machine helper', need:2, get:() => +(posted('loader') >= 2) + +(posted('helper') >= 1) },
+  { id:'lanes', k:'Growth', text:'Mark out the loading lane and bays', need:1, get:s => +!!s.restored.lanes },
+  { id:'gen2', k:'Papers', text:'Fit Generator Mk II', need:1, get:s => +(s.up.gen2 >= 1) },
+  { id:'wh', k:'Growth', text:'Build the warehouse', need:1, get:s => +(s.lv2.wh >= 2) },
+  { id:'ontime', k:'Output', text:'6 deliveries on time', need:6, get:s => s.ontime - (s.lv2.ot0 || 0) },
+  { id:'rep', k:'Standing', text:'Reputation 64%', need:64, get:s => Math.round(s.rep), pct:true },
 ];
-// level 3 charter (Level Bible): growth buys the scrapyard for level 4; papers are 5 issues fixed and the
-// council's trading licence ($160 at the Town screen)
 const CHARTER3 = [
-  { k:'Money', text:'Earn $8,000 at this level', need:8000, get:s => s.earned - s.lv3.e0, money:true },
-  { k:'Standing', text:'Reputation 62%', need:62, get:s => Math.round(s.rep), pct:true },
-  { k:'Output', text:'Ship 50 tools', need:50, get:s => s.tshipped },
-  { k:'Growth', text:'Buy the scrapyard', need:1, get:s => +(s.plots.scrap.st >= 1), detail:s => s.plots.scrap.st ? 'Bought' : 'Stand at Rusty Pike\'s sign in the back yard' },
-  { k:'Papers', text:'Fix 5 issues and get a trading licence', need:6, get:s => Math.min(5, s.fixed - s.lv3.f0) + +(s.lv3.licence === 2), detail:s => `${Math.min(5, s.fixed - s.lv3.f0)}/5 fixed · licence ${s.lv3.licence === 2 ? 'granted' : s.lv3.licence === 4 ? 'failed: fix and re-book' : s.lv3.licence === 3 ? 'inspecting' : s.lv3.licence ? 'applied for' : 'not yet'}` },
+  { id:'money', k:'Money', text:'Earn $24,000 at this level', need:24000, get:s => s.earned - s.lv3.e0, money:true },
+  { id:'rep', k:'Standing', text:'Reputation 62%', need:62, get:s => Math.round(s.rep), pct:true },
+  { id:'tools', k:'Output', text:'Ship 50 tools', need:50, get:s => s.tshipped },
+  { id:'field', k:'Growth', text:'Buy the North field', need:1, get:s => +(s.plots.north.st >= 1), detail:s => s.plots.north.st ? 'Bought' : 'Stand at Abel Thorne\'s sign by the back fence' },
+  { id:'press', k:'Growth', text:'Install the tool press', need:1, get:s => +(s.lv3.press >= 2) },
+  { id:'fixed', k:'Papers', text:'Fix 5 issues', need:5, get:s => s.fixed - s.lv3.f0 },
+  { id:'mains', k:'Papers', text:'Mains live', need:1, get:() => +mainsLive(), detail:s => mainsLive() ? 'Live' : s.mains.st ? 'Application in hand' : 'Apply in the office (Machines tab)' },
+  { id:'licence', k:'Papers', text:'Win the trading licence', need:1, get:s => +(s.lv3.licence === 2), detail:s => s.lv3.licence === 2 ? 'Granted' : s.lv3.licence === 4 ? 'Failed: fix and re-book' : s.lv3.licence === 3 ? 'Inspecting' : s.lv3.licence ? 'Applied for' : 'Not yet' },
+  { id:'scrap', k:'Growth', text:'Buy the scrapyard from Rusty Pike', need:1, get:s => +(s.plots.scrap.st >= 1), detail:s => s.plots.scrap.st ? 'Bought' : 'Stand at Rusty Pike\'s sign in the back yard' },
 ];
-// level 4 charter (Level Bible): $20K, 64%, one mixed order of all three products, the council permit for the road
-// frontage, a supervisor promoted and six on the payroll
 const CHARTER4 = [
-  { k:'Money', text:'Earn $20,000 at this level', need:20000, get:s => s.earned - s.lv4.e0, money:true },
-  { k:'Standing', text:'Reputation 64%', need:64, get:s => Math.round(s.rep), pct:true },
-  { k:'Output', text:'Deliver a mixed order of crates, pipes and tools', need:1, get:s => s.lv4.mixed3 },
-  { k:'Growth', text:'Hold the council permit for the road frontage', need:1, get:s => +(s.plots.road.st >= 2), detail:s => s.plots.road.st >= 2 ? 'Permit held' : s.plots.road.st === 1 ? 'Permit pending' : 'Stand at the council\'s sign by the front gate' },
-  { k:'People', text:'Promote a supervisor and employ 6 workers', need:2, get:s => +!!s.lv4.promoted + +(s.staff.length >= 6), detail:s => `${s.lv4.promoted ? 'Supervisor promoted' : 'No supervisor yet'} · ${s.staff.length}/6 on the payroll` },
+  { id:'money', k:'Money', text:'Earn $55,000 at this level', need:55000, get:s => s.earned - s.lv4.e0, money:true },
+  { id:'sup', k:'People', text:'Post a supervisor', need:1, get:s => +(!!s.lv4.promoted && posted('supervisor') > 0) },
+  { id:'fork', k:'Output', text:'The forklift moves 200 crates', need:200, get:s => s.lv4.forkMoved || 0 },
+  { id:'saw2', k:'Growth', text:'Run the second crate machine', need:1, get:s => +(s.lv4.saw2 >= 2 && (s.lv4.made2 || 0) > 0) },
+  { id:'mixed', k:'Output', text:'Deliver 3 mixed orders', need:3, get:s => s.lv4.mixed || 0 },
+  { id:'road', k:'Papers', text:'Hold the road-frontage permit', need:1, get:s => +(s.plots.road.st >= 2), detail:s => s.plots.road.st >= 2 ? 'Permit held' : s.plots.road.st === 1 ? 'Permit pending' : 'Stand at the council\'s notice by bay 2' },
+  { id:'ontime', k:'Output', text:'10 deliveries on time', need:10, get:s => s.ontime - (s.lv4.ot0 || 0) },
+  { id:'rep', k:'Standing', text:'Reputation 66%', need:66, get:s => Math.round(s.rep), pct:true },
 ];
 // level 5 charter (Level Bible): $50K, 66%, 10 orders on time, the corner shop plot, two bills paid on time and a
 // bank account at the Valley Bank
@@ -150,10 +175,10 @@ const CHARTER5 = [
 const CHARTERS = { 1:CHARTER, 2:CHARTER2, 3:CHARTER3, 4:CHARTER4, 5:CHARTER5 };
 const charter = () => CHARTERS[S.level] || CHARTER;
 // a ticked line stays ticked (strategy doc), even if reputation dips later
-const lineDone = c => { const k = S.level + ':' + c.k; if (S.ticks[k]) return true; if (c.get(S) >= c.need) { S.ticks[k] = true; return true; } return false; };
+const lineDone = c => { const k = S.level + ':' + (c.id || c.k); if (S.ticks[k]) return true; if (c.get(S) >= c.need) { S.ticks[k] = true; return true; } return false; };
 const lineVal = c => lineDone(c) ? c.need : Math.min(c.get(S), c.need);
 // Power: generator -> switchboard -> circuits. Loads in kW. Mk I gives 10 kW, enough for one machine.
-const genKW = () => (S.up.gen2 >= 1 ? 16 + 2 * (S.up.gen2 - 1) : 10) + 6 * (S.up.gen3 || 0);   // Mk III (level 4): +6 kW a step
+const genKW = () => Math.round(((S.up.gen2 >= 1 ? 16 + 2 * (S.up.gen2 - 1) : 10) + 6 * (S.up.gen3 || 0)) * (typeof wx === 'undefined' ? 1 : wxGenK()) * 10) / 10;   // v2.0 17.3: a heat wave takes 10% off a diesel set   // Mk III (level 4): +6 kW a step
 const CIRCUITS = { saw:{ name:'Crate machine' }, lights:{ name:'Workshop lights' }, office:{ name:'Office and break room' }, pipe:{ name:'Pipe mill', lv:2 }, tool:{ name:'Tool press', lv:3 } };
 const circuitShown = k => !CIRCUITS[k].lv || (k === 'pipe' ? S.lv2.mill >= 2 : S.lv3.press >= 2);
 // Faults belong to a trade. Nobody else may fix them.
@@ -235,7 +260,7 @@ const KEY = PREVIEW ? 'iron-valley-wide-preview' : 'iron-valley-save', OLD_KEYS 
 function migrate(o){
   if (!o || typeof o !== 'object' || !(o.v >= 5)) return null;
   const f = fresh(), out = Object.assign(f, o);
-  for (const k of ['mains', 'gus', 'up', 'restored', 'cond', 'lv2', 'lv3', 'lv4', 'l5', 'ticks', 'checked', 'padPaid', 'wh', 'plots', 'met', 'skills', 'perks', 'walk', 'sales']) out[k] = Object.assign(fresh()[k], o[k] || {});
+  for (const k of ['cal', 'mains', 'gus', 'up', 'restored', 'cond', 'lv2', 'lv3', 'lv4', 'l5', 'ticks', 'checked', 'padPaid', 'wh', 'plots', 'met', 'skills', 'perks', 'walk', 'sales']) out[k] = Object.assign(fresh()[k], o[k] || {});
   out.power = Object.assign(fresh().power, o.power || {}); out.power.breakers = Object.assign(fresh().power.breakers, (o.power || {}).breakers || {});
   out.level = Math.min(MAX_LEVEL, o.level || 1);
   // build 0.13: games started before the owner worked alone keep their crew and skip the new opening
@@ -243,7 +268,13 @@ function migrate(o){
     if (out.lv3.field) out.plots.north = { st:3 }; out.rep = Math.max(out.rep, 50); }
   out.plots.north = Object.assign({ st:0 }, out.plots.north); out.plots.scrap = Object.assign({ st:0 }, out.plots.scrap); out.plots.road = Object.assign({ st:0 }, out.plots.road); out.plots.shop = Object.assign({ st:0 }, out.plots.shop);
   if (out.order2 && !out.order2.l) out.order2.l = { c:0, p:0, t:0 };
-  out.v = 7; repairOrders(out); return out;
+  // build 0.22 (Bible v2.0): the 8-minute day becomes the 10-minute day. The day number stays the same, the time of day
+  // stretches by a quarter, and every time stamp moves with it; the calendar puts the level on its own date.
+  if (!(o.v >= 8)) { const t0 = out.time || 0, t1 = Math.floor(t0 / 480) * 600 + (t0 % 480) * 1.25, d = t1 - t0, mv = (r, k) => { if (r && typeof r[k] === 'number') r[k] += d; };
+    out.time = t1; mv(out, 'nextIssue'); mv(out, 'lastFault'); mv(out.gus, 'visitAt'); mv(out.gus, 'cheerUntil'); for (const k of ['t0', 'rushAt', 'nextBill']) mv(out.l5, k); mv(out.l5.bill, 'due');
+    if (out.day && out.day.closing) out.day.closing.at = t1;
+    out.cal = { off:Math.max(0, (LV_START[out.level] || 0) - Math.floor(out.time / 600)) }; }
+  out.v = 8; repairOrders(out); return out;
 }
 // An order taken in an older build can lack fields that later builds count on (build 0.5 orders had no
 // 'cut' or 'briefed'). One missing number made "crates left to cut" NaN, so the saw never ran again and
@@ -281,7 +312,7 @@ function healthCheck(dt){
   const n = repairOrders(S); if (n) { S.repairs = (S.repairs || 0) + n; console.warn(`[iv] repaired ${n} order field(s)`); try { yt && yt.health.logWarning(); } catch(e){} save(); }
 }
 function fresh(){
-  return { v:7, level:1, lv2:{ e0:0, mill:0, buildT:0, seq:0, wh:0, whT:0 }, wh:{ c:0, p:0, t:0, make:true },
+  return { v:8, level:1, lv2:{ e0:0, mill:0, buildT:0, seq:0, wh:0, whT:0 }, wh:{ c:0, p:0, t:0, make:true },
     lv3:{ e0:0, f0:0, field:false, press:0, pressT:0, licence:0, licT:0, seq:0, check:{}, step:0 },
     lv4:{ e0:0, saw2:0, saw2T:0, feed2:0, pallet2:0, promoted:false, post:null, mixed3:0, seq:0 },
     l5:{ e0:0, ot0:0, t0:0, mill2:0, mill2T:0, coil2:0, coilLeft2:0, rack2:0, seq2:0, rushAt:0, bill:null, billSeq:0, nextBill:0, onTime:0, paid:0, spent:0, account:false, loan:null }, order2:null, tools:0, tbed:0, tmade:0, tshipped:0, tcoil:0, tfeed:0, parts:0, ticks:{}, cash:400, earned:0, rep:60, delivered:0, ontime:0, shipped:0, fedPlanks:0, made:0, history:[],
@@ -293,7 +324,7 @@ function fresh(){
     power:{ fuel:100, breakers:{ saw:true, lights:true, office:true, pipe:true, tool:true } }, cond:{ saw:100, engine:100, wiring:100, pipe:100, tool:100 },
     faults:[], faultSeq:0, fixed:0, lastFault:0, mechIntro:false, tutFault:false,
     tut:0, tutDone:false, levelUp:false, officeSeen:false, checked:{}, owner:[11.0, 6.2], time:0,
-    day:null, walk:{ served:0, lost:0, cash:0, seq:0, last:'' }, sales:{ acc:{}, visited:{}, ads:{}, trips:0, won:0 }, book:[] };
+    day:null, cal:{ off:0 }, nextLevel:0, walk:{ served:0, lost:0, cash:0, seq:0, last:'' }, sales:{ acc:{}, visited:{}, ads:{}, trips:0, won:0 }, book:[] };
 }
 let S = fresh();
 const yt = window.ytgame && window.ytgame.IN_PLAYABLES_ENV ? window.ytgame : null;
@@ -327,6 +358,7 @@ function save(){
     if (n) { if (t === 'crate') snap.pallet += n; else if (t === 'pipe') snap.pipes += n; else if (t === 'plank') snap.timber += n; else if (t === 'timber') snap.store += n; else if (t === 'coil') snap.coils += n; else if (t === 'toolbox') snap.tools += n; else if (t === 'bottle') snap.water += n; }
     if (c.tplanks && c.tplanks.length) snap.store += c.tplanks.length; }
   if (typeof fork !== 'undefined' && fork.stack.length) { if (fork.carryType === 'crate') snap.lv4.pallet2 += fork.stack.length; else snap.store += fork.stack.length; }
+  snap.seenAt = Date.now();
   const s = JSON.stringify(snap);
   try { if (yt) yt.game.saveData(s).catch(() => {}); else localStorage.setItem(KEY, s); } catch(e){}
 }
@@ -342,7 +374,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#2c3a2c');
 const hemi = new THREE.HemisphereLight('#d6e2ee', '#4a3d2e', 1.0); scene.add(hemi);
-const sun = new THREE.DirectionalLight('#ffe6c4', 2.0);
+const sun = new THREE.DirectionalLight('#ffe6c4', 2.0), SUN_COL = new THREE.Color('#ffe6c4');
 sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
 const SH = 19; Object.assign(sun.shadow.camera, { left:-SH, right:SH, top:SH, bottom:-SH, near:1, far:70 });
 sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.06; sun.shadow.radius = 3;
@@ -409,8 +441,8 @@ function makeTextures(){
     noise(g, w, h, 3000, ['rgba(60,35,15,.25)', 'rgba(220,180,130,.15)'], 2, r); }, [3, 3]);
   TX.lino = tex(128, 128, (g, w) => { for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { g.fillStyle = (i + j) % 2 ? '#8d8572' : '#6e6656'; g.fillRect(i * 32, j * 32, 32, 32); } }, [4, 4]);
   TX.sign = tex(1024, 192, (g, w, h) => { g.fillStyle = '#20302a'; g.fillRect(0, 0, w, h); g.strokeStyle = '#d8b24e'; g.lineWidth = 8; g.strokeRect(10, 10, w - 20, h - 20);
-    g.fillStyle = '#ece6d9'; g.textAlign = 'center'; g.font = '700 86px Oswald, "Arial Narrow", Arial'; g.fillText('IRON VALLEY WORKS', w / 2, 104); g.font = '600 38px Oswald, Arial'; g.fillStyle = '#d8b24e'; g.fillText('EST. 1973 · CRATES · TIMBER · METAL', w / 2, 160); });
-  TX.wallSign = tex(1024, 128, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = '#ece6d9'; g.font = '700 92px Oswald, "Arial Narrow", Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('IRON VALLEY WORKS', w / 2, h / 2 + 4);
+    g.fillStyle = '#ece6d9'; g.textAlign = 'center'; g.font = '700 86px Oswald, "Arial Narrow", Arial'; g.fillText(signName().toUpperCase(), w / 2, 104); g.font = '600 38px Oswald, Arial'; g.fillStyle = '#d8b24e'; g.fillText('EST. 1921 · MILL ROAD · IRON VALLEY', w / 2, 160); });
+  TX.wallSign = tex(1024, 128, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = '#ece6d9'; g.font = '700 92px Oswald, "Arial Narrow", Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(signName().toUpperCase(), w / 2, h / 2 + 4);
     const r = rng(4); g.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(0,0,0,${.3 + r() * .7})`; g.fillRect(r() * w, r() * h, 2 + r() * 12, 1 + r() * 4); } });
   TX.sale = tex(512, 256, (g, w, h) => { g.fillStyle = '#ece6d6'; g.fillRect(0, 0, w, h); g.fillStyle = '#b3261e'; g.fillRect(0, 0, w, 70); g.fillStyle = '#ece6d6'; g.font = '700 54px Oswald, Arial'; g.textAlign = 'center'; g.fillText('FOR SALE', w / 2, 54);
     g.fillStyle = '#2c2621'; g.font = '600 38px Oswald, Arial'; g.fillText('Industrial plot', w / 2, 130); g.font = '500 30px Barlow, Arial'; g.fillText('Ask the estate agent', w / 2, 180); g.fillText('Opens at Level 3', w / 2, 224); });
@@ -713,7 +745,7 @@ function buildWorld(){
   addCol([wx0, wz1 - .3, Wk[0] - 1.8, wz1]); addCol([Wk[0] + 1.8, wz1 - .3, wx1, wz1]);
   addCol([Wk[0] - 5.05, wz0 + .3, Wk[0] - 4.15, wz0 + 1.45]);                                 // chimney breast
   addCol([wx1 + .2, Wk[1] - 2.9, wx1 + .8, Wk[1] - 1.7]); addCol([wx0 - .85, Wk[1] - 3.15, wx0 - .15, Wk[1] - 2.45]);   // crates, barrel
-  signAt(M.workshop, 'ws_front', textTex([['IRON VALLEY WORKS', 88, 52]], 1024, 104, { fg:'#ecdcb4' }), 4.3, .44, true);
+  signAt(M.workshop, 'ws_front', textTex([[signName().toUpperCase() + ' · EST. 1921', 74, 52]], 1024, 104, { fg:'#ecdcb4' }), 4.3, .44, true);
   // the grandfather's windows are boarded up until the owner pays for new glass (the 'Replace the windows' pad):
   // weathered planks nailed across the two front windows (they fade with the front wall) and both side windows
   if (!S.restored.windows) { const front = M.fade.find(f => f.nodes.includes(findNode(M.workshop, 'ws_front')));
@@ -1099,12 +1131,51 @@ function applyRestore(id, fx){
   if (id === 'counter' && !M.counter) { const g = new THREE.Group(), wood = std('#8a6440', .85), top = std('#5d4630', .7); const b = new THREE.Mesh(BX(.95, .95, .5), wood); b.position.y = .475; g.add(b);
     const t = new THREE.Mesh(BX(1.05, .05, .6), top); t.position.y = .97; g.add(t); const s = board(textTex([['TRADE', 54, 48], ['COUNTER', 34, 92, 600]], 256, 120, { bg:'#2f5d8a', fg:'#efe1bd', border:'#1d3a56', bw:8 }), .8, .38); s.position.set(0, .55, .26); g.add(s);
     g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); g.position.set(1.15, 0, 9.7); g.userData.dyn = true; world.add(g); M.counter = g; addCol([.65, 9.42, 1.65, 9.98], 'counter'); rebuildNav(); }
-  if (id === 'car' && M.car && !M.carSigns) { M.carSigns = []; for (const sd of [1, -1]) { const s = board(textTex([['IRON VALLEY WORKS', 40, 46], ['CRATES · PIPE · MILL ROAD', 24, 82, 500]], 512, 110, { bg:'#efe1bd', fg:'#2a1d14', border:'#8a3b1b', bw:6 }), 1.5, .33);
+  if (id === 'car' && M.car && !M.carSigns) { M.carSigns = []; for (const sd of [1, -1]) { const s = board(textTex([[signName().toUpperCase(), 40, 46], ['EST. 1921 · MILL ROAD', 24, 82, 500]], 512, 110, { bg:'#efe1bd', fg:'#2a1d14', border:'#8a3b1b', bw:6 }), 1.5, .33);
     s.position.set(-.2, .6, sd * .87); s.rotation.y = sd > 0 ? 0 : Math.PI; M.car.add(s); M.carSigns.push(s); } }
+  if (id === 'awning') buildAwning();
+  if (id === 'lamps') M.lampsOn = true;
+  if (id === 'bell' && M.counter && !M.bell) { const b = new THREE.Group(), brass = std('#c9a24a', .3, .8); const dome = new THREE.Mesh(new THREE.SphereGeometry(.07, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), brass); dome.position.y = .03; b.add(dome); const base = new THREE.Mesh(CY(.08, .03, 14), std('#3a2a1a')); b.add(base); b.position.set(.3, .995, 0); M.counter.add(b); M.bell = b; }
+  if (id === 'window') buildShopWindow();
+  if (id === 'canopy') buildLaneCanopy();
   if (id === 'mill') return;
   if (id === 'yard') { if (M.skip) { M.skip.visible = false; COL.delete('skip'); } (M.yardMarks || []).forEach(m => m.visible = false); M.junk.visible = false; M.junkCols.forEach(k => COL.delete(k)); M.yardDirt.visible = false; M.yardGravel.visible = true; M.plotSign.visible = true; }
   if (fx) { const at = PADS.find(p => p.id === id).at; for (let i = 0; i < 10; i++) puff(at[0] + rand(-1, 1), at[1] + rand(-1, 1), '#d8d2c4'); sfx('buy'); }
 }
+
+// v2.0 18.4: the gate awning, a striped shopfront canvas on two poles behind the trade counter, over the counter and the
+// spot where the walk-ins wait (it keeps the light-rain trade going)
+function buildAwning(){ if (M.awning) return; const g = new THREE.Group(), wood = std('#6b4a2a', .85), x0 = .35, x1 = 2.85, zb = 9.3, zf = 10.5, hb = 2.45, hf = 2.12;
+  for (const x of [x0 + .1, x1 - .1]) { const p = new THREE.Mesh(BX(.09, hb, .09), wood); p.position.set(x, hb / 2, zb); p.castShadow = true; g.add(p); addCol([x - .07, zb - .07, x + .07, zb + .07], 'awning' + x); }
+  const t = tex(256, 64, (c, w, h) => { for (let i = 0; i < 8; i++) { c.fillStyle = i % 2 ? '#ece2c6' : '#3f6b45'; c.fillRect(i * w / 8, 0, w / 8 + 1, h); } }), L = Math.hypot(zf - zb, hb - hf);
+  const cv = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, L), new THREE.MeshStandardMaterial({ map:t, side:THREE.DoubleSide, roughness:.9 })); cv.rotation.x = -Math.PI / 2 + Math.atan2(hb - hf, zf - zb); cv.position.set((x0 + x1) / 2, (hb + hf) / 2, (zb + zf) / 2); cv.castShadow = true; cv.receiveShadow = true; cv.name = 'awning_canvas'; g.add(cv);
+  const val = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, .22), new THREE.MeshStandardMaterial({ map:t, side:THREE.DoubleSide, roughness:.9 })); val.position.set((x0 + x1) / 2, hf - .1, zf); g.add(val);   // the scalloped front valance
+  for (const x of [x0 + .1, x1 - .1]) { const arm = new THREE.Mesh(BX(.04, .04, L), wood); arm.rotation.x = Math.atan2(hb - hf, zf - zb); arm.position.set(x, (hb + hf) / 2 - .03, (zb + zf) / 2); g.add(arm); }
+  g.userData.dyn = true; world.add(g); M.awning = g; fadeGroup(g, ['awning_canvas'], [x0 - .2, zb - .3, x1 + .2, zf + .3]); rebuildNav(); }
+// the shop window: a glazed display case on the front fence beside the counter, facing Mill Road, a crate, a pipe and a tool inside
+function buildShopWindow(){ if (M.shopWin) return; const g = new THREE.Group(), wood = std('#2f5d8a', .7), glass = new THREE.MeshStandardMaterial({ color:'#cfe2ee', transparent:true, opacity:.28, roughness:.05, metalness:.1 });
+  const box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(BX(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; g.add(b); return b; };
+  box(1.5, .08, .5, wood, 0, .55, 0); box(1.5, .08, .5, wood, 0, 1.45, 0); box(.08, .98, .5, wood, -.71, 1.0, 0); box(.08, .98, .5, wood, .71, 1.0, 0); box(1.4, .9, .02, std('#efe1bd', .9), 0, 1.0, -.22);
+  box(1.36, .84, .02, glass, 0, 1.0, .24); const legs = [-.66, .66]; for (const x of legs) box(.07, .55, .07, wood, x, .27, 0);
+  const cr = crateMesh(); cr.scale.setScalar(.7); cr.position.set(-.42, .6, 0); g.add(cr); const pp = inst('prop_pipe'); pp.scale.setScalar(.55); pp.rotation.y = Math.PI / 2; pp.position.set(.1, .66, 0); g.add(pp);
+  const sg = board(textTex([['IRON VALLEY WORKSHOP', 34, 30], ['CRATES · PIPE · TOOLS · TRADE INSIDE', 18, 62, 500]], 512, 84, { bg:'#2f5d8a', fg:'#efe1bd' }), 1.46, .24); sg.position.set(0, 1.62, .26); g.add(sg);
+  g.position.set(-.4, 0, 12.05); g.userData.dyn = true; world.add(g); M.shopWin = g; addCol([-1.2, 11.8, .4, 12.32], 'shopWin'); rebuildNav(); }
+// the loading-lane canopy: corrugated sheets on a cantilever from three posts along the lane's south edge, over the lane
+// from the machines to the foot of the dock ramp (clear of the lane itself, the ramp and the yard lamp at 9.3, 7.6)
+function buildLaneCanopy(){ if (M.laneCanopy) return; const g = new THREE.Group(), steel = std('#5a5f63', .6, .5), sheet = std('#8d9396', .55, .55), x0 = 2.7, x1 = 10.35, zs = 7.3, zn = 5.15, hs = 2.75, hn = 3.05;
+  for (const x of [x0 + .12, (x0 + x1) / 2 - .5, x1 - .2]) { const p = new THREE.Mesh(BX(.12, hs, .12), steel); p.position.set(x, hs / 2, zs); p.castShadow = true; g.add(p); addCol([x - .08, zs - .08, x + .08, zs + .08], 'laneCanopy' + x.toFixed(1));
+    const arm = new THREE.Mesh(BX(.07, .07, zs - zn + .1), steel); arm.rotation.x = -Math.atan2(hn - hs, zs - zn); arm.position.set(x, (hs + hn) / 2 - .05, (zs + zn) / 2); g.add(arm);
+    const strut = new THREE.Mesh(BX(.05, .05, 1.4), steel); strut.rotation.x = .78; strut.position.set(x, hs - .45, zs - .45); g.add(strut); }
+  const t = tex(64, 256, (c, w, h) => { for (let i = 0; i < 16; i++) { c.fillStyle = i % 2 ? '#9aa1a4' : '#7f868a'; c.fillRect(i * w / 16, 0, w / 16 + 1, h); } c.fillStyle = 'rgba(120,70,40,.35)'; for (let i = 0; i < 30; i++) c.fillRect(Math.random() * w, Math.random() * h, 3, 18); });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 1); const L = Math.hypot(zs - zn, hn - hs);
+  const roof = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, L), new THREE.MeshStandardMaterial({ map:t, color:'#ffffff', side:THREE.DoubleSide, roughness:.6, metalness:.4 })); roof.rotation.x = -Math.PI / 2 - Math.atan2(hn - hs, zs - zn); roof.position.set((x0 + x1) / 2, (hs + hn) / 2 + .02, (zs + zn) / 2); roof.castShadow = true; roof.receiveShadow = true; roof.name = 'lane_roof'; g.add(roof);
+  g.userData.dyn = true; world.add(g); M.laneCanopy = g; fadeGroup(g, ['lane_roof'], [x0 - .3, zn - .4, x1 + .3, zs + .6]); rebuildNav(); }   // the roof fades while the owner is under it
+// the yard lamps: the three old lamp posts get new lamps; they light at dusk, in fog and in a storm, and at the whistle
+function updateYardLamps(dt){ if (!M.lampsOn) return; if (!M.lampFx) { M.lampFx = [];
+    for (const [x, z] of [[1.6, 10.8], [-6.0, 4.6], [9.3, 7.6]]) { const glow = new THREE.Mesh(new THREE.CircleGeometry(1.9, 28), new THREE.MeshBasicMaterial({ map:TX.dot, color:'#ffd88a', transparent:true, opacity:0, depthWrite:false, blending:THREE.AdditiveBlending }));
+      glow.rotation.x = -Math.PI / 2; glow.position.set(x, .04, z + .8); glow.renderOrder = 4; world.add(glow); const lens = new THREE.Mesh(new THREE.PlaneGeometry(.18, .3), new THREE.MeshBasicMaterial({ color:'#fff2c8', transparent:true, opacity:0 })); lens.rotation.x = Math.PI / 2; lens.position.set(x, 3.87, z + .8); world.add(lens); M.lampFx.push({ glow, lens }); } }
+  const on = !!(S.day && S.day.closing) || wxFog() > .3 || stormOn() || wxRain() > .5 || wxK('hemi') < .85, k = M.lampK = clamp((M.lampK || 0) + (on ? dt : -dt) * .8, 0, 1);   // dull days, fog, rain and the whistle: April to August it is still light at five
+  for (const f of M.lampFx) { f.glow.material.opacity = .62 * k; f.lens.material.opacity = k; } }
 
 /* =====================================================================
    CHARACTERS
@@ -1146,8 +1217,8 @@ function spawnStaff(st, x, z){
   c.st = st; c.state = 'idle'; c.t = 0; c.play('idle');
   staffObj.set(st.id, c); return c;
 }
-function newLook(role){
-  const fem = Math.random() < .4, parts = [];
+function newLook(role, fem = Math.random() < .4){
+  const parts = [];
   if (fem) parts.push('hair_pony'); else { parts.push('hair_short'); const f = pick(['', 'beard', 'stache', '']); if (f) parts.push(f); }
   parts.push(...ROLE[role].gear);
   if (role === 'loader') parts.push(Math.random() < .5 ? 'hat_cap' : 'hat_hard');
@@ -1168,7 +1239,7 @@ const sawK = () => (1 + .2 * S.up.saw) * autoFeedK();
 const sawRating = () => scaleRating(sawK(), GAME_TOP_SAW);
 const supervisor = () => staffOf('supervisor')[0];
 function crewSpeed(c){
-  return (S.restored.urn && c.st.id > 0 ? 1.05 : 1) * rainK() * lvSpeed(c.st) * (.85 + .15 * (c.st.focus ?? 100) / 100) * (c.zone ? 1.15 : 1) * (circuitOn('lights') ? 1 : .8) * (c.old ? .75 : 1) * (gusLift(c) ? 1.1 : 1) * (S.time < S.gus.cheerUntil && c.st.id > 0 ? 1.1 : 1);
+  return (S.restored.urn && c.st.id > 0 ? 1.05 : 1) * (c.st.id > 0 ? iceK() : 1) * rainK(c) * lvSpeed(c.st) * (.85 + .15 * (c.st.focus ?? 100) / 100) * (c.zone ? 1.15 : 1) * (circuitOn('lights') ? 1 : .8) * (c.old ? .75 : 1) * (gusLift(c) ? 1.1 : 1) * (S.time < S.gus.cheerUntil && c.st.id > 0 ? 1.1 : 1);
 }
 const repairSpeed = c => lvSpeed(c.st) * (S.gus.toolbox ? 1.15 : 1) * (1 + .3 * S.up.tools) * (c.st.role === 'electrician' ? 1 + .25 * S.up.meter : 1);
 const xpReady = st => st.lv < maxLv() && st.xp >= PG.xpNext(st.lv);
@@ -1380,10 +1451,10 @@ function updateSaw(dt){
   const blade = M.saw.getObjectByName('blade'), plank = M.saw.getObjectByName('plank');
   if (canRun) {
     if (ownerFeeds()) { owner.working = T; owner.workAt = P.feed; if (!owner.fedTold) { owner.fedTold = true; floatText('Feeding planks: +25%', P.feed[0], 1.6, P.feed[1], 'info'); } } else if (owner) owner.fedTold = false;
-    sawT += dt * (1 + .2 * S.up.saw) * autoFeedK() * crewSpeed(by) * pf() * brokenK(sawBroken()) * feedK() * bladeK(); animLine(M.saw, sawT / SAW_CYCLE, true, dt);
+    sawT += dt * (1 + .2 * S.up.saw) * autoFeedK() * crewSpeed(by) * pf() * brokenK(sawBroken()) * feedK() * bladeK() * wrongK(); animLine(M.saw, sawT / SAW_CYCLE, true, dt);
     if (Math.random() < dt * 14 * (S.up.saw >= 2 ? .3 : 1)) dustBurst();
     by.st.energy = Math.max(0, by.st.energy - dt * (100 / 90));
-    if (sawT >= SAW_CYCLE) { sawT = 0; S.feed--; S.pallet++; S.made++;
+    if (sawT >= SAW_CYCLE) { sawT = 0; S.feed--; S.pallet++; S.made++; if (S.wrongTimber > 0) S.wrongTimber--;
       // crate batch upgrade: a steady share of planks yields a second crate (no luck involved)
       S.batchAcc += Math.min(1, .25 * S.up.batch); if (S.batchAcc >= 1 && (orderLeft() > 0 || stockLeftC() > 0) && S.pallet < palletCap()) { S.batchAcc -= 1; S.pallet++; S.made++; floatText('+1 crate', P.saw[0], 1.5, P.saw[1], 'info'); }
       syncOrderCounts(); if (S.order) { if (!S.order.t1) S.order.t1 = Math.round(S.order.time); if (!S.order.tc && S.order.cut >= S.order.qty) S.order.tc = Math.round(S.order.time); } S.cond.saw = Math.max(0, S.cond.saw - 2.2); syncFeed(); syncPallet(); sfxAt('saw', ...P.saw); sfxAt('thunk', P.saw[0] + .6, P.saw[1], .7); giveXp(by.st, 10); }
@@ -1999,18 +2070,21 @@ function updateLevel3(dt){
 async function startLevel(n){
   if (n !== S.level + 1 || n > MAX_LEVEL) return;
   await ensureModels(n);
+  const w0 = calDay(); S.cal = S.cal || { off:0 }; S.cal.off = Math.max(LV_START[n] ?? w0, w0) - dayNo(); const w1 = calDay();
   S.level = n; S.levelUp = false;
   // each charter starts from a clean sheet: only the reputation line can be ticked straight away
-  if (n === 2) { S.lv2.e0 = S.earned; buildLevel2(); applyUpgradeVisuals(); sfx('level', .7); toast('Level 2: Reopened Factory. Pay for the pipe machine at its pad beside the crate machine.', 'gold'); }
-  if (n === 4) { S.lv4.e0 = S.earned; buildLevel4(); applyUpgradeVisuals(); sfx('level', .7); toast('Level 4: Growing Enterprise. The wall to the yard is down: install the second crate machine there, and hire a forklift driver.', 'gold'); }
+  if (n === 2) { if (!S.restored.yard) applyRestore('yard', false);   // v2.0: the back yard is cleared in the two-week skip, ready for the coil bay
+    S.lv2.e0 = S.earned; S.lv2.ot0 = S.ontime; S.lv2.ps0 = S.pshipped; buildLevel2(); applyUpgradeVisuals(); sfx('level', .7); toast('Level 2: Reopened Factory. Pay for the pipe machine at its pad beside the crate machine.', 'gold'); }
+  if (n === 4) { S.lv4.e0 = S.earned; S.lv4.ot0 = S.ontime; S.lv4.forkMoved = 0; S.lv4.mixed = 0; buildLevel4(); applyUpgradeVisuals(); sfx('level', .7); toast('Level 4: Growing Enterprise. The wall to the yard is down: install the second crate machine there, and hire a forklift driver.', 'gold'); }
   if (n === 5) { Object.assign(S.l5, { e0:S.earned, ot0:S.ontime, t0:S.time, nextBill:S.time + 4, rushAt:S.time + 240 }); buildLevel5(); applyUpgradeVisuals(); sfx('level', .7); toast('Level 5: Regional Manufacturer. A second dock and a white truck on the frontage, and Priya Nair has the first wage bill.', 'gold'); }
   if (n === 3) { S.lv3.e0 = S.earned; S.lv3.f0 = S.fixed; buildLevel3(); applyUpgradeVisuals(); sfx('level', .7); toast(plotOwned('north') ? 'Level 3: Local Manufacturer. Install the tool press on the North field.' : 'Level 3: Local Manufacturer. Buy the North field from Abel Thorne, then install the tool press on it.', 'gold'); }
   if (n === 3) toast('Valley Timber Co. has closed the free account. From now on you buy timber in the office (Stock), and the generator burns diesel your loaders fetch from the tank.', 'gold');
-  placeFolk(); story({ kind:'courier', level:n });
+  placeFolk(); story({ kind:'skip', level:n, w0, w1 }); story({ kind:'courier', level:n });
+  if (CHOICE[n]) setTimeout(() => toast(`This level's choice: ${CHOICE[n]}`, ''), 2500);
   save(); renderOffice();
 }
 // the road ahead: every level of the plan, and what it opens, read straight from progression.js
-const ROLE_WORD = { operator:'operator', loader:'loader', electrician:'electrician', mechanic:'mechanic', supervisor:'supervisor', cleaner:'cleaner' };
+const ROLE_WORD = { operator:'operator', loader:'loader', helper:'machine helper', mechanic:'mechanic', supervisor:'supervisor', forklift:'forklift driver', clerk:'office clerk', foreman:'foreman', dispatcher:'dispatcher', manager:'plant manager', guard:'security guard', driver:'test driver', technician:'technician', engineer:'engineer', electrician:'electrician', cleaner:'cleaner' };
 function levelOpens(n){
   const out = [];
   for (const r of Object.keys(PG.ROLE_CAPS)) { if (r === 'electrician' || r === 'cleaner') continue; const d = PG.roleCap(r, n) - (n > 1 ? PG.roleCap(r, n - 1) : 0); if (d > 0 && n > 1) out.push(`+${d} ${ROLE_WORD[r]}${d > 1 ? 's' : ''}`); }
@@ -2222,7 +2296,7 @@ function updateTruck(dt){
     const done = drive(truck, Tr, dt, ARRIVE.pts.find(q => q.rev).d, truck.state === 'arrive');
     if (done) { if (truck.state === 'arrive') { truck.state = 'docked'; sfxAt('horn', ...P.truck); addCol([P.truck[0] - 1.15, P.truck[1] - 2.45, P.truck[0] + 1.15, P.truck[1] + 2.75], 'truck'); repathAround(); parkedLamps(Tr); } else { truck.state = 'away'; truck.t = 0; callT = 0; S.bed = 0; S.pbed = 0; S.tbed = 0; syncBed(); syncPBed(); syncTBed(); } }
   } else if (truck.state === 'away') { truck.t += dt; Tr.position.set(ROAD_X, 0, -45);
-    if (S.order && !closingTime() && truck.t > 9 / dockK() + (S.order.lateBy || 0) && !(trip && M.car.visible && M.car.position.x > 12.4 && M.car.position.z > 8.4 && M.car.position.z < 18) && !['arrive', 'leave'].includes(sup.state) && !(truckB.state === 'arrive' && truckB.s < 30)) { truck.state = 'arrive'; truck.s = 0; truck.path = ARRIVE; repathAround(); S.bed = 0; S.pbed = 0; S.tbed = 0; syncTBed(); syncBed(); syncPBed(); } }
+    if (S.order && !closingTime() && truck.t > 9 / dockK() + (S.order.lateBy || 0) + wxLorryLate() && !(trip && M.car.visible && M.car.position.x > 12.4 && M.car.position.z > 8.4 && M.car.position.z < 18) && !['arrive', 'leave'].includes(sup.state) && !(truckB.state === 'arrive' && truckB.s < 30)) { truck.state = 'arrive'; truck.s = 0; truck.path = ARRIVE; repathAround(); S.bed = 0; S.pbed = 0; S.tbed = 0; syncTBed(); syncBed(); syncPBed(); } }
   if (tg) tg.rotation.z = lerp(tg.rotation.z, truck.state === 'docked' ? Math.PI / 2 * .96 : 0, Math.min(1, dt * 4));
   if (S.order) S.order.time += dt;
   if (S.order && S.order.terms === 'rush' && !S.order.ready && S.order.time > S.order.deadline && truck.state !== 'arrive' && truck.state !== 'leave') {
@@ -2237,6 +2311,7 @@ function updateTruck(dt){
 function updateSupplier(dt){
   const Tr = M.flat;
   if (sup.state === 'away') { Tr.position.set(ROAD_X, 0, -60); sup.t += dt;
+    if (S.retryTimber && dayNo() >= S.retryTimber.day && !S.delivery && !closingTime()) { const q = S.retryTimber.qty; S.retryTimber = null; S.delivery = { qty:q, left:q, onLorry:q, wrong:false }; sup.t = 0; toast('Valley Timber Co. sends the right planks this morning.', 'good'); }
     if (S.delivery && S.delivery.left <= 0) S.delivery = null;   // goods-in cleared
     if (S.delivery && onLorry() > 0 && sup.t > 4 && !closingTime() && !['arrive', 'leave'].includes(truck.state) && !(trip && M.car.visible && M.car.position.x > 12.4 && M.car.position.z > 8.4 && M.car.position.z < 18)) { sup.state = 'arrive'; sup.s = 0; sup.path = SUP_ARRIVE; syncBundles(); repathAround(); } return; }
   if (sup.state === 'arrive' || sup.state === 'leave') {
@@ -2244,6 +2319,9 @@ function updateSupplier(dt){
       if (sup.state === 'arrive') { sup.state = 'parked'; sfxAt('horn', ...P.supPark); addCol([P.supPark[0] - 1.15, P.supPark[1] - 2.45, P.supPark[0] + 1.15, P.supPark[1] + 2.75], 'supply'); repathAround(); parkedLamps(Tr); toast(S.delivery && S.delivery.kind === 'steel' ? 'Steel coils delivered. Loaders take them to the coil bay.' : 'Timber delivery at the stock room.', 'good'); }
       else { sup.state = 'away'; if (S.delivery && S.delivery.left <= 0) S.delivery = null; syncBundles(); save(); } }
     return; }
+  if (sup.state === 'parked' && S.delivery && S.delivery.kind !== 'steel' && S.level >= 3 && S.delivery.wrong === undefined) { const d = S.delivery, scripted = S.level === 3 && weekday() === 3 && !S.lv3.wrongDone;
+    d.wrong = scripted || (S.level >= 3 && Math.random() < .12 && !(S.lastWrong >= dayNo() - 2)); if (d.wrong) { S.lv3.wrongDone = true; S.lastWrong = dayNo(); story({ kind:'wrongtimber' }); } }
+  if (sup.state === 'parked' && S.delivery && S.delivery.wrong && cardOpen) return;
   if (sup.state === 'parked' && S.delivery && onLorry() > 0) { sup.unT = (sup.unT || 0) + dt;
     if (sup.unT > .3) { sup.unT = 0; S.delivery.onLorry = onLorry() - 1;
       if (!loadersHired() || !M.goodsIn) { S.delivery.left--; if (S.delivery.kind === 'steel') { S.coils++; syncCoilBay(); } else { S.store++; syncStore(); } }   // no loader: the driver takes it to the stores
@@ -2269,7 +2347,7 @@ function signOrder(by){
   const o = S.order; if (!o || !o.ready) return;
   const late = !o.nodl && o.time > o.deadline, early = !o.nodl && o.time < o.deadline / 2, gross = late ? Math.round(o.pay * .5) : o.pay;
   let net = gross - S.bills, paid = S.bills; if (net < 0) { S.bills = -net; paid += net; net = 0; } else S.bills = 0; S.billsPaid += paid;
-  S.cashPile += net; S.delivered++; if (!late) S.ontime++; if (S.level >= 4 && o.qty && o.pq && o.tq) S.lv4.mixed3++; repChange(late ? -3 : early ? 3 : 2);
+  S.cashPile += net; S.delivered++; if (!late) S.ontime++; if (S.level >= 4 && o.qty && o.pq && o.tq) S.lv4.mixed3++; if (S.level >= 4 && [o.qty, o.pq, o.tq].filter(n => n > 0).length >= 2) S.lv4.mixed = (S.lv4.mixed || 0) + 1; repChange(late ? -3 : early ? 3 : 2);
   S.history.unshift({ id:o.id, qty:o.qty, pq:o.pq || 0, tq:o.tq || 0, net, late, dl:o.deadline, t:Math.round(o.time), tb:o.tb, t1:o.t1, tc:o.tc, tr:o.tr }); S.history = S.history.slice(0, 8);
   S.order = null; truck.state = 'leave'; truck.s = 0; truck.path = LEAVE; COL.delete('truck');
   syncPile(); sfx('horn'); floatText(`+${fmt(net)}`, P.cash[0], 1.4, P.cash[1]); gusCheer();
@@ -2534,7 +2612,12 @@ function updateOperator(c, dt){
   c.play(c.busy > 0 ? 'work' : 'idle', c.busy > 0 ? crewSpeed(c) : 1);
 }
 function loaderTask(c){
-  if (c.st.role === 'helper') return S.feed < 6 && S.timber > 0 ? 'planks' : S.timber <= 5 && S.store > 0 && !trolleyBy ? 'restock' : 'helperWait';
+  if (c.st.role === 'helper') { const mach = helperOf(c);   // v2.0 12.6: one helper per machine, keeping its in-feed full
+    if (mach === 'mill') return S.coilFeed + coilsFor('mill') < 2 && S.coils > 0 ? 'coils' : 'helperWait';
+    if (mach === 'press') return S.tfeed + coilsFor('press') < 2 && S.coils > 0 ? 'coilsPress' : 'helperWait';
+    if (S.feed < 6 && S.timber > 0) return 'planks'; if (S.timber <= 5 && S.store > 0 && !trolleyBy) return 'restock';
+    if (S.up.autofeed >= 1 && millReady() && !coilHelper('mill') && S.coilFeed + coilsFor('mill') < 2 && S.coils > 0 && S.feed >= 4) return 'coils';   // auto-feed: one helper keeps two neighbouring machines fed
+    return 'helperWait'; }
   const others = staffOf('loader').filter(o => o !== c).map(o => o.task);
   if (c.forced) { const f = c.forced; c.forced = null;
     if (f === 'restock' && S.store > 0 && !trolleyBy && S.timber < LINE_CAP) return 'restock';
@@ -2551,8 +2634,8 @@ function loaderTask(c){
     if (S.wh.c > 0 && S.bed + truckCrates() + S.pallet < S.order.qty) return 'whCrates';
     if (S.wh.p > 0 && S.pbed + truckPipes() + S.pipes < (S.order.pq || 0)) return 'whPipes';
     if (S.wh.t > 0 && S.tbed + truckTools() + S.tools < (S.order.tq || 0)) return 'whTools'; }
-  if (millReady() && S.coilFeed + coilsFor('mill') < 2 && S.coils > 0 && !others.includes('coils') && (pipeLeft() > 0 || stockLeftP() > 0 || S.coilFeed === 0)) return 'coils';
-  if (pressReady() && S.tfeed + coilsFor('press') < 2 && S.coils > 0 && !others.includes('coilsPress') && (toolWork() || S.tfeed === 0)) return 'coilsPress';
+  if (millReady() && !coilHelper('mill') && S.coilFeed + coilsFor('mill') < 2 && S.coils > 0 && !others.includes('coils') && (pipeLeft() > 0 || stockLeftP() > 0 || S.coilFeed === 0)) return 'coils';
+  if (pressReady() && !coilHelper('press') && S.tfeed + coilsFor('press') < 2 && S.coils > 0 && !others.includes('coilsPress') && (toolWork() || S.tfeed === 0)) return 'coilsPress';
   if (S.level >= 5 && mill2Ready() && S.l5.coil2 + coilsFor('mill2') < 2 && S.coils > 0 && !others.includes('coils2') && (S.l5.rack2 < RACK2_CAP || S.l5.coil2 === 0)) return 'coils2';
   if (!helperOn() && S.feed < 2 && S.timber > 0 && !others.includes('planks')) return 'planks';
   if (goodsIn() > 0 && (S.delivery.kind === 'steel' ? S.coils + coilsInHands() < coilCap() : S.store + carriedTimber() < storeCap()) && others.filter(t => t === 'unload' || t === 'deliverTimber' || t === 'deliverCoilBay').length < 2) return 'unload';
@@ -2625,7 +2708,7 @@ function updateLoader(c, dt){
     else if (task === 'deliverTimber') { goTo(c, ...P.storeSpot); c.state = 'toStore'; }
     else if (task === 'sweep') { c.sweep = 3; c.state = 'toSweep'; const sp = pick(SWEEP); goTo(c, ...sp); }
     else if (task === 'restock') { trolleyBy = c.st.id; goTo(c, P.trolleyPark[0] + .95, P.trolleyPark[1]); c.state = 'toTrolley'; }
-    else { if (c.state !== 'waiting') { const w = task === 'helperWait' ? [P.feedRing[0] + .9, P.feedRing[1] + .2] : task === 'waitDock' ? P.dockWait : [P.loaderWait[0] + (c.st.id % 2) * .7, P.loaderWait[1]]; goTo(c, ...w); c.state = 'waiting'; } if (walk(c, dt)) c.play('idle'); }
+    else { if (c.state !== 'waiting') { const w = task === 'helperWait' ? helperWaitAt(c) : task === 'waitDock' ? P.dockWait : [P.loaderWait[0] + (c.st.id % 2) * .7, P.loaderWait[1]]; goTo(c, ...w); c.state = 'waiting'; } if (walk(c, dt)) c.play('idle'); }
     return;
   }
   if (c.state === 'toCart') { if (walk(c, dt)) { c.faceNow(0); if (c.cartFor) takeCart(c, c.cartFor); c.cartFor = null; c.state = 'idle'; } return; }
@@ -2781,7 +2864,7 @@ function updateSupervisor(c, dt){
   if (free && S.order && !S.order.met && !S.order.briefed) { c.state = 'toMeet'; c.meetAt = null; }
   if (c.state === 'toMeet') { c.rp -= dt; if (!S.order || S.order.briefed) { c.state = 'idle'; return; }
     const op = owner.o.position, d = dist2(c.o, [op.x, op.z]);
-    if (d < 1.4) { c.state = 'meet'; c.wait = 2.6; c.path = null; S.meets = (S.meets || 0) + 1; owner.say = { text:`${S.order.client}: ${describe(S.order)}, ${S.order.deadline} s.`, until:T + 2.6 }; c.say = { text:'Got it, boss. I\'ll brief the crew.', until:T + 2.8 }; return; }
+    if (d < 1.4) { c.state = 'meet'; c.wait = 2.6; c.path = null; S.meets = (S.meets || 0) + 1; owner.say = { text:`${S.order.client}: ${describe(S.order)}, due ${dueAt(S.order.deadline - S.order.time)}.`, until:T + 2.6 }; c.say = { text:'Got it, boss. I\'ll brief the crew.', until:T + 2.8 }; return; }
     if (!c.meetAt || Math.hypot(c.meetAt[0] - op.x, c.meetAt[1] - op.z) > 1) { c.meetAt = [op.x, op.z]; goTo(c, op.x + .8, op.z + .3); }
     if (walk(c, dt)) goTo(c, op.x, op.z); return; }
   if (c.state === 'meet') { c.play('inspect'); c.faceTo([owner.o.position.x, owner.o.position.z], dt); c.wait -= dt;
@@ -2924,6 +3007,7 @@ function updateStaff(dt){
       if (c.holdUntil) { if (T < c.holdUntil || gateSwinging()) { c.play('idle'); c.faceTo(P.frontIn, dt); continue; } c.holdUntil = 0; }   // the gate leaves are still swinging open
       if (closingStep(c, dt)) { c.idleT = 0; continue; }
       if (lunchStep(c, dt)) { c.idleT = 0; continue; }
+      if (payStep(c, dt)) { c.idleT = 0; continue; }
       if (r === 'cleaner') updateCleaner(c, dt); else if (r === 'operator') updateOperator(c, dt); else if (r === 'loader' || r === 'helper') updateLoader(c, dt); else if (r === 'supervisor') updateSupervisor(c, dt); else updateSpecialist(c, dt);
     } catch(e) { recoverChar(c, e); continue; }
     const idle = (r === 'loader' && c.state === 'waiting') || (r === 'operator' && c.state === 'work' && !opsOf(c).running(c)) || ((r === 'mechanic' || r === 'electrician') && c.state === 'home');
@@ -2991,14 +3075,21 @@ const hireCost = role => { if (S.freeHires > 0) return 0; const have = S.staff.f
 // one operator per machine: the saw, the pipe mill from level 2, the tool press from level 3
 // build 0.19: levels 1 and 2 are a small works: one loader at level 1 (no machine helper: the owner and Gus feed the
 // saw), a second loader and the helper once the pipe machine runs at level 2
-const capOf = role => role === 'electrician' || role === 'cleaner' ? 0 : role === 'helper' ? (S.level === 1 || (S.level === 2 && !millReady()) ? 0 : 1) : role === 'loader' && S.level <= 2 ? (S.level === 2 && millReady() ? 2 : 1) : capOf0(role);   // Bible 4.1: neither role is in the canonical list
+// Bible v2.0 12.2: the staffing matrix sets the posts of each role at each level, and a post exists only with its machine:
+// one helper per machine (crate machine, then pipe mill, then tool press; the forklift feeds the second crate machine), and
+// the second loader and the helper come at Level 2 once the pipe machine runs (12.6)
+const helperMachines = () => ['saw', millReady() ? 'mill' : null, pressReady() ? 'press' : null].filter(Boolean);
+const capOf = role => { if (role === 'electrician' || role === 'cleaner') return 0; const m = PG.roleCap(role, S.level);
+  if (role === 'helper') return S.level === 1 || (S.level === 2 && !millReady()) ? 0 : Math.min(m, helperMachines().length);
+  if (role === 'loader' && S.level === 2) return millReady() ? m : 1;
+  return capOf0(role); };   // Bible 4.1: neither electricians nor cleaners are in the canonical list
 const capOf0 = role => role === 'operator' ? Math.min(PG.roleCap('operator', S.level), 1 + (S.level >= 2 ? 1 : 0) + (S.level >= 3 ? 1 : 0) + (S.level >= 4 && S.lv4.saw2 >= 2 ? 1 : 0) + (S.level >= 5 && S.l5.mill2 >= 2 ? 1 : 0)) : role === 'forklift' ? (S.level >= 4 ? 1 : 0) : PG.roleCap(role, S.level);
 const nextOpMachine = () => !sawOp() ? 'saw' : !pipeOp() ? 'pipe' : S.level >= 3 && !pressOp() ? 'tool' : S.level >= 4 && saw2Ready() && !saw2Op() ? 'saw2' : S.level >= 5 && mill2Ready() && !pipe2Op() ? 'pipe2' : 'saw';
 function hire(role){
   if (role === 'supervisor' && S.level >= 4) return;   // Level Bible: from level 4 the supervisor is promoted from the crew
   const cost = hireCost(role); if (cost === undefined || S.cash < cost || S.staff.filter(s => s.role === role).length >= capOf(role)) return;
-  S.cash -= cost; if (S.freeHires > 0 && cost === 0) { S.freeHires--; toast('One of Abel Thorne\'s nephews: no hiring fee.', 'gold'); } const used = S.staff.map(s => s.name); const name = NAMES.find(x => !used.includes(x)) || 'Sam';
-  const st = { id:S.nextId++, name, role, lv:1, xp:0, energy:100, focus:100, look:newLook(role) }; if (S.level === 1 && (role === 'operator' || role === 'loader')) { st.posted = false; st.loyal = true; } if (role === 'operator') { const m = nextOpMachine(); if (m !== 'saw') st.mach = m; } S.staff.push(st);
+  S.cash -= cost; if (S.freeHires > 0 && cost === 0) { S.freeHires--; toast('One of Abel Thorne\'s nephews: no hiring fee.', 'gold'); } const [name, sur] = crewName(role); (S.castHired ||= {})[name] = true;
+  const st = { id:S.nextId++, name, sur, role, lv:1, xp:0, energy:100, focus:100, look:newLook(role, FEM.has(name)) }; if (S.level === 1 && (role === 'operator' || role === 'loader')) { st.posted = false; st.loyal = true; } if (role === 'operator') { const m = nextOpMachine(); if (m !== 'saw') st.mach = m; } S.staff.push(st);
   const k = [...staffObj.values()].filter(o => o.state === 'arrive').length;   // hired together: they come in one behind another, from the pavement at the gate
   const c = spawnStaff(st, P.frontOut[0] + (k % 2 ? .45 : -.45), P.frontOut[1]); goTo(c, ...P.frontIn); c.state = 'arrive'; if (k) c.holdUntil = T + k * .8;
   if (carAtGate()) { c.o.visible = false; c.hideTillClear = true; }   // the car is passing the gate: they step out onto the verge once it has gone by
@@ -3037,7 +3128,12 @@ function showLevelUp(){
   $('luNote').textContent = built ? 'Everything you own carries over: cash, crew, machines and upgrades.' : `Level ${n} opens in the next build. Keep the orders moving: everything you earn carries over.`;
   $('luOk').textContent = built ? `Open level ${n}` : 'Keep playing'; $('levelup').hidden = false;
 }
-$('luOk').addEventListener('click', () => { $('levelup').hidden = true; if (S.levelUp && S.level < MAX_LEVEL) startLevel(S.level + 1); });
+// v2.0 3.4: a level opens on its own date. With the charter done the knocking-off whistle goes early; after the day book
+// the office calendar loses its pages to the new level's date, the Courier prints, and the gates open on day one.
+$('luOk').addEventListener('click', () => { $('levelup').hidden = true; if (!(S.levelUp && S.level < MAX_LEVEL)) return;
+  if (!S.tutDone || !S.day) { startLevel(S.level + 1); return; }
+  S.nextLevel = S.level + 1; save();
+  if (!S.day.closing) { toast(`Charter done. The whistle goes early: Level ${S.nextLevel} opens in the morning.`, 'gold'); knockOff(dayNo() + 1); } });
 
 /* =====================================================================
    OFFICE
@@ -3082,6 +3178,7 @@ function renderOffice(){
   if (!officeOpen) return;
   lastSig = officeSig();
   $('offSub').textContent = `${fmt(S.cash)} cash · ${S.staff.length} staff · reputation ${Math.round(S.rep)}%`;
+  baroDraw();
   const tabKey = tab + '|' + S.level + '|' + S.staff.some(xpReady); const tabsChanged = tabKey !== renderOffice.tabKey; renderOffice.tabKey = tabKey;
   if (tabsChanged) $('tabs').innerHTML = TABS.filter(([k]) => k !== 'finance' || S.level >= 5).map(([k, n]) => `<button class="tab" role="tab" type="button" data-tab="${k}" aria-selected="${tab === k}">${icon(TAB_IC[k] || 'box')}<span>${n}</span>${k === 'staff' && S.staff.some(xpReady) ? '<i class="dot"></i>' : k === 'plant' && S.faults.length ? '<i class="dot bad"></i>' : k === 'orders' && S.call ? '<i class="dot bad"></i>' : k === 'finance' && S.level >= 5 && S.l5.bill ? '<i class="dot bad"></i>' : k === 'stock' && timberLow() ? '<i class="dot"></i>' : ''}</button>`).join('');
   if (tabsChanged) $('tabs').querySelectorAll('.tab').forEach(b => b.onclick = () => { if (tab === b.dataset.tab) return; tab = b.dataset.tab; pageTurn(); renderOffice(); sfx('tap', .5); });
@@ -3141,7 +3238,7 @@ function renderOffice(){
   }
   if (tab === 'charter') {
     const L = LEVELS[S.level];
-    h += `<p class="note">To become a <b style="color:var(--chalk)">${L.next}</b> (Level ${S.level + 1}), tick every line. A ticked line stays ticked.</p><div class="dept">`;
+    h += `<p class="note">To become a <b style="color:var(--chalk)">${L.next}</b> (Level ${S.level + 1}), tick every line. A ticked line stays ticked.</p>${CHOICE[S.level] ? `<p class="note"><b style="color:var(--chalk)">This level's choice:</b> ${CHOICE[S.level]}</p>` : ''}<div class="dept">`;
     for (const c of charter()) { const done = lineDone(c);
       h += `<div class="line ${done ? 'done' : ''}"><span class="tick"></span><span><span class="k">${c.k}</span>${c.text}</span><span class="v">${lineText(c)}</span></div>`; }
     const brings = rows => `</div><div class="dept"><div class="dept-h"><div><b>Level ${S.level + 1} brings</b><small>${L.next}</small></div></div><div class="kv">${rows.map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join('')}</div></div>`;
@@ -3176,7 +3273,7 @@ function renderOffice(){
     if (S.call) { const c = S.call; h += `<div class="call"><div class="call-h">${icon('phone')}<div><b>Phone: ${c.client}${c.rush ? ' · RUSH' : ''}</b><small>${c.dock === 2 ? (c.rush ? 'Rush order for dock 2: from stock, short deadline, pays 50% more' : 'For dock 2: ships from stock (warehouse and the second mill\'s rack)') : 'New order on the line'}</small></div></div>
       <div class="kv">${c.qty ? `<span>Wooden crates</span><span>${c.qty}</span>` : ''}${c.pq ? `<span>Steel pipes</span><span>${c.pq}</span>` : ''}${c.tq ? `<span>Basic tools</span><span>${c.tq}</span>` : ''}<span>Pays</span><span>${fmt(c.pay)}</span><span>Deadline after you accept</span><span>${c.nodl ? 'None on the first order' : c.deadline + ' s'}</span>${c.dock === 2 ? `<span>In stock now</span><span>${S.wh.c} crates · ${S.wh.p + S.l5.rack2} pipes · ${S.wh.t} tools</span>` : c.qty && !timberFree() ? `<span>Timber needed</span><span>${c.qty} planks (you have ${S.store + S.timber + S.feed})</span>` : ''}${c.pq ? `<span>Steel needed</span><span>${Math.ceil(c.pq / COIL_PIPES)} coils (you have ${steelPipes()} pipes' worth)</span>` : ''}${c.tq ? `<span>Steel for tools</span><span>${Math.ceil(c.tq / COIL_TOOLS)} coils</span>` : ''}</div>
       ${termsOk(c) ? `<div class="terms">${['regular', 'rush', 'bulk'].map(k => { const v = withTerms(c, k), what = [v.qty ? `${v.qty} crates` : '', v.pq ? `${v.pq} pipes` : ''].filter(Boolean).join(', ');
-        return `<button class="btn ${k === 'regular' ? 'primary' : ''}" data-accept="${k}" type="button"><b>${k === 'regular' ? 'Regular' : k === 'rush' ? 'Rush' : 'Bulk'}</b><small>${what} · ${fmt(v.pay)} · ${v.deadline} s${k === 'rush' ? ' · lorry won\'t wait' : ''}</small></button>`; }).join('')}</div>
+        return `<button class="btn ${k === 'regular' ? 'primary' : ''}" data-accept="${k}" type="button"><b>${k === 'regular' ? 'Regular' : k === 'rush' ? 'Rush' : 'Bulk'}</b><small>${what} · ${fmt(v.pay)} · due ${dueAt(v.deadline)}${k === 'rush' ? ' · lorry won\'t wait' : ''}</small></button>`; }).join('')}</div>
       <div class="call-b"><button class="btn" data-decline>Decline<small>reputation −2</small></button></div></div>`
       : `<div class="call-b"><button class="btn primary" data-accept>Accept the order</button><button class="btn" data-decline>Decline<small>reputation −2</small></button></div></div>`}`; }
     h += `<div class="dept"><div class="dept-h"><span class="ic">${icon('clip')}</span><div><b>Current order</b><small>${o ? o.client : S.call ? 'Take the call above' : 'No order right now'}</small></div></div>`;
@@ -3302,7 +3399,11 @@ const ownerCarry = () => OWNER_CARRY + [0, 3, 7, 11][S.skills.arms || 0];
 // with no loaders, the owner keeps the saw fed himself: planks go from the stock room to the line rack to the in-feed
 // who feeds the crate machine: the helper; without one the loaders when they have a minute; with neither, the
 // operator (or the owner, or Gus) reaches for the planks himself between cuts and the machine runs 30% slower
-const helperOn = () => staffOf('helper').some(c => c.st.posted !== false && c.state !== 'arrive');
+const helperOn = () => staffOf('helper').some(c => c.st.posted !== false && c.state !== 'arrive' && helperOf(c) === 'saw');
+// helpers in hiring order take the crate machine, then the pipe mill, then the tool press
+function helperOf(c){ const hs = staffOf('helper').filter(o => o.st.posted !== false).sort((a, b) => a.st.id - b.st.id), ms = helperMachines(); return ms[hs.indexOf(c)] || 'saw'; }
+const coilHelper = mach => staffOf('helper').some(c => c.st.posted !== false && c.state !== 'arrive' && helperOf(c) === mach);
+function helperWaitAt(c){ const m = helperOf(c); return m === 'mill' ? [P.pfeedRing[0] - .2, P.pfeedRing[1] + .7] : m === 'press' ? [P.tfeedRing[0], P.tfeedRing[1] + .8] : [P.feedRing[0] + .9, P.feedRing[1] + .2]; }
 // the owner standing at the in-feed hands the operator the planks: the crate machine runs a quarter faster
 const ownerFeeds = () => !!owner && owner.o.visible && sawBy && sawBy !== owner && ownerOn(P.feedRing);
 const feedK = () => ownerFeeds() ? 1.25 : helperOn() || loadersHired() ? 1 : .7;
@@ -3422,12 +3523,32 @@ function placeFolk(){
 }
 // --- story cards: full screen, pause the game, one tap to skip --------------------------------------------
 let cardOpen = false, cardQueue = [];
+// The Valley Courier's front page as each level closes (v2.0 2.7): printed on the morning the next level opens
 const HEADLINES = {
-  2:['Smoke over the old works: grandchild reopens Iron Valley', 'The gates at the end of Mill Road stood shut for years. This week a truck left them loaded with crates, and the old foreman was seen smiling.'],
-  4:['Tenth worker hired as Iron Valley grows', 'The works on Mill Road has taken over the old scrapyard for a forklift yard, and the first supervisor walks the floor. Rusty Pike now keeps a stall by the gate.'],
-  5:['Iron Valley trucks reach the county line', 'A second dock on the road and a white lorry: the works on Mill Road now ships two orders at once. With a payroll this size come the wage bills, and the Valley Bank is said to be interested.'],
-  3:['Iron Valley tools back on hardware shelves', 'Spanners stamped in the valley are on sale again. The works has bought the North field from Abel Thorne and a tool press is going in.'],
+  2:['Old Ashford works opens its gates again', 'The gates at the end of Mill Road stood shut since Walter Ashford died last year. This month his grandchild opened them, the old foreman Gus Mallory was seen at the saw, and a lorry left loaded with crates.'],
+  3:['Pipes roll out of Mill Road', 'A pipe machine bolted together by Big Tom Okafor\'s men, a second generator and a warehouse in the back yard: the works Walter Ashford founded in 1921 is making steel pipe again.'],
+  4:['Valley works wins its trading licence', 'Mains power on the pole, a mechanic on the payroll and a tool press in Abel Thorne\'s old North field. The council has granted the Ashford works its trading licence.'],
+  5:['Valley works back on its feet', 'A forklift, a second crate line and a supervisor on the floor. Four months after the gates reopened, the works on Mill Road is back on its feet, and the valley is proud of it.'],
 };
+// what the time skip between two levels built (v2.0 3.4, the level specs' "Skip" lines)
+const SKIP_BUILT = {
+  2:'Two weeks while Big Tom\'s men poured the pipe machine\'s pad.',
+  3:'Seven weeks while Abel Thorne made up his mind to sell the North field.',
+  4:'Eight weeks while Rusty Pike\'s scrapyard was cleared to gravel.',
+  5:'Five months: the office block went up, and the winter fuel crisis doubled the price of diesel.',
+};
+// the wall calendar in the office: one page torn off for every week the skip covers, faster for a long skip
+function skipHtml(c){
+  const weeks = Math.max(0, Math.floor(c.w1 / 5) - Math.floor(c.w0 / 5)), d1 = calDate(c.w1), n = Math.min(12, weeks), dur = weeks > 6 ? .22 : .42;
+  const pages = []; for (let k = 0; k < n; k++) { const w = c.w0 + Math.round((c.w1 - c.w0) * k / Math.max(1, n)), d = calDate(w);
+    pages.push(`<div class="calpg tear" style="z-index:${40 - k};animation-delay:${.5 + k * dur}s"><b>${MONTHS[d.getUTCMonth()].slice(0, 3).toUpperCase()}</b><span>${d.getUTCDate()}</span><i>${d.getUTCFullYear()}</i></div>`); }
+  const season = seasonOf(c.w1);
+  return `<div class="note" style="letter-spacing:.2em;text-transform:uppercase">The office calendar · ${weeks} week${weeks === 1 ? '' : 's'} on</div>
+    <div class="calwall">${pages.join('')}<div class="calpg"><b>${MONTHS[d1.getUTCMonth()].slice(0, 3).toUpperCase()}</b><span>${d1.getUTCDate()}</span><i>${d1.getUTCFullYear()}</i></div></div>
+    <h3 style="text-align:center;margin:.3em 0">${dateOf(c.w1)}</h3><div class="db-s" style="text-align:center">${season[0].toUpperCase() + season.slice(1)} · Level ${c.level}: ${(LEVELS[c.level] || {}).name || ''}</div>
+    ${SKIP_BUILT[c.level] ? `<p style="text-align:center">${SKIP_BUILT[c.level]}</p>` : ''}
+    <button class="btn primary" data-next type="button" style="width:100%;margin-top:8px;min-height:46px">Read the Courier</button>`;
+}
 function story(card){ cardQueue.push(card); if (!cardOpen) nextCard(); }
 function nextCard(){
   let c = cardQueue.shift(); while (c && c.kind === 'person' && !SCENES[c.id]) { S.met[c.id] = true; c = cardQueue.shift(); }   // a person without a written scene is met quietly
@@ -3435,8 +3556,11 @@ function nextCard(){
   if (!c) { el.hidden = true; cardOpen = false; clock.getDelta(); return; }
   cardOpen = true; el.hidden = false; B.className = 'sheet story ' + c.kind;
   const skip = `<button class="skip" data-next type="button">SKIP</button>`;
-  if (c.kind === 'letter') B.innerHTML = `${skip}<p>To whoever opens these gates next,</p><p>The saw still cuts and the truck still comes. I could not keep it going any longer. You can.</p><p>There is nobody left on the payroll, so the first crates are yours to cut and carry. Hire hands as the money comes in.</p><p><b>Open the gates. The valley will do the rest.</b></p><div class="sig">Grandad</div><button class="btn primary" data-next type="button" style="width:100%;margin-top:10px;min-height:46px">Open the gates</button>`;
-  else if (c.kind === 'courier') { const [h, p] = HEADLINES[c.level]; B.innerHTML = `${skip}<div class="mast">The Valley Courier</div><div class="date"><span>Iron Valley</span><span>Level ${c.level}</span><span>Price 5c</span></div><h3>${h}</h3><p>${p}</p><button class="btn primary" data-next type="button" style="width:100%;min-height:46px">Read on</button>`; }
+  if (c.kind === 'letter') B.innerHTML = `${skip}<div class="note" style="letter-spacing:.14em;text-transform:uppercase;color:#6b5d47">Found with the keys in the office desk</div><p>My dear,</p><p>The works is yours now. Mind the old generator, trust Gus, and never ship a crate you wouldn't buy yourself.</p><p>Iron Valley Workshop has stood on Mill Road since 1921. The saw still cuts and the lorry still comes. Gus will show you the rest.</p><div class="sig">Grandad<br><small>Walter Ashford</small></div><button class="btn primary" data-next type="button" style="width:100%;margin-top:10px;min-height:46px">Open the gates</button>`;
+  else if (c.kind === 'skip') B.innerHTML = skipHtml(c);
+  else if (c.kind === 'away') B.innerHTML = awayHtml();
+  else if (c.kind === 'login') B.innerHTML = loginHtml();
+  else if (c.kind === 'courier') { const [h, p] = HEADLINES[c.level]; B.innerHTML = `${skip}<div class="mast">The Valley Courier</div><div class="date"><span>${dateOf(calDay()).split(' ').slice(1).join(' ')}</span><span>Iron Valley</span><span>Price 5c</span></div><h3>${h}</h3><p>${p}</p><button class="btn primary" data-next type="button" style="width:100%;min-height:46px">Read on</button>`; }
   else if (c.kind === 'person') { const p = PEOPLE[c.id];
     B.innerHTML = `${skip}<div class="who"><img alt="" src="${portrait(c.id)}"><div><b>${p.name}</b><small>${p.role} · ${p.line}</small></div></div>${SCENES[c.id].map((t, i) => `<div class="say" style="animation-delay:${i * .45}s">${t}</div>`).join('')}<button class="btn primary" data-next type="button" style="width:100%;margin-top:8px;min-height:44px">Continue</button>`;
     S.met[c.id] = true; }
@@ -3457,6 +3581,7 @@ function nextCard(){
   else if (c.kind === 'cartip') { B.innerHTML = `<div class="who"><img alt="" src="${portrait('gus')}"><div><b>Gus Mallory</b><small>Old foreman · a word about finding work</small></div></div>${CAR_TIP.map((t, i) => `<div class="say" style="animation-delay:${i * .45}s">${t}</div>`).join('')}<button class="btn primary" data-next type="button" style="width:100%;margin-top:8px;min-height:44px">Show me the car</button>`; B.classList.add('person'); }
   else if (c.kind === 'town') { B.innerHTML = townHtml(); B.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { const [kind, k] = b.dataset.go.split(':'); sfx('tap');
       if (kind === 'ad' && ADS[k].forever) { cardQueue.unshift({ kind:'advert', key:k, here:true }); nextCard(); } else { nextCard(); startTrip(kind, k); } }); }
+  else if (c.kind === 'wrongtimber') { B.innerHTML = wrongTimberCard(); B.classList.add('deal'); B.querySelectorAll('[data-wt]').forEach(b => b.onclick = () => { sfx('tap'); wrongTimberPick(b.dataset.wt); nextCard(); }); }
   else if (c.kind === 'rival') { B.innerHTML = rivalHtml(c.key); B.classList.add('deal'); B.querySelectorAll('[data-rival]').forEach(b => b.onclick = () => { sfx('tap'); rivalPick(c.key, b.dataset.rival); nextCard(); }); }
   else if (c.kind === 'visit') { B.innerHTML = visitHtml(c.key); B.classList.add('deal'); B.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { sfx('tap'); if (b.dataset.pick !== 'none') pickOffer(c.key, b.dataset.pick); nextCard(); leaveScene(); }); }
   else if (c.kind === 'advert') { B.innerHTML = adHtml(c.key); B.classList.add('deal'); const buy = B.querySelector('[data-ad]'); if (buy) buy.onclick = () => { buyAd(c.key); cardQueue.unshift(c); nextCard(); };
@@ -3694,13 +3819,13 @@ function gusCard(){ const [cap, now] = gusDoing();
 
 // --- land: listing, three offers, council permit, site work, connection (Master Design Doc) -------------
 const PLOTS = {
-  north:{ name:'North field', lv:2, seller:'abel', price:800, adds:'Tool machine pad and a parts store (level 3)', sign:[13.8, -11.3], ring:[13.8, -10.4],
+  north:{ name:'North field', lv:3, seller:'abel', price:3000, adds:'Tool machine pad and a parts store (level 3)', sign:[13.8, -11.3], ring:[13.8, -10.4],
           sweet:'His two nephews want work: your next two hires cost nothing', quote:'Keep my fence line straight and it\'s yours.' },
-  road:{ name:'Road frontage', lv:4, seller:'council', price:4000, adds:'Second dock and a truck park (level 5)', sign:[8.8, 12.0], ring:[8.8, 10.9], sweetCost:500,
+  road:{ name:'Road frontage', lv:4, seller:'council', price:6000, adds:'Second dock and a truck park (level 5)', sign:[8.8, 12.0], ring:[8.8, 10.9], sweetCost:500,
           sweet:'Pay for the road repair as well ($500): +5 reputation in the valley', quote:'The council sells the frontage to whoever keeps the road fit for lorries.' },
   shop:{ name:'Corner shop plot', lv:5, seller:'ada', price:10000, adds:'Room for the bigger office (level 6)', sign:[18.6, 20.95], ring:[18.6, 19.85],
           sweet:'Give her niece June a job: the clerk\'s hire at level 6 costs nothing', quote:'Forty years behind that counter. Treat my June right and the shop is yours.' },
-  scrap:{ name:'Scrapyard next door', lv:3, seller:'rusty', price:1600, adds:'Forklift yard and a machine pad (level 4)', sign:[-8.6, 6.05], ring:[-8.6, 5.0],
+  scrap:{ name:'Scrapyard next door', lv:3, seller:'rusty', price:3600, adds:'Forklift yard and a machine pad (level 4)', sign:[-8.6, 6.05], ring:[-8.6, 5.0],
           sweet:'He leaves a working crate machine in the yard: your second crate machine at level 4 is free', quote:'The heaps go, the price stays. Fair\'s fair.' },
 };
 const ACT_TIMERS = { permit:30, site:60 };   // Act I (levels 1 to 4): council permit 30 s, site work 1 minute
@@ -3824,7 +3949,7 @@ function scheduleIssue(dt){
   S.nextIssue = S.time + ISSUE_EVERY * rand(.8, 1.2);
   const surgeK = [1, .8, .65, .5][Math.min(3, S.up.surge)], sturdyK = [1, .85, .7, .5][Math.min(3, S.up.sturdy)];
   const running = [['saw', sawOn, 'blade', 'belt'], ['pipe', pipeOn, 'roller', 'bearing'], ['tool', toolOn, 'die', 'spring']].filter(m => m[1]);
-  if (Math.random() < .25 * surgeK || !running.length) { if (powerOn()) addFault('powercut'); return; }
+  if (Math.random() < Math.min(.75, .25 * surgeK * (stormOn() ? 3 : 1)) || !running.length) { if (powerOn()) addFault('powercut'); return; }
   if (Math.random() > sturdyK) return;                                                                        // sturdier parts: this one never happened
   const m = pick(running); addFault(Math.random() < .55 ? m[2] : m[3]);
 }
@@ -3894,7 +4019,7 @@ function updateSaw2(dt){
   if (canRun) {
     saw2T += dt * sawSpeedK() * autoFeedK() * crewSpeed(by) * pf(); animLine(M.saw2, saw2T / SAW_CYCLE, true, dt);
     by.st.energy = Math.max(0, by.st.energy - dt * (100 / 90));
-    if (saw2T >= SAW_CYCLE) { saw2T = 0; S.lv4.feed2--; S.lv4.pallet2++; S.made++; syncOrderCounts(); syncFeed2(); syncPallet2(); sfxAt('saw', ...P.saw2, .6); giveXp(by.st, 10); }
+    if (saw2T >= SAW_CYCLE) { saw2T = 0; S.lv4.feed2--; S.lv4.pallet2++; S.made++; S.lv4.made2 = (S.lv4.made2 || 0) + 1; syncOrderCounts(); syncFeed2(); syncPallet2(); sfxAt('saw', ...P.saw2, .6); giveXp(by.st, 10); }
   } else animLine(M.saw2, 0, false, dt, true, S.lv4.feed2 > 0);
   setLamp(M.saw2.getObjectByName('status_lamp'), ...(!powerOn() ? LAMP_STOP : saw2On ? LAMP_RUN() : LAMP_IDLE));
 }
@@ -3949,12 +4074,13 @@ function forkLevel(dt = 1){ const o = fork.o, a = o.rotation.y, fx = Math.cos(a)
   const pitch = Math.atan2(front - rear, 1.5); o.rotation.z += (pitch - o.rotation.z) * Math.min(1, dt * 10); }
 // the driver waits and toots; after 3 s the person in the way steps 1.8 m out of its line (as a yard hand would) and lets it by
 function forkGiveWay(dx, dz, dt){ const c = fork.blockBy; if (!c) return; if (fork.heldBy !== c) { fork.heldBy = c; fork.heldT = 0; } fork.heldT += dt;
+  if (c === bolt) { if (fork.heldT > 2.5) { bolt.ignore = T + 5; fork.heldT = 0; } return; }   // a dog never holds the works up: after a toot the forklift creeps on and he trots aside
   if (fork.heldT < 3 || c === owner || !c.path || c.giveWayT > T) return;
   const e = stepAside(c, { position:fork.o.position, rotation:{ y:Math.atan2(-dz, dx) } }); if (!e) return;
   c.path.unshift(e); c.giveWayT = T + 4; c.wd = null; fork.heldT = 0; }
 // people have right of way: the forklift waits (and gives a toot) while anybody stands in the next 2.4 m of its way
 function forkYield(ux, uz, reach = 2.6){
-  const o = fork.o.position, drv = forkDriver(), people = [...staffObj.values(), ...folk.values(), owner, ...(walker ? [walker.c] : [])];
+  const o = fork.o.position, drv = forkDriver(), people = [...staffObj.values(), ...folk.values(), owner, ...(walker ? [walker.c] : []), ...(bolt.on && bolt.o && bolt.o.visible && !(bolt.ignore > T) ? [bolt] : [])];
   for (const c of people) { if (!c || c === drv || !c.o.visible || c.gone || c.seated) continue; const px = c.o.position.x - o.x, pz = c.o.position.z - o.z, ahead = px * ux + pz * uz, t = clamp(ahead, .4, Math.min(2.6, reach));
     if (Math.hypot(px - ux * t, pz - uz * t) < .8 && ahead > .3 && ahead < Math.min(2.6, reach) + .8) { if (!fork.honk || T - fork.honk > 4) { fork.honk = T; sfxAt('horn', o.x, o.z, .18); } fork.waitT = (fork.waitT || 0) + 1; fork.blockBy = c; return true; } }
   fork.blockBy = null;
@@ -4010,10 +4136,10 @@ function updateForklift(dt){
     if (!fork.stack.length) { fork.state = 'idle'; fork.liftTo = 0; S.lv4.trips = (S.lv4.trips || 0) + 1; if (drv) giveXp(drv.st, 8); return; }
     if (fork.dest === 'truck') { if (groundY(fork.o.position.x, fork.o.position.z) < .5) forkFace([P.truck[0], P.truck[1]], dt);   // on the deck it stays square to the lorry's side, no room to turn
       const o = S.order; if (truck.state !== 'docked' || !o || o.ready || S.bed >= o.qty) { fork.dest = whReady() ? 'wh' : 'truck'; if (fork.dest === 'wh') forkRoute(P.forkWh, 'toDrop'); else forkRoute(P.forkHold, 'toHold'); return; }   // nothing to load into: off the deck, not parked across the loaders' way
-      if (forkGive(crates.bed, M.truck, bedPos, () => syncBed())) { S.bed++; S.shipped++; sfx('drop', .5); checkLoaded(); fork.wait = .16; } return; }
+      if (forkGive(crates.bed, M.truck, bedPos, () => syncBed())) { S.bed++; S.shipped++; S.lv4.forkMoved = (S.lv4.forkMoved || 0) + 1; sfx('drop', .5); checkLoaded(); fork.wait = .16; } return; }
     forkFace(P.wh, dt);
     if (S.wh.c >= whCapC()) { fork.dest = 'truck'; forkRoute(P.forkDock, 'toDrop'); fork.wait = 2; return; }
-    if (forkGive(crates.wh, world, whCratePos, () => syncWh())) { S.wh.c++; fork.wait = .16; } return; }
+    if (forkGive(crates.wh, world, whCratePos, () => syncWh())) { S.wh.c++; S.lv4.forkMoved = (S.lv4.forkMoved || 0) + 1; fork.wait = .16; } return; }
   if (fork.state === 'toHold') { if (forkDrive(dt)) { fork.state = 'hold'; fork.wait = 1; } return; }
   if (fork.state === 'hold') { const o = S.order; fork.wait = 1;   // at the foot of the ramp with its load, until a lorry can take it (or the warehouse can)
     if (truck.state === 'docked' && o && !o.ready && S.bed < o.qty) { fork.dest = 'truck'; forkRoute(P.forkDock, 'toDrop'); } else if (whReady() && S.wh.c < whCapC()) { fork.dest = 'wh'; forkRoute(P.forkWh, 'toDrop'); } return; }
@@ -4222,7 +4348,7 @@ function checkLoaded2(){ const o = S.order2; if (!o || o.ready || ['c', 'p', 't'
 function signOrder2(by){
   const o = S.order2; if (!o || !o.ready || truckB.state !== 'docked') return;
   const late = o.time > o.deadline, early = o.time < o.deadline / 2, gross = late ? Math.round(o.pay * .5) : o.pay;
-  S.cashPile += gross; S.delivered++; if (!late) S.ontime++; if (o.qty && o.pq && o.tq) S.lv4.mixed3++; if (o.rush && !late) S.l5.rushDone = (S.l5.rushDone || 0) + 1;
+  S.cashPile += gross; S.delivered++; if (!late) S.ontime++; if (o.qty && o.pq && o.tq) S.lv4.mixed3++; if ([o.qty, o.pq, o.tq].filter(n => n > 0).length >= 2) S.lv4.mixed = (S.lv4.mixed || 0) + 1; if (o.rush && !late) S.l5.rushDone = (S.l5.rushDone || 0) + 1;
   repChange(late ? -3 : early || o.rush ? 3 : 2);
   S.history.unshift({ id:o.id, qty:o.qty, pq:o.pq || 0, tq:o.tq || 0, net:gross, late, dl:o.deadline, t:Math.round(o.time), dock:2, rush:!!o.rush }); S.history = S.history.slice(0, 8);
   S.order2 = null; truckB.state = 'leave'; truckB.s = 0; truckB.path = LEAVE2; COL.delete('truck2');
@@ -4677,6 +4803,7 @@ function updateFx(dt){
     if (u.t > u.life) { s.visible = false; sprites.splice(i, 1); spritePool.push(s); } }
   const lit = circuitOn('lights'), p = powerOn();
   hemi.intensity = (lit ? (S.restored.lights ? 1.15 : 1.0) : .82) * (p ? 1 : .9); sun.intensity = lit ? (S.restored.lights ? 2.15 : 1.9) : 1.6;
+  if (wx.light) { const L = wx.light; hemi.intensity *= L.hemi; sun.intensity *= L.sun; sun.color.copy(SUN_COL).multiply(L.tint); renderer.toneMappingExposure = 1.12 * L.exp; hemi.intensity += wx.flash * 1.6; }   // v2.0 17: the weather's light, and the lightning flash
   const pos = M.dust.geometry.attributes.position; for (let i = 0; i < pos.count; i++) { let y = pos.getY(i) + dt * .05, x = pos.getX(i) + Math.sin(T * .3 + i) * dt * .05; if (y > 3.3) y = .3; pos.setXY(i, x, y); } pos.needsUpdate = true;
   for (const [k, r] of Object.entries(M.rings)) { if (k.startsWith('f')) { r.m.material.opacity = .7 + Math.sin(T * 7) * .25; r.f.material.opacity = .15; continue; }
     const want = k === 'drop' ? !!(S.order && S.order.ready) : k === 'cash' ? S.cashPile > 0 : true; r.m.material.opacity = want ? .75 + Math.sin(T * 6) * .2 : .3; r.f.material.opacity = want ? .16 : .05; }
@@ -4702,7 +4829,7 @@ function sfx(n, vol = 1){ if (!AC || paused) return; ({ pick:() => tone(520, .06
   tick:() => tone(880, .03, 'square', .012), buy:() => { tone(523, .1, 'triangle', .07); tone(659, .1, 'triangle', .07, .09); tone(784, .2, 'triangle', .07, .18); },
   horn:() => { tone(220, .25, 'sawtooth', .03); tone(277, .25, 'sawtooth', .03, .02); }, saw:() => noiseS(.22, 3200, .03, 'bandpass'), clank:() => { noiseS(.05, 2600, .1 * vol); tone(160, .08, 'square', .03 * vol); },
   alarm:() => { tone(660, .16, 'square', .05); tone(520, .16, 'square', .05, .2); tone(660, .16, 'square', .05, .4); }, fix:() => { tone(392, .08, 'triangle', .08); tone(784, .18, 'triangle', .08, .08); },
-  hire:() => { tone(523, .08, 'triangle', .07); tone(659, .08, 'triangle', .07, .08); tone(784, .16, 'triangle', .07, .16); }, tap:() => tone(320, .04, 'square', .02),
+  hire:() => { tone(523, .08, 'triangle', .07); tone(659, .08, 'triangle', .07, .08); tone(784, .16, 'triangle', .07, .16); }, tap:() => tone(320, .04, 'square', .02), bark:() => { tone(300 + Math.random() * 40, .08, 'sawtooth', .045 * vol, 0, 170); noiseS(.07, 1100, .045 * vol, 'bandpass'); },
   ring:() => { for (let r = 0; r < 2; r++) for (let i = 0; i < 6; i++) tone(i % 2 ? 1180 : 1320, .06, 'square', .05, r * .62 + i * .075); }, beep:() => tone(1050, .14, 'square', .02),
   nail:() => { noiseS(.035, 5200, .07 * vol, 'highpass'); tone(115, .06, 'square', .035 * vol); }, thunk:() => { noiseS(.09, 420, .12 * vol); tone(70, .1, 'sine', .07 * vol); },
   levelup:() => { tone(523, .1, 'triangle', .06); tone(784, .2, 'triangle', .06, .1); }, level:() => [262, 330, 392, 523].forEach((f, i) => tone(f, .45, 'sawtooth', .035, i * .12)) })[n]?.(); }
@@ -4880,7 +5007,7 @@ function cardHtml(t){
     if (!pressReady()) return `<div class="ch"><span class="cic">${icon('gear', '#ece6d9')}</span><div><b>North field</b><small>${S.lv3.press === 1 ? 'The contractor is installing the tool press' : 'Pay in at the pad to install the tool press'}</small></div></div>`;
     return `<div class="ch"><span class="cic">${icon('gear', '#ece6d9')}</span><div><b>Tool press</b><small>Coil in, tools out · ${(TOOL_CYCLE / (1 + .2 * S.up.press)).toFixed(1)} s a tool</small></div></div>${row('Now', `${r.label[1]}: ${r.label[2]}`)}${row('Condition', `${Math.round(S.cond.tool)}%`, S.cond.tool, S.cond.tool < 40 ? 'low' : '')}${row('Coil in the press', `${S.tcoil} / ${COIL_TOOLS} tools left`)}${row('Spare coils by the press', `${S.tfeed} / 2`)}${row('Power', !circuitOn('tool') ? 'Off' : overloaded() ? `Overloaded: ${Math.round(pf() * 100)}% speed` : 'On')}${row('Tools made', S.tmade)}<p>Only its operator runs it. It shares the coil bay with the pipe mill, so keep steel coming.</p>`; }
   if (t.type === 'machine' && t.id === 'mill2') { const r = mill2Reason(); return `<div class="ch"><span class="cic">${icon('gear', '#ece6d9')}</span><div><b>Second pipe mill</b><small>Its pipes go out from dock 2</small></div></div>${row('Now', `${r.label[1]}: ${r.label[2]}`)}${row('Pipes on its rack', `${S.l5.rack2} / ${RACK2_CAP}`, S.l5.rack2 / RACK2_CAP * 100)}${row('Coil on the mill', `${S.l5.coilLeft2} / ${COIL_PIPES} pipes left`)}${row('Spare coils', `${S.l5.coil2} / 2`)}<p>Loaders bring its coils from the coil bay; the forklift takes its pipes to the white truck.</p>`; }
-  if (t.type === 'machine' && t.id === 'dock2') { const o = S.order2; return `<div class="ch"><span class="cic">${icon('truck', '#ece6d9')}</span><div><b>Dock 2</b><small>${o ? `${o.client}${o.rush ? ' · RUSH' : ''}` : 'No order'}</small></div><span class="cst">${truckText(truckB, o, 2)}</span></div>${o ? ['c', 'p', 't'].filter(k => want2(o, k)).map(k => row({ c:'Crates', p:'Pipes', t:'Tools' }[k], `${o.l[k]} / ${want2(o, k)}`, o.l[k] / want2(o, k) * 100, 'xp')).join('') + row('Time left', o.time > o.deadline ? 'Late' : `${Math.ceil(o.deadline - o.time)} s`) : ''}<p>${o && o.ready ? 'Ready. Stand in the ring to sign the delivery note.' : 'Ships from stock: the forklift brings it from the warehouse and the second mill\'s rack.'}</p>`; }
+  if (t.type === 'machine' && t.id === 'dock2') { const o = S.order2; return `<div class="ch"><span class="cic">${icon('truck', '#ece6d9')}</span><div><b>Dock 2</b><small>${o ? `${o.client}${o.rush ? ' · RUSH' : ''}` : 'No order'}</small></div><span class="cst">${truckText(truckB, o, 2)}</span></div>${o ? ['c', 'p', 't'].filter(k => want2(o, k)).map(k => row({ c:'Crates', p:'Pipes', t:'Tools' }[k], `${o.l[k]} / ${want2(o, k)}`, o.l[k] / want2(o, k) * 100, 'xp')).join('') + row('Due', o.time > o.deadline ? 'Late' : dueAt(o.deadline - o.time)) : ''}<p>${o && o.ready ? 'Ready. Stand in the ring to sign the delivery note.' : 'Ships from stock: the forklift brings it from the warehouse and the second mill\'s rack.'}</p>`; }
   if (t.type === 'machine' && t.id === 'parts') return `<div class="ch"><span class="cic">${icon('wrench', '#ece6d9')}</span><div><b>Spare-parts shelf</b><small>A machine repair uses one part</small></div></div>${row('On the shelf', `${S.parts} / ${partsCap()}`)}<p>With no part the mechanic makes do, about three times as slow. Buy parts in the office (Stock).</p>`;
   if (t.type === 'machine' && t.id === 'coils') return `<div class="ch"><span class="cic">${icon('box', '#ece6d9')}</span><div><b>Steel coil bay</b><small>Steel strip from the supplier, ${COIL_PIPES} pipes a coil</small></div></div>${row('Coils', `${S.coils} / ${coilCap()}`, S.coils / coilCap() * 100)}${row('Pipes this steel makes', steelPipes())}<p>Order steel in the office (Stock). Loaders carry one coil at a time to the mill.</p>`;
   if (t.type === 'machine' && t.id === 'prack') return `<div class="ch"><span class="cic">${icon('truck', '#ece6d9')}</span><div><b>Pipe rack</b><small>Finished pipes waiting for the truck</small></div></div>${row('Pipes', `${S.pipes} / ${pipeCap()}`, S.pipes / pipeCap() * 100)}${row('Shipped so far', S.pshipped)}<p>Loaders carry pipes from here to the truck at the dock.</p>`;
@@ -4903,7 +5030,7 @@ function cardHtml(t){
   if (id === 'store') return `<div class="ch"><span class="cic">${icon('box', '#ece6d9')}</span><div><b>Stock room</b><small>Where the timber lorry delivers</small></div></div>${row('Planks', `${S.store} / ${storeCap()}`, S.store / storeCap() * 100, timberLow() ? 'low' : '')}${row('On order', S.delivery ? `${S.delivery.left}` : 'None')}<p>You order timber in the office (Stock tab). Loaders unload the lorry here.</p>`;
   if (id === 'tank') return `<div class="ch"><span class="cic">${icon('drop', '#ece6d9')}</span><div><b>Diesel tank</b><small>$8 a can, paid from the next delivery</small></div></div>${row('Generator diesel', `${Math.round(S.power.fuel)}%`, S.power.fuel, S.power.fuel < 25 ? 'low' : '')}<p>When the generator drops below 40%, a loader fills a can here and pours it in.</p>`;
   if (id === 'jbox') return `<div class="ch"><span class="cic">${icon('bolt', '#ece6d9')}</span><div><b>Junction box</b><small>Saw circuit: tray to the machine isolator</small></div></div>${row('Saw circuit', circuitOn('saw') ? 'Live' : 'Dead')}<p>Electricians only.</p>`;
-  if (id === 'dock') { const o = S.order; return `<div class="ch"><span class="cic">${icon('truck', '#ece6d9')}</span><div><b>Loading dock</b><small>${o ? o.client : 'No truck'}</small></div></div>${o ? row('Loaded', `${S.bed} / ${o.qty}`, S.bed / o.qty * 100, 'xp') + row('Time left', o.nodl ? 'No deadline' : o.time > o.deadline ? 'Late' : `${Math.ceil(o.deadline - o.time)} s`) : ''}<p>${o && o.ready ? 'Ready. Stand in the ring to sign the delivery note.' : loadersHired() ? 'Loaders fill the truck. You or a supervisor sign it off.' : 'Carry crates from the pallet and stand by the tailgate: they go on the truck.'}</p>`; }
+  if (id === 'dock') { const o = S.order; return `<div class="ch"><span class="cic">${icon('truck', '#ece6d9')}</span><div><b>Loading dock</b><small>${o ? o.client : 'No truck'}</small></div></div>${o ? row('Loaded', `${S.bed} / ${o.qty}`, S.bed / o.qty * 100, 'xp') + row('Due', o.nodl ? 'No deadline' : o.time > o.deadline ? 'Late' : dueAt(o.deadline - o.time)) : ''}<p>${o && o.ready ? 'Ready. Stand in the ring to sign the delivery note.' : loadersHired() ? 'Loaders fill the truck. You or a supervisor sign it off.' : 'Carry crates from the pallet and stand by the tailgate: they go on the truck.'}</p>`; }
   return '';
 }
 /* =====================================================================
@@ -4912,16 +5039,35 @@ function cardHtml(t){
    the day book comes up: what was made and shipped, the gate trade, the takings, the best day so far. The night is
    skipped: the next card opens the gates on the next working day (Monday to Friday, from Monday 2 April 1973).
    ===================================================================== */
-const DAY_S = 480;                                        // one shift, 07:00 to 17:00, is eight minutes of play
-const SHIFT_MIN = 600, LUNCH = [300, 330];                // minutes after 07:00: lunch from 12:00 to 12:30 (24 s of play)
+const DAY_S = 600;                                        // Bible v2.0 3.1: one game minute is one second of play, so 07:00 to 17:00 is ten minutes
+const SHIFT_MIN = 600, LUNCH = [300, 330];                // minutes after 07:00: lunch from 12:00 to 12:30 (30 s of play)
+const PAY_MIN = 570;                                      // Friday 16:30: pay packets at the pay hatch (v2.0 3.3)
 const dayNo = () => Math.floor(S.time / DAY_S);
 const dayMin = () => (S.time % DAY_S) / DAY_S * SHIFT_MIN;
 const lunchTime = () => !!(S.day && S.day.lunch === dayNo() && dayMin() >= LUNCH[0] && dayMin() < LUNCH[1]);
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-function dayDate(i){ const d = new Date(Date.UTC(1973, 3, 2 + Math.floor(i / 5) * 7 + i % 5)); return `${WEEKDAYS[i % 5]} ${d.getUTCDate()} ${d.toLocaleString('en-GB', { month:'long', timeZone:'UTC' })} 1973`; }
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+// The calendar (v2.0 3.1-3.5): working days are counted from Monday 2 April 1973, five to a week. Each level opens on its
+// own date (6.1); between levels the time skip tears pages off the office calendar. S.cal.off turns the play-day index into
+// the calendar's working day, so the date never runs backwards and a long level simply carries on into the next week.
+const CAL0 = Date.UTC(1973, 3, 2);
+const wdOf = (y, m, d) => { const k = Math.round((Date.UTC(y, m, d) - CAL0) / 864e5); return Math.floor(k / 7) * 5 + Math.min(4, k % 7); };
+const LV_START = { 1:wdOf(1973, 3, 2), 2:wdOf(1973, 3, 18), 3:wdOf(1973, 5, 5), 4:wdOf(1973, 7, 7), 5:wdOf(1974, 0, 14) };
+const calDay = (i = dayNo()) => i + ((S.cal && S.cal.off) || 0);
+const calDate = w => new Date(CAL0 + (Math.floor(w / 5) * 7 + w % 5) * 864e5);   // working day -> real date
+const weekday = (i = dayNo()) => calDay(i) % 5;          // 0 Monday .. 4 Friday
+const isFriday = (i = dayNo()) => weekday(i) === 4;
+function dateOf(w){ const d = calDate(w); return `${WEEKDAYS[w % 5]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`; }
+function dayDate(i){ return dateOf(calDay(i)); }
+// the season of a calendar day (v2.0 17): spring Mar-May, summer Jun-Aug, autumn Sep-Nov, winter Dec-Feb
+function seasonOf(w = calDay()){ const m = calDate(w).getUTCMonth(); return m >= 2 && m <= 4 ? 'spring' : m >= 5 && m <= 7 ? 'summer' : m >= 8 && m <= 10 ? 'autumn' : 'winter'; }
 function hhmm(min){ const m = 7 * 60 + Math.floor(min); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
-function dayClock(){ return S.day && S.day.closing ? `${WEEKDAYS[dayNo() % 5].slice(0, 3)} · 17:00 · CLOSING` : `${WEEKDAYS[dayNo() % 5].slice(0, 3)} · ${hhmm(dayMin())}${lunchTime() ? ' · LUNCH' : ''}`; }
-function daySnap(){ return { won:(S.sales && S.sales.won) || 0, made:S.made, pmade:S.pmade, shipped:S.shipped, pshipped:S.pshipped, delivered:S.delivered, ontime:S.ontime, earned:S.earned, rep:S.rep, ws:S.walk.served, wl:S.walk.lost, wc:S.walk.cash }; }
+// a deadline in game seconds of the working day from now, as the weekday and clock time it falls on ("Wed 12:00")
+function dueAt(secsLeft){ let m = dayMin() + Math.max(0, secsLeft) * SHIFT_MIN / DAY_S, i = dayNo(); while (m > SHIFT_MIN) { m -= SHIFT_MIN; i++; } return `${WEEKDAYS[weekday(i)].slice(0, 3)} ${hhmm(m)}`; }
+// game seconds of working time as hours and minutes on the clock ("3 h 20 min")
+const hrsOf = sec => { const m = Math.round(sec * SHIFT_MIN / DAY_S), h = Math.floor(m / 60); return h ? `${h} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`; };
+function dayClock(){ const w = calDay(), dt0 = calDate(w), wd = `${WEEKDAYS[weekday()].slice(0, 3)} ${dt0.getUTCDate()} ${MONTHS[dt0.getUTCMonth()].slice(0, 3)}`; return S.day && S.day.closing ? `${wd} · 17:00 · CLOSING` : `${wd} · ${hhmm(dayMin())}${lunchTime() ? ' · LUNCH' : payTime() ? ' · PAY DAY' : ''}`; }
+function daySnap(){ return { won:(S.sales && S.sales.won) || 0, made:S.made, pmade:S.pmade, tmade:S.tmade, shipped:S.shipped, pshipped:S.pshipped, tshipped:S.tshipped, fixed:S.fixed, fork:S.lv4.forkMoved || 0, mixed:S.lv4.mixed || 0, delivered:S.delivered, ontime:S.ontime, earned:S.earned, rep:S.rep, ws:S.walk.served, wl:S.walk.lost, wc:S.walk.cash }; }
 // a factory whistle: a steam chord that rises as the valve opens, held, then dies away
 // a factory steam whistle: three pipes in a chord. The valve opens (the pitch rises into tune), the note is held
 // for 'len' seconds over a steam hiss, then the valve shuts and the note sags as the pressure drops.
@@ -4965,44 +5111,58 @@ function updateDay(dt){
   if (m >= LUNCH[0] && m < LUNCH[1] && D.lunch !== n) { D.lunch = n; whistle(1.0); toast('12:00, the lunch whistle. The crew sits down for half an hour: the machines are yours till 12:30.', 'gold');
     const g = gusChar(); if (g && !S.gus.retired) gusSay(g, pick(['Lunch! Your grandad never missed his at noon.', 'Sandwiches out. Half an hour, lads.', 'Kettle\'s on. Sit down, boss, if you can.'])); }
   if (m >= LUNCH[1] && D.lunch === n && D.back !== n) { D.back = n; whistle(.7); toast('12:30. Back to work.', ''); }
+  updatePay(dt);
 }
 // 17:00: the day book. Everything counted since the morning whistle, against the best day so far.
 function endOfDay(i){
   const a = S.day.at || daySnap(), d = {
-    i, made:S.made - a.made, pmade:S.pmade - a.pmade, shipped:S.shipped - a.shipped, pshipped:S.pshipped - a.pshipped,
+    i, made:S.made - a.made, pmade:S.pmade - a.pmade, tmade:S.tmade - (a.tmade ?? S.tmade), shipped:S.shipped - a.shipped, pshipped:S.pshipped - a.pshipped, tshipped:S.tshipped - (a.tshipped ?? S.tshipped),
     lorries:S.delivered - a.delivered, late:(S.delivered - a.delivered) - (S.ontime - a.ontime), takings:Math.round(S.earned - a.earned),
     ws:S.walk.served - (a.ws || 0), wl:S.walk.lost - (a.wl || 0), wc:Math.round(S.walk.cash - (a.wc || 0)), rep0:Math.round(a.rep), rep1:Math.round(S.rep) };
+  d.date = dayDate(i); d.wd = calDay(i); d.fri = isFriday(i); const pd = payDay(); if (pd) d.pay = { n:Object.keys(pd.paid).length, sum:pd.sum, estate:pd.est, gate:pd.gate || 0 }; if (d.fri) d.week = weekTotals(d);
   const best = S.day.best; d.first = !best; d.record = !!(best && d.takings > best.takings); d.prev = best ? Object.assign({}, best) : null;
-  if (d.first || d.record) S.day.best = { takings:d.takings, made:d.made + d.pmade, i };
-  const t = S.day.target; d.tgt = t ? { txt:TARGETS[t.kind].txt(t.need), done:t.done, bonus:t.bonus } : null;
-  S.day.target = newTarget(d); d.next = TARGETS[S.day.target.kind].txt(S.day.target.need) + ` (bonus ${fmt(S.day.target.bonus)})`;
+  if (d.first || d.record) S.day.best = { takings:d.takings, made:d.made + d.pmade, i, date:d.date };
+  const t = S.day.target; d.tgt = !chalkOn() && t ? { txt:TARGETS[t.kind].txt(t.need), done:t.done, bonus:t.bonus } : null;
+  const ck = chalkProg(); if (chalkOn() && ck) d.chalk = { done:ck[0], of:ck[1] };
+  d.wxNext = wxSummary(calDay(i) + 1); S.day.target = newTarget(d); d.next = chalkOn() ? 'three new jobs on the chalkboard' : TARGETS[S.day.target.kind].txt(S.day.target.need) + ` (bonus ${fmt(S.day.target.bonus)})`;
   S.day.book = [d, ...(S.day.book || [])].slice(0, 5); S.day.at = daySnap();
   sfx('tap'); story({ kind:'day', d });
 }
+// Friday's page closes the week (v2.0 3.1, the Saturday card): the week's totals from this week's pages of the book
+function weekTotals(d){ const wk = Math.floor(d.wd / 5), pages = [d, ...((S.day && S.day.book) || []).filter(b => b.wd !== undefined && Math.floor(b.wd / 5) === wk && b.wd !== d.wd)];
+  const sum = k => pages.reduce((a, b) => a + (b[k] || 0), 0);
+  return { days:pages.length, goods:sum('made') + sum('pmade') + sum('tmade'), loaded:sum('shipped') + sum('pshipped'), lorries:sum('lorries'), late:sum('late'), gate:sum('ws'), takings:sum('takings'), pay:d.pay || null, from:dateOf(wk * 5).split(' ').slice(1, 3).join(' '), to:dateOf(wk * 5 + 4).split(' ').slice(1).join(' ') }; }
+function weekHtml(w){ const row = (k, v, cls = '') => `<span>${k}</span><span class="${cls}">${v}</span>`;
+  return `<div class="db-week"><div class="db-h"><span>Saturday</span><span>The week, ${w.from} to ${w.to}</span></div><div class="kv db">
+    ${row('Days worked', w.days)}${row('Goods made', w.goods)}${row('Lorries signed off', `${w.lorries}${w.late ? ` (${w.late} late)` : ''}`, w.late ? 'badt' : '')}${row('Gate customers', w.gate)}
+    ${w.pay ? row('Pay packets', `${w.pay.n} · ${fmt(w.pay.sum)} ${w.pay.estate ? 'from grandad\'s estate' : 'paid'}`) : ''}
+    <span class="db-t">The week's takings</span><span class="db-t">${fmt(w.takings)}</span></div>
+    <div class="db-s">The yard stands quiet over the weekend. Monday: new orders ring in.</div></div>`; }
 function dayCardHtml(d){
   const g = folk.get('gus'), gusHere = g && !S.gus.retired, goods = d.made + d.pmade;
   const gl = !gusHere ? '' : d.first ? 'First page of the book. Your grandad wrote one of these every night for forty years.' : d.record ? 'Best day this yard has had since your grandad. Go home and sleep.' : d.wl > 0 && d.ws === 0 ? 'Folk came to the gate and went away empty-handed. Your grandad always served the gate first.'
     : d.late > 0 ? 'A late lorry costs more than the half pay. The drivers talk.' : d.lorries === 0 ? 'No lorry out today. Tomorrow we fill one.' : goods >= 40 ? 'She ran sweet all day. Good timber, good crew.' : 'Steady day. Steady days pay the bills.';
   const row = (k, v, cls = '') => `<span>${k}</span><span class="${cls}">${v}</span>`;
   return `<div class="db-h"><span>Iron Valley Works</span><span>Day book</span></div>
-    <h3>${dayDate(d.i)}</h3><div class="db-s">Knocking-off whistle, 17:00 · day ${d.i + 1}</div>
+    <h3>${d.date || dayDate(d.i)}</h3><div class="db-s">Knocking-off whistle, 17:00 · day ${d.i + 1}</div>
     <div class="kv db">
-      ${row('Crates made', d.made)}${S.level >= 2 || d.pmade ? row('Pipes made', d.pmade) : ''}
+      ${row('Crates made', d.made)}${S.level >= 2 || d.pmade ? row('Pipes made', d.pmade) : ''}${S.level >= 3 || d.tmade ? row('Tools made', d.tmade || 0) : ''}
       ${row('Lorries signed off', d.lorries ? `${d.lorries}${d.late ? ` (${d.late} late)` : ''}` : 'none', d.late ? 'badt' : '')}
       ${row('Gate trade', d.ws || d.wl ? `${d.ws} served${d.wl ? `, ${d.wl} walked off` : ''} · ${fmt(d.wc)}` : 'nobody called', d.wl > d.ws ? 'badt' : d.ws ? 'ok' : '')}
       ${row('Reputation', `${d.rep0}% → ${d.rep1}%`, d.rep1 > d.rep0 ? 'ok' : d.rep1 < d.rep0 ? 'badt' : '')}
-      ${d.tgt ? row('Target: ' + d.tgt.txt.toLowerCase(), d.tgt.done ? `met · +${fmt(d.tgt.bonus)}` : 'missed', d.tgt.done ? 'ok' : 'badt') : ''}
+      ${d.tgt ? row('Target: ' + d.tgt.txt.toLowerCase(), d.tgt.done ? `met · +${fmt(d.tgt.bonus)}` : 'missed', d.tgt.done ? 'ok' : 'badt') : ''}${d.chalk ? row('Chalkboard', `${d.chalk.done} of ${d.chalk.of} jobs`, d.chalk.done === d.chalk.of ? 'ok' : '') : ''}
       <span class="db-t">Takings</span><span class="db-t">${fmt(d.takings)}</span>
     </div>
-    ${d.record ? `<div class="stamp db-st">Best day yet</div>` : d.first ? `<div class="db-s">The first day in the book: tomorrow's takings have ${fmt(d.takings)} to beat.</div>` : d.prev ? `<div class="db-s">Best day so far: ${fmt(d.prev.takings)} on ${dayDate(d.prev.i).split(' ').slice(0, 3).join(' ')}</div>` : ''}
-    ${d.next ? `<div class="db-s">Tomorrow: ${d.next.toLowerCase()}</div>` : ''}
+    ${d.record ? `<div class="stamp db-st">Best day yet</div>` : d.first ? `<div class="db-s">The first day in the book: tomorrow's takings have ${fmt(d.takings)} to beat.</div>` : d.prev ? `<div class="db-s">Best day so far: ${fmt(d.prev.takings)} on ${(d.prev.date || dayDate(d.prev.i)).split(' ').slice(0, 3).join(' ')}</div>` : ''}
+    ${d.next ? `<div class="db-s">Tomorrow: ${d.next.toLowerCase()}</div>` : ''}${d.wxNext && !d.fri ? `<div class="db-s">Weather tomorrow: ${d.wxNext.toLowerCase()}</div>` : ''}
     ${gl ? `<div class="who db-g"><img alt="" src="${portrait('gus')}"><div class="say" style="opacity:1;transform:none">${gl}</div></div>` : ''}
-    <button class="btn primary" data-next type="button" style="width:100%;margin-top:10px;min-height:46px">Open the gates · ${dayDate(d.i + 1).split(' ')[0]}</button>`;
+    ${d.week ? weekHtml(d.week) : ''}
+    <button class="btn primary" data-next type="button" style="width:100%;margin-top:10px;min-height:46px">${S.nextLevel ? `Level ${S.nextLevel}: turn the calendar` : `Open the gates · ${WEEKDAYS[(d.wd + 1) % 5]}`}</button>`;
 }
 // 17:00: the knocking-off whistle. Everyone finishes what is in their hands, says goodnight and walks out of the main gate.
 const GOODNIGHT = ['Night, boss.', 'See you tomorrow.', 'That\'s me done. Night!', 'Same time tomorrow, boss.', 'Off home for my tea.'];
 function knockOff(n){
-  S.day.closing = { at:n * DAY_S - .01, t:0, card:false }; S.time = S.day.closing.at;
+  S.day.closing = { at:n * DAY_S - .01, t:0, card:false }; S.time = S.day.closing.at; payAtGate();
   if (trip && trip.phase === 'wait') { endTrip(); toast('Too late to go out now: the car stays parked.', ''); }   // still waiting at the spot for a lorry: the owner gets out
   whistle(2.2); toast('17:00, the knocking-off whistle. The crew finishes up and goes home.', 'gold');
 }
@@ -5046,14 +5206,232 @@ function newTarget(prev){
   const bonus = kind === 'ship' ? need * (L1 ? 3 : 8) : kind === 'takings' ? Math.round(need * .1 / 5) * 5 : kind === 'gate' ? 40 : 60;
   return { kind, need, bonus, done:false };
 }
+// v2.0 3.6 (D-17): "While you were away". The calendar never moves while the game is closed, but on return the foreman
+// hands the owner an envelope of overtime pay for the standing orders: staffed machines only, 50% of the works' normal
+// takings, at most 2 real hours (Levels 2-9). Level 1 has none: nobody runs the yard yet. It counts as cash earned only.
+function awayEnvelope(){
+  const was = S.seenAt, now = Date.now(); if (!was || S.level < 2 || !S.tutDone) return; const away = (now - was) / 1000;
+  if (!(away > 120)) return;                                           // a clock moved backwards pays nothing; a short break pays nothing
+  const pages = ((S.day && S.day.book) || []).filter(b => b.takings > 0).slice(0, 3); if (!pages.length) return;
+  const perSec = pages.reduce((a, b) => a + b.takings, 0) / (pages.length * DAY_S);
+  const ms = ['saw', millReady() && 'pipe', pressReady() && 'tool', S.lv4.saw2 >= 2 && 'saw2'].filter(Boolean), staffed = ms.filter(m => S.staff.some(st => st.role === 'operator' && st.posted !== false && (st.mach || 'saw') === m)).length;
+  if (!staffed) return; const secs = Math.min(2 * 3600, away), pay = Math.round(perSec * secs * .5 * staffed / ms.length / 5) * 5; if (pay < 5) return;
+  S.cash += pay; S.earned += pay; S.away = { pay, h:+(secs / 3600).toFixed(1), staffed, of:ms.length }; story({ kind:'away' }); save(); }
+function awayHtml(){ const a = S.away || {}, who = S.gus.retired ? 'Alf Pryce' : 'Gus';
+  return `<div class="who"><img alt="" src="${portrait('gus')}"><div><b>While you were away</b><small>${who} at the gate · 07:00</small></div></div>
+    <div class="say">"The lads kept the standing orders going while you were off, boss. Overtime, ${a.staffed} of ${a.of} machines manned. It's all in here."</div>
+    <div class="offer" style="text-align:center"><b style="font-size:22px">${fmt(a.pay || 0)}</b><p>${a.h} hours away${a.h >= 2 ? ' (the most an envelope holds)' : ''} · half the works' normal takings</p></div>
+    <button class="btn primary" data-next type="button" style="width:100%;margin-top:8px;min-height:44px">Take the envelope</button>`; }
+// v2.0 18.6: the login calendar from Level 3. Seven real days of rising rewards; a missed day pauses it, never resets it.
+const LOGIN_K = [0, .01, .015, .02, .025, .03, .04, .06];
+function loginCalendar(){
+  if (S.level < 3 || !S.tutDone) return; const L = S.login ||= { day:0, last:'' }, today = new Date().toDateString(); if (L.last === today) return;
+  L.day = L.day % 7 + 1; L.last = today; const pay = Math.round((GOAL_OF[S.level] || 24000) * LOGIN_K[L.day] / 10) * 10; S.cash += pay; S.earned += pay; if (L.day === 7) repChange(2);
+  L.pay = pay; story({ kind:'login' }); save(); }
+function loginHtml(){ const L = S.login; let cells = ''; for (let i = 1; i <= 7; i++) cells += `<div class="lgc ${i < L.day ? 'got' : i === L.day ? 'now' : ''}"><b>${i}</b><span>${fmt(Math.round((GOAL_OF[S.level] || 24000) * LOGIN_K[i] / 10) * 10)}${i === 7 ? ' +2%' : ''}</span></div>`;
+  return `<div class="note" style="letter-spacing:.2em;text-transform:uppercase">The works calendar · day ${L.day} of 7</div><div class="lgrid">${cells}</div>
+    <p style="text-align:center">${fmt(L.pay)} in the cash box for coming in today${L.day === 7 ? ', and the valley notices: reputation +2' : ''}. A missed day only pauses the calendar.</p>
+    <button class="btn primary" data-next type="button" style="width:100%;margin-top:6px;min-height:44px">Open the gates</button>`; }
+// v2.0 6.2: each level's one strategic choice, named at the start and in the charter
+const CHOICE = { 1:'The tea urn (the crew 5% faster) or the trade counter (better gate trade) first?', 2:'Generator Mk II or the warehouse first?', 3:'Mains now ($500), or stay on Old Faithful with the fuel saver?', 4:'Where do you place the supervisor\'s ring?' };
+
+// v2.0 18.6 (D-04): from Level 3 the foreman's chalkboard replaces the daily target: three jobs a day, drawn only from
+// systems the works already has. Each job chalked off pays a bonus; all three in a day add 2 reputation.
+const CHALK = {
+  crates:{ ok:() => true,                txt:n => `Ship ${n} crates`, got:a => S.shipped - a.shipped, need:() => 40 + 10 * Math.floor(Math.random() * 3) },
+  pipes: { ok:() => millReady(),         txt:n => `Ship ${n} pipes`, got:a => S.pshipped - a.pshipped, need:() => 20 + 5 * Math.floor(Math.random() * 3) },
+  tools: { ok:() => pressReady(),        txt:n => `Ship ${n} tools`, got:a => S.tshipped - (a.tshipped ?? S.tshipped), need:() => 10 + 5 * Math.floor(Math.random() * 2) },
+  fix:   { ok:() => S.level >= 3,        txt:n => `Fix ${n} issues`, got:a => S.fixed - (a.fixed ?? S.fixed), need:() => 2 },
+  gate:  { ok:() => true,                txt:n => `Serve ${n} customers at the gate`, got:a => S.walk.served - (a.ws || 0), need:() => 3 + Math.floor(Math.random() * 2) },
+  ontime:{ ok:() => true,                txt:n => `Send ${n} lorries out on time`, got:a => S.ontime - a.ontime, need:() => 2 },
+  sale:  { ok:() => true,                txt:() => 'Win an order or an account on a sales trip', got:a => sales().won - (a.won || 0), need:() => 1 },
+  fork:  { ok:() => S.level >= 4 && hasRole('forklift'), txt:n => `The forklift moves ${n} crates`, got:a => (S.lv4.forkMoved || 0) - (a.fork ?? 0), need:() => 30 },
+  mixed: { ok:() => S.level >= 4,        txt:() => 'Deliver a mixed order', got:a => (S.lv4.mixed || 0) - (a.mixed ?? 0), need:() => 1 },
+};
+const chalkOn = () => S.level >= 3;
+const chalkBonus = () => Math.round((GOAL_OF[S.level] || 24000) * .006 / 10) * 10;
+function newChalk(){ const ks = Object.keys(CHALK).filter(k => CHALK[k].ok()), out = [];
+  while (out.length < 3 && ks.length) { const k = ks.splice(Math.floor(Math.random() * ks.length), 1)[0]; out.push({ k, need:CHALK[k].need(), done:false }); }
+  return { n:dayNo(), jobs:out, all:false }; }
+function updateChalk(){
+  const D = S.day; if (!D || !S.tutDone || D.closing || !chalkOn()) return; if (!D.chalk || D.chalk.n !== dayNo()) { D.chalk = newChalk(); if (!S.lv3.chalkSeen) { S.lv3.chalkSeen = true; toast('The foreman\'s chalkboard is up on the workshop wall: three jobs for the day.', 'gold'); } }
+  const a = D.at || daySnap(); for (const j of D.chalk.jobs) { if (j.done || !CHALK[j.k]) continue; if (CHALK[j.k].got(a) >= j.need) { j.done = true; const b = chalkBonus(); S.cash += b; S.earned += b; sfx('coin'); floatText(`Chalked off +${fmt(b)}`, owner.o.position.x, 2.2, owner.o.position.z); toast(`Chalkboard: ${CHALK[j.k].txt(j.need).toLowerCase()}. Bonus ${fmt(b)}.`, 'good'); syncChalkBoard(); save(); } }
+  if (!D.chalk.all && D.chalk.jobs.length && D.chalk.jobs.every(j => j.done)) { D.chalk.all = true; repChange(2); toast('All three jobs on the chalkboard done today: reputation +2.', 'gold'); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, 'Board\'s clean, boss. Three for three.'); }
+}
+const chalkProg = () => { const c = S.day && S.day.chalk; return c && c.n === dayNo() ? [c.jobs.filter(j => j.done).length, c.jobs.length, c] : null; };
+// the board itself, on the workshop front between the window and the door: the day's jobs in chalk, ticked as they go
+function syncChalkBoard(){
+  if (!chalkOn()) { if (M.chalk) M.chalk.visible = false; return; }
+  if (!M.chalk) { const g = new THREE.Group(); g.position.set(-7.35, 0, -2.47); g.userData.dyn = true; world.add(g);
+    const fr = new THREE.Mesh(BX(.98, .74, .05), std('#6b4a2a', .85)); fr.position.y = 1.62; fr.castShadow = true; g.add(fr);
+    const bd = new THREE.Mesh(new THREE.PlaneGeometry(.88, .64), new THREE.MeshBasicMaterial({ color:'#ffffff' })); bd.position.set(0, 1.62, .03); g.add(bd); M.chalk = g; M.chalkBd = bd; M.chalkKey = ''; }
+  M.chalk.visible = true; const c = S.day && S.day.chalk, key = c ? c.n + ':' + c.jobs.map(j => j.k + j.need + j.done).join(',') : '';
+  if (key === M.chalkKey) return; M.chalkKey = key;
+  const t = tex(512, 372, (g, w, h) => { g.fillStyle = '#2c3a30'; g.fillRect(0, 0, w, h); g.fillStyle = 'rgba(255,255,255,.06)'; for (let i = 0; i < 40; i++) g.fillRect(Math.random() * w, Math.random() * h, 60, 3);
+    g.fillStyle = '#ece6d9'; g.font = '700 40px "Special Elite", Georgia, serif'; g.textAlign = 'center'; g.fillText(c ? WEEKDAYS[weekday()].toUpperCase() + '\'S JOBS' : 'JOBS', w / 2, 52);
+    g.textAlign = 'left'; g.font = '30px "Special Elite", Georgia, serif';
+    (c ? c.jobs : []).forEach((j, i) => { const y = 120 + i * 82, txt = CHALK[j.k] ? CHALK[j.k].txt(j.need) : ''; g.fillStyle = j.done ? '#9bd26f' : '#ece6d9'; g.fillText((j.done ? '✓ ' : '· ') + txt, 26, y, w - 40);
+      if (j.done) { g.strokeStyle = 'rgba(236,230,217,.7)'; g.lineWidth = 3; g.beginPath(); g.moveTo(60, y - 10); g.lineTo(Math.min(w - 20, 70 + g.measureText(txt).width), y - 12); g.stroke(); } }); });
+  M.chalkBd.material.map && M.chalkBd.material.map.dispose(); M.chalkBd.material.map = t; M.chalkBd.material.needsUpdate = true;
+}
 function updateTarget(){
+  updateChalk(); if (chalkOn()) { if (T - (syncChalkBoard.t || 0) > 1) { syncChalkBoard.t = T; syncChalkBoard(); } return; }
   const D = S.day; if (!D || !S.tutDone || D.closing) return; if (!D.target) D.target = newTarget(null);
   const t = D.target; if (t.done) return; const got = TARGETS[t.kind].got(D.at || daySnap());
   if (got >= t.need) { t.done = true; S.cash += t.bonus; S.earned += t.bonus; repChange(2); sfx('coin'); floatText(`Target met +${fmt(t.bonus)}`, owner.o.position.x, 2.2, owner.o.position.z);
     toast(`Today's target met: ${TARGETS[t.kind].txt(t.need).toLowerCase()}. Bonus ${fmt(t.bonus)}, reputation +2.`, 'good'); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, 'That\'s the target, boss. Your grandad would have bought a round.'); save(); }
 }
-const targetProg = () => { const D = S.day, t = D && D.target; if (!t) return null; return [Math.min(t.need, Math.max(0, TARGETS[t.kind].got(D.at || daySnap()))), t.need, t]; };
-function morning(){ clockIn(); whistle(); sfxAt('clank', 5, SITE.z1); toast(`${dayDate(dayNo())}. 07:00: the shift whistle. The gates swing open.`, 'gold'); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, pick(['Morning, boss. Kettle\'s on.', 'Another day, another lorry.', 'Frost on the timber. She\'ll cut fine.', 'Morning. The radio says rain later.'])); }
+const targetProg = () => { if (chalkOn()) return null; const D = S.day, t = D && D.target; if (!t) return null; return [Math.min(t.need, Math.max(0, TARGETS[t.kind].got(D.at || daySnap()))), t.need, t]; };
+function morning(){ clockIn(); if (S.nextLevel && S.levelUp && S.nextLevel === S.level + 1) { const n = S.nextLevel; S.nextLevel = 0; startLevel(n).then(() => { whistle(); sfxAt('clank', 5, SITE.z1); toast(`${dayDate(dayNo())}. 07:00: the first morning of Level ${n}.`, 'gold'); }); return; } S.nextLevel = 0; whistle(); sfxAt('clank', 5, SITE.z1); toast(`${dayDate(dayNo())}. 07:00: the shift whistle. The gates swing open.`, 'gold'); wxForecastToast(); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, pick(['Morning, boss. Kettle\'s on.', 'Another day, another lorry.', 'Frost on the timber. She\'ll cut fine.', 'Morning. The radio says rain later.'])); }
+
+/* =====================================================================
+   BOLT (Bible v2.0 2.1, 7 Level 2, 17.5). A stray dog wanders in at lunch on Level 2's Thursday; the owner shares a
+   sandwich and Bolt stays for good. He trots after the owner, sits when the owner stands still, naps by Old Faithful,
+   barks at lorries, lies in the shade in a heat wave and shakes himself dry next to the owner after a shower. He keeps
+   out of every vehicle's way, never walks up the forklift ramp (he uses the people's paths) and never counts as crew.
+   ===================================================================== */
+const bolt = { o:null, on:false, path:null, mode:'follow', t:0, sp:0, anim:0, bark:0, shake:0, lastTruck:null, gone:false, seated:false, napAt:null };
+function buildBolt(){
+  const g = new THREE.Group(), fur = std('#8a5a32', .95), pale = std('#e8dcc4', .95), dark = std('#2a1d14', .9);
+  const box = (w, h, d, m, x, y, z, par = g) => { const b = new THREE.Mesh(BX(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; par.add(b); return b; };
+  const body = new THREE.Group(); body.position.y = .36; g.add(body); box(.5, .22, .22, fur, 0, 0, 0, body); box(.2, .2, .2, pale, .19, -.02, 0, body);   // body and white chest
+  const head = new THREE.Group(); head.position.set(.27, .12, 0); body.add(head); box(.19, .17, .17, fur, .04, .02, 0, head); box(.12, .08, .1, pale, .15, -.03, 0, head); box(.03, .03, .04, dark, .215, .0, 0, head);
+  for (const z of [-.06, .06]) { const e = box(.04, .09, .05, dark, -.01, .12, z, head); e.rotation.x = z * 3; }   // ears, one up and one flopped
+  const tail = new THREE.Group(); tail.position.set(-.25, .06, 0); body.add(tail); const tb = box(.2, .045, .045, fur, -.09, 0, 0, tail); tb.rotation.z = .2;
+  const legs = []; for (const [x, z] of [[.17, .07], [.17, -.07], [-.17, .07], [-.17, -.07]]) { const L = new THREE.Group(); L.position.set(x, .3, z); g.add(L); box(.07, .3, .07, x > 0 ? pale : fur, 0, -.15, 0, L); legs.push(L); }
+  g.add(blob(.7, .4)); g.userData.dyn = true; g.visible = false; world.add(g);
+  bolt.o = g; bolt.body = body; bolt.head = head; bolt.tail = tail; bolt.legs = legs; return g;
+}
+const boltHere = () => !!(S.bolt && S.bolt.joined);
+function boltGo(x, z){ const p = bolt.o.position; bolt.path = findPath(p.x, p.z, x, z); bolt.goal = [x, z]; }
+// one step along his path; false while still going
+function boltStep(dt, sp){
+  if (!bolt.path || !bolt.path.length) return true;
+  const p = bolt.o.position, [tx, tz] = bolt.path[0], dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz);
+  if (d < Math.max(.08, sp * dt * 1.5)) { bolt.path.shift(); return !bolt.path.length; }
+  const st = Math.min(d, sp * dt), nx = p.x + dx / d * st, nz = p.z + dz / d * st;
+  if (vehInWay(bolt, nx, nz)) { bolt.sp = 0; bolt.blocked = (bolt.blocked || 0) + dt; if (bolt.blocked > 1.5) { bolt.blocked = 0; bolt.path = null; } return false; }   // a vehicle in the way: he waits, then thinks again
+  bolt.blocked = 0;
+  p.x = nx; p.z = nz; collide(p); bolt.sp = sp; const a = Math.atan2(-dz, dx); let da = a - bolt.o.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); bolt.o.rotation.y += da * Math.min(1, dt * 10); return false;
+}
+function boltAnim(dt){
+  const run = bolt.sp > .2, k = run ? bolt.sp / 3 : 0; bolt.anim += dt * (run ? 13 * Math.min(1.4, .6 + k) : 0);
+  const sit = bolt.mode === 'sit' || bolt.mode === 'beg', lie = bolt.mode === 'nap' || bolt.mode === 'shade';
+  bolt.legs.forEach((L, i) => { const tgt = lie ? (i < 2 ? -1.35 : 1.35) : sit && i >= 2 ? .9 : run ? Math.sin(bolt.anim + (i === 0 || i === 3 ? 0 : Math.PI)) * .55 : 0; L.rotation.z += (tgt - L.rotation.z) * Math.min(1, dt * 12); });
+  const by = lie ? .16 : sit ? .33 : .36 + (run ? Math.abs(Math.sin(bolt.anim)) * .03 : 0), br = sit ? .42 : lie ? 0 : 0;
+  bolt.body.position.y += (by - bolt.body.position.y) * Math.min(1, dt * 10); bolt.body.rotation.z += (br - bolt.body.rotation.z) * Math.min(1, dt * 10);
+  bolt.tail.rotation.y = Math.sin(T * (bolt.mode === 'beg' || run ? 14 : 5)) * (lie ? .1 : .6);
+  bolt.head.rotation.z = bolt.bark > 0 ? Math.sin(bolt.bark * 30) * .25 : lie ? -.25 : 0; bolt.bark = Math.max(0, bolt.bark - dt);
+  if (bolt.shake > 0) { bolt.shake -= dt; bolt.body.rotation.x = Math.sin(bolt.shake * 40) * .35; if (Math.random() < dt * 30) sprite('#cfe0ee', bolt.o.position.x + rand(-.3, .3), .45, bolt.o.position.z + rand(-.3, .3), rand(-1.5, 1.5), rand(.5, 1.5), rand(-1.5, 1.5), .5, .05, -6); } else bolt.body.rotation.x = 0;
+}
+// a moving vehicle with Bolt in or near its line: he steps sideways out of it at once (never along it), so nobody waits for anybody
+function boltDodge(dt){
+  const b = bolt.o.position, list = [[fork.o, fork.o && /^to/.test(fork.state), 1.3, .8], [M.truck, ['arrive', 'leave'].includes(truck.state), 4.2, 1.35], [M.flat, ['arrive', 'leave'].includes(sup.state), 4.2, 1.35], [M.car, !!trip && ['out', 'back', 'park'].includes(trip.phase), 2.6, 1.0]];
+  for (const [m, on, half, hw] of list) { if (!on || !m || !m.visible) continue; const a = m.rotation.y, fx = Math.cos(a), fz = -Math.sin(a), rx = b.x - m.position.x, rz = b.z - m.position.z, along = rx * fx + rz * fz, side = -rx * fz + rz * fx;
+    if (Math.abs(along) > half + 1.8 || Math.abs(side) > hw + .9) continue;
+    // the clear side first (his own side if both are open); with walls both ways, back along the vehicle's line, away from it
+    const free = sg => !segBlocked(b.x, b.z, b.x - fz * sg * 1.2, b.z + fx * sg * 1.2, .12), s0 = side >= 0 ? 1 : -1, sg = free(s0) ? s0 : free(-s0) ? -s0 : 0, st = 3.2 * dt;
+    if (sg) { b.x += -fz * sg * st; b.z += fx * sg * st; } else { const ag = along >= 0 ? 1 : -1; b.x += fx * ag * st; b.z += fz * ag * st; }
+    collide(b);
+    bolt.sp = 3.2; bolt.path = null; bolt.mode = 'follow'; bolt.o.rotation.y = sg ? Math.atan2(-(fx * sg), -fz * sg) : Math.atan2(-fz * (along >= 0 ? 1 : -1), fx * (along >= 0 ? 1 : -1)); return true; }
+  return false;
+}
+function boltBark(n = 2){ bolt.bark = .6; for (let i = 0; i < n; i++) setTimeout(() => sfxAt('bark', bolt.o.position.x, bolt.o.position.z, .8), i * 260); }
+const BOLT_NAP = [2.85, -7.25], BOLT_SHADE = [-12.6, -2.35];   // the warm pocket between the workshop wall and Old Faithful, off every lane; in the workshop's shadow
+function updateBolt(dt){
+  S.bolt ||= { joined:false };
+  if (!bolt.o) buildBolt();
+  // the arrival: Level 2 Thursday at lunch (or the first lunch after, in a game that went past it)
+  if (!S.bolt.joined) { bolt.o.visible = bolt.on;
+    if (!bolt.on && S.level >= 2 && S.tutDone && lunchTime() && (S.level > 2 || weekday() >= 3) && !cardOpen) { bolt.on = true; bolt.o.visible = true; bolt.o.position.set(P.frontOut[0] + .8, 0, P.frontOut[1] - .3); bolt.mode = 'arrive'; boltGo(owner.o.position.x + 1, owner.o.position.z + .6); }
+    if (bolt.on) { if (T - (bolt.rp || 0) > 1) { bolt.rp = T; boltGo(owner.o.position.x + .9, owner.o.position.z + .5); } boltStep(dt, 2.4); boltAnim(dt);
+      if (near(owner.o, [bolt.o.position.x, bolt.o.position.z], 1.6)) { S.bolt.joined = true; bolt.mode = 'beg'; bolt.t = 0; sfx('hire');
+        toast('A stray dog wanders in at lunch. You share your sandwich with him, and he stays for good. The crew call him Bolt.', 'gold'); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, 'Look who\'s come for his dinner. He\'ll keep the rats off the timber.'); save(); } }
+    return; }
+  bolt.on = true; bolt.o.visible = !(S.day && S.day.closing && S.day.closing.shut && !near(owner.o, [bolt.o.position.x, bolt.o.position.z], 12));
+  const o = owner.o.position, b = bolt.o.position, dO = Math.hypot(o.x - b.x, o.z - b.z);
+  if (owner.stepTo || (owner.lastPos && Math.hypot(o.x - owner.lastPos[0], o.z - owner.lastPos[1]) > .01)) bolt.lastMove = T; owner.lastPos = [o.x, o.z];
+  const ownerIdle = T - (bolt.lastMove || 0);
+  // lorries arriving get barked at
+  if (truck.state === 'arrive' && bolt.lastTruck !== 'arrive' && Math.hypot(M.truck.position.x - b.x, M.truck.position.z - b.z) < 18) boltBark(2); bolt.lastTruck = truck.state;
+  // a shower has just passed: a good shake next to the owner
+  if (wx.from === 'shower' && wx.kind !== 'shower' && wx.k > .3 && wx.k < .5 && !bolt.shook && dO < 4) { bolt.shook = true; bolt.shake = 1.1; } if (wx.kind === 'shower') bolt.shook = false;
+  // anything moving close by: he trots to the owner's side
+  let flee = false; for (const [m, on] of [[fork.o, fork.o && /^to/.test(fork.state)], [M.truck, ['arrive', 'leave'].includes(truck.state)], [M.flat, ['arrive', 'leave'].includes(sup.state)], [M.car, !!trip]]) if (on && m && Math.hypot(m.position.x - b.x, m.position.z - b.z) < 3.2) flee = true;
+  if (boltDodge(dt)) { boltAnim(dt); return; }
+  const closing = S.day && S.day.closing, trip_ = !!trip;
+  let want = trip_ || closing ? 'nap' : heatOn() && ownerIdle > 6 ? 'shade' : lunchTime() && dO > 3 && ownerIdle > 4 ? 'nap' : ownerIdle > 28 && dO > 5 ? 'nap' : 'follow';
+  if (flee) want = 'follow';
+  if (want === 'follow') { if (bolt.mode === 'nap' && dO > 4 && ownerIdle > 2 && !flee) want = 'nap';   // asleep: he stays asleep unless the owner comes by or moves off
+    else { const f = owner.o.rotation.y, side = [o.x - Math.cos(f) * 1.1 + Math.sin(f) * .5, o.z + Math.sin(f) * 1.1 + Math.cos(f) * .5];
+      if (dO > 1.9 || flee) { if (T - (bolt.rp || 0) > .5) { bolt.rp = T; boltGo(...side); } boltStep(dt, Math.min(4.2, 1.4 + dO * .9)); bolt.mode = 'follow'; }
+      else { bolt.sp = 0; bolt.path = null; bolt.mode = ownerIdle > 1.2 ? 'sit' : 'follow'; const a = Math.atan2(-(o.z - b.z), o.x - b.x); let da = a - bolt.o.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); bolt.o.rotation.y += da * Math.min(1, dt * 6); } } }
+  if (want === 'nap' || want === 'shade') { const at = want === 'shade' ? BOLT_SHADE : BOLT_NAP;
+    if (Math.hypot(b.x - at[0], b.z - at[1]) > .3) { if (!bolt.path || !bolt.goal || bolt.goal[0] !== at[0]) boltGo(...at); if (boltStep(dt, 1.8)) bolt.sp = 0; bolt.mode = 'go'; }
+    else { bolt.sp = 0; bolt.mode = want; bolt.o.rotation.y = want === 'shade' ? -Math.PI / 2 : Math.PI; } }
+  boltAnim(dt);
+}
+
+/* =====================================================================
+   PAY DAY (Bible v2.0 3.3, 4.2, 5.7, 18.2). Friday 16:30: the wages hatch on the workshop front opens. The crew come to it
+   when their hands are free, three in the queue at a time, and the owner, standing at the hatch, hands each one his
+   packet: envelope over, cap tipped, back to work. On Levels 1-4 grandad's estate pays the wages, so the packets cost
+   the owner nothing. Anybody not paid by the knocking-off whistle gets his packet at the gate on the way out.
+   ===================================================================== */
+const PAY_AT = [-2.6, -1.85], PAY_Q = [[-1.8, -1.8], [-1.0, -1.8], [-0.2, -1.8]];
+const payTime = () => !!(S.tutDone && S.day && !S.day.closing && isFriday() && dayMin() >= PAY_MIN && !(S.gus && S.gus.party));
+const payDay = () => S.day && S.day.pay && S.day.pay.n === dayNo() ? S.day.pay : null;
+const estatePays = () => S.level <= 4;   // v2.0 18.2: the weekly accounts start at Level 5
+const payNeeded = () => S.staff.filter(st => st.posted !== false);
+const ownerAtHatch = () => !!owner && near(owner.o, PAY_AT, .62) && !trip;
+function buildHatch(){
+  if (M.hatch) return M.hatch; const g = new THREE.Group(); g.userData.dyn = true; g.position.set(PAY_AT[0], 0, -2.5); world.add(g);
+  const olive = new THREE.MeshStandardMaterial({ color:'#55613a', roughness:.8 }), dark = new THREE.MeshStandardMaterial({ color:'#2b2a24', roughness:.9 }), wood = new THREE.MeshStandardMaterial({ color:'#8a6a44', roughness:.85 });
+  const box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; b.receiveShadow = true; g.add(b); return b; };
+  box(.96, .07, .1, olive, 0, 1.78, .05); box(.07, .76, .1, olive, -.45, 1.42, .05); box(.07, .76, .1, olive, .45, 1.42, .05);   // the frame round the hatch
+  box(.84, .66, .02, dark, 0, 1.42, .015);                                                                                  // the dark office behind it
+  box(.98, .05, .26, wood, 0, 1.03, .13); box(.06, .2, .06, wood, -.4, .92, .2); box(.06, .2, .06, wood, .4, .92, .2);       // the sill and its brackets
+  const sh = new THREE.Group(); sh.position.set(0, 1.79, .1); g.add(sh); const lid = new THREE.Mesh(new THREE.BoxGeometry(.86, .68, .035), olive); lid.position.set(0, -.34, 0); lid.castShadow = true; sh.add(lid);   // the shutter, hinged at the top
+  const tin = new THREE.Group(); tin.position.set(.22, 1.09, .14); g.add(tin); const tb = new THREE.Mesh(new THREE.BoxGeometry(.22, .08, .15), new THREE.MeshStandardMaterial({ color:'#7a2a22', roughness:.5, metalness:.3 })); tin.add(tb);
+  for (let i = 0; i < 4; i++) { const e = new THREE.Mesh(new THREE.BoxGeometry(.13, .012, .08), new THREE.MeshStandardMaterial({ color:'#c9ab72', roughness:.9 })); e.position.set(-.2 - (i % 2) * .02, 1.065 + i * .013, .12); g.add(e); }   // the pile of packets
+  const sign = board(textTex([['WAGES', 46, 30], ['FRIDAY 4.30', 22, 64, 500]], 256, 84, { bg:'#ece6d9', fg:'#2b2a24', border:'#55613a', bw:6 }), .62, .2); sign.position.set(0, 1.95, .1); g.add(sign);
+  M.hatch = { g, sh, tin, open:0 }; return M.hatch;
+}
+let payRing = null;
+function updatePay(dt){
+  const H = buildHatch(), want = payTime() ? 1 : 0; H.open += clamp(want - H.open, -dt * 1.5, dt * 1.5); H.sh.rotation.x = -H.open * 1.45; H.tin.visible = H.open > .5;
+  if (M.ring && !payRing) { payRing = M.ring('pay', ...PAY_AT, '#e2a72c', .55); payRing.g.visible = false; }
+  if (payRing) payRing.g.visible = want > 0 && !!payDay() && payNeeded().some(st => !payDay().paid[st.id]);
+  if (!payTime()) return;
+  if (!payDay()) { const sum = payNeeded().reduce((a, st) => a + (WAGES[st.role] || 120), 0);
+    S.day.pay = { n:dayNo(), paid:{}, seq:0, sum, est:estatePays(), told:false }; if (!payNeeded().length) return;
+    whistle(.5, .6); sfxAt('clank', ...PAY_AT); toast(`16:30, pay day. Stand at the wages hatch by the workshop door to hand out the packets${estatePays() ? ' (grandad\'s estate pays them)' : ''}.`, 'gold');
+    const g = gusChar(); if (g && !S.gus.retired) gusSay(g, pick(['Pay day, boss! Hatch is open.', 'Packets are ready. The lads will be along.', 'Friday at last. Your grandad paid every man by hand.'])); }
+  const pd = payDay(); if (!pd.told && dayMin() > PAY_MIN + 16 && !ownerAtHatch() && payNeeded().some(st => !pd.paid[st.id])) { pd.told = true; toast('The crew are waiting at the wages hatch for their packets.', ''); }
+}
+// one worker's part in pay day; true while he is busy with it
+function payStep(c, dt){
+  const pd = payDay(), st = c.st;
+  if (!pd || !payTime() || pd.paid[st.id] || st.role === 'forklift') { if (c.pay) { c.pay = null; c.state = 'idle'; c.path = null; c.task = null; } return false; }
+  if (!c.pay) { if (c.stack.length || c.trolley || (c.tplanks && c.tplanks.length) || c.lunch || ['fixing', 'arrive', 'pour', 'fill', 'servicing'].includes(c.state)) return false;
+    if ([...staffObj.values()].filter(o => o.pay).length >= PAY_Q.length) return false;
+    releaseCart(c); c.state = 'pay'; if (cartHome(c, dt)) return true;
+    c.pay = { seq:++pd.seq, t:0, slot:-1 }; c.task = null; }
+  const line = [...staffObj.values()].filter(o => o.pay).sort((a, b) => a.pay.seq - b.pay.seq), k = line.indexOf(c), spot = PAY_Q[Math.min(k, PAY_Q.length - 1)];
+  if (c.pay.slot !== k) { c.pay.slot = k; goTo(c, ...spot); c.state = 'pay'; }
+  if (c.path && c.path.length) { walk(c, dt); return true; }
+  c.play('idle'); c.faceTo(k === 0 ? PAY_AT : line[k - 1] ? [line[k - 1].o.position.x, line[k - 1].o.position.z] : PAY_AT, dt);
+  if (k === 0 && ownerAtHatch()) { c.pay.t += dt; owner.faceTo([c.o.position.x, c.o.position.z], dt);
+    if (c.pay.t > .7 && !c.pay.given) { c.pay.given = true; owner.play('point'); owner.lock = .5; const e = new THREE.Mesh(new THREE.BoxGeometry(.13, .02, .08), new THREE.MeshStandardMaterial({ color:'#c9ab72' })); e.position.set(PAY_AT[0] + .2, 1.1, -2.4); scene.add(e);
+      fly(e, c.o, new THREE.Vector3(0, 1.05, .25), .35, () => e.removeFromParent(), .3); sfx('pick'); }
+    if (c.pay.t > 1.25) { pd.paid[st.id] = true; c.pay = null; c.state = 'idle'; c.path = null; c.task = null; c.play('cheer'); c.say = { text:pick(['Thanks, boss!', 'Ta very much.', 'Cheers, boss. See you Monday.', 'That\'s the rent paid.']), until:T + 2.2 };
+      floatText('Paid', c.o.position.x, 1.9, c.o.position.z, 'info'); sfx('coin');
+      if (payNeeded().every(x => pd.paid[x.id] || x.role === 'forklift')) { for (const x of payNeeded()) pd.paid[x.id] = true; pd.byHand = true; toast('Every packet handed out. Caps tipped all round.', 'good'); sfx('buy'); save(); } } }
+  return true;
+}
+// 17:00: whoever was not paid at the hatch gets his packet at the gate
+function payAtGate(){ const pd = payDay(); if (!pd) return; const left = payNeeded().filter(st => !pd.paid[st.id]); if (!left.length) return;
+  for (const st of left) pd.paid[st.id] = true; pd.gate = left.length; toast(`${left.length} pay packet${left.length > 1 ? 's' : ''} handed out at the gate on the way home.`, ''); }
 
 // The crew at lunch: operators and loaders put down what they are doing (a loader finishes his carry first) and
 // sit on the bench by the workshop; the ones who find no seat stand with them. The fitters stay on call.
@@ -5091,7 +5469,7 @@ const WALKERS = [
   { name:'Nell Ward', role:'Ward\'s Hardware', want:'pipe', n:[2, 4], lv:2, parts:['hair_pony', 'clipboard'], cols:{ suit:'#6a4a2a', shirt:'#e8dcc0', hair:'#a8522a' }, hi:'Pipe for the shop. Customers keep asking.', bye:'I\'ll send folk your way.' },
   { name:'Marty Cole', role:'Builder', want:'pipe', n:[3, 4], lv:2, parts:['hat_hard', 'vest'], cols:{ suit:'#6b4a2a', hat:'#f2c230', vest:'#e5772b', shirt:'#d8d2c2' }, hi:'Scaffold\'s waiting on drain pipe. Cash in hand.', bye:'Same time next week, maybe.' },
 ];
-const WALK_TIP_S = 35, walkPatience = () => S.restored.counter ? 130 : 90;
+const WALK_TIP_S = 35, walkPatience = () => S.restored.bell ? 160 : S.restored.counter ? 130 : 90;   // v2.0 5.2, 18.4: counter 130 s, bell 160 s
 let walker = null, walkT = 0, walkNext = 45;
 const walkWaiting = () => !!(walker && (walker.state === 'in' || walker.state === 'wait'));
 const walkWant = type => walkWaiting() && walker.def.want === type ? walker.n - walker.got : 0;
@@ -5115,11 +5493,11 @@ function spawnWalker(force){
   walker = { def, n, got:0, t:0, wt:0, state:'in', c, force:!!force }; S.walk.last = def.name; goTo(c, ...TRADE);
   toast(`${def.name} (${def.role}) is walking in at the gate for ${n} ${def.want}s, cash.`, 'gold'); sfx('tap'); return walker;
 }
-function walkerGone(){ if (!walker) return; const c = walker.c; c.o.removeFromParent(); const i = mixers.indexOf(c.mixer); if (i >= 0) mixers.splice(i, 1); walker = null; walkT = 0; walkNext = rand(70, 130); }
+function walkerGone(){ if (!walker) return; const c = walker.c; c.o.removeFromParent(); const i = mixers.indexOf(c.mixer); if (i >= 0) mixers.splice(i, 1); walker = null; walkT = 0; walkNext = S.restored.window ? rand(45, 90) : rand(70, 130); }   // v2.0 18.4: the shop window brings them every 45-90 s
 function walkerLeave(){ const w = walker; w.state = 'out'; goTo(w.c, ...P.frontOut); }
 function updateWalkin(dt){
   if (!walker) {
-    if (!S.tutDone || S.gus.party || cardOpen || dayMin() > SHIFT_MIN - 30 || (S.day && S.day.closing) || rain) return;   // nobody walks in during the last half hour
+    if (!S.tutDone || S.gus.party || cardOpen || dayMin() > SHIFT_MIN - (S.restored.lamps ? 10 : 30) || (S.day && S.day.closing) || noWalkIns()) return;   // nobody walks in during the last half hour, or in the wet (the awning keeps light-rain trade going)
     walkT += dt; if (walkT > walkNext && !carAtGate()) spawnWalker(); return; }
   const w = walker, c = w.c;
   if (S.day && S.day.closing && w.state !== 'out') {   // knocking-off: they pay for anything already handed over, and go
@@ -5194,7 +5572,7 @@ const ADS = {
   courier: { n:'A', name:'Valley Courier advert', min:15, cost:90, days:4, boost:.8, say:'A quarter page in Thursday\'s Courier. The whole valley reads it.', x:600, y:500 },
   poster:  { n:'B', name:'Station noticeboard poster', min:20, cost:30, days:2, boost:.4, say:'Pinned by the ticket window. Every commuter sees it twice a day.', x:430, y:330 },
   show:    { n:'C', name:'County Show stall', min:35, cost:250, days:3, boost:1.6, friday:true, say:'Friday is show day. Farmers, grocers and the docks men all walk past your stall.', x:180, y:840 },
-  sign:    { n:'D', name:'Painted sign on Mill Road', min:0, cost:150, boost:.3, forever:true, say:'A big painted board at the gate: IRON VALLEY WORKS, CRATES AND PIPE.', x:1010, y:1128 },
+  sign:    { n:'D', name:'Painted sign on Mill Road', min:0, cost:150, boost:.3, forever:true, say:'A big painted board at the gate: IRON VALLEY WORKSHOP, EST. 1921.', x:1010, y:1128 },
 };
 for (const [k, p] of Object.entries(PLACES)) Object.assign(PEOPLE, { ['buyer_' + k]:{ name:p.buyer, role:p.name, line:'', skin:pick(SKINS), hair:pick(HAIRS), shirt:pick(SHIRTS), bg:'#c8b48a', hat:k === 'farm' ? '#8a6a3e' : null, stache:k === 'kerr' || k === 'grocer' } });
 const sales = () => S.sales || (S.sales = { acc:{}, visited:{}, ads:{}, trips:0, won:0 });
@@ -5280,7 +5658,7 @@ function otherVehicles(V){ const out = [];
 function roadYield(a, path, s, look, V){
   if (!gateFree(V, path, s, look)) { V.yieldT = T; V.queueFor = 'gate'; return true; }
   const ahead = pathAt(path, Math.min(path.len, s + look)), bx = ahead.x - a.x, bz = ahead.z - a.z, L2 = bx * bx + bz * bz || 1, half = V === CAR ? .9 : 1.2;   // half its width; a person's width is added below
-  const people = [...staffObj.values(), ...folk.values(), ...(walker ? [walker.c] : []), ...(V !== CAR && owner && owner.o.visible ? [owner] : [])];
+  const people = [...staffObj.values(), ...folk.values(), ...(walker ? [walker.c] : []), ...(V !== CAR && owner && owner.o.visible ? [owner] : [])];   // Bolt keeps out of the lorries' and the car's way himself (boltDodge)
   const east = bx > 0, front = a.x + (east ? 1 : -1) * (V === CAR ? 2.2 : 4.2);
   const nearGate = a.z > 13.4 && (east ? front > -3 && front < 2.6 : front < 13 && front > 7.4);
   if (nearGate && people.some(c => c.o.visible && !c.gone && c.o.position.x > 2.2 && c.o.position.x < 7.8 && c.o.position.z > 13.4 && c.o.position.z < 16.6)) { V.yieldT = T; return true; }
@@ -5329,8 +5707,8 @@ function leaveScene(){ if (trip) { trip.phase = 'home'; trip.t = 0; } }
 function visitHtml(k){
   const pl = PLACES[k], acc = !!sales().acc[k], booked = (S.book || []).some(o => o.place === k) || (S.order && S.order.place === k), now = placeSpec(k), big = placeSpec(k, 'big');
   const desc = o => [o.qty ? `${o.qty} crates` : '', o.pq ? `${o.pq} pipes` : '', o.tq ? `${o.tq} tools` : ''].filter(Boolean).join(' and ');
-  const offers = booked ? '' : `<div class="offer"><b>Take an order now</b><button class="btn primary" data-pick="now" type="button">${fmt(now.pay)}</button><p>${desc(now)}, due in ${now.deadline} s once it starts.</p></div>
-    <div class="offer"><b>A big order, tight deadline</b><button class="btn primary" data-pick="big" type="button">${fmt(big.pay)}</button><p>${desc(big)} at a fifth over the rate, due in ${big.deadline} s. Late pays half.</p></div>`;
+  const offers = booked ? '' : `<div class="offer"><b>Take an order now</b><button class="btn primary" data-pick="now" type="button">${fmt(now.pay)}</button><p>${desc(now)}, due ${hrsOf(now.deadline)} after it starts.</p></div>
+    <div class="offer"><b>A big order, tight deadline</b><button class="btn primary" data-pick="big" type="button">${fmt(big.pay)}</button><p>${desc(big)} at a fifth over the rate, due ${hrsOf(big.deadline)} after it starts. Late pays half.</p></div>`;
   const accOffer = acc ? `<div class="offer"><b>Regular account</b><span class="badge">open</span><p>${pl.buyer.split(',')[0]} phones you for orders already.</p></div>`
     : S.rep >= 55 ? `<div class="offer"><b>Open a regular account</b><button class="btn" data-pick="acc" type="button">Shake on it</button><p>No order today, but they phone you with orders from now on.</p></div>`
     : `<div class="offer"><b>A regular account</b><p>Not yet: they want to see a reputation of 55% first (you have ${Math.round(S.rep)}%).</p></div>`;
@@ -5338,7 +5716,7 @@ function visitHtml(k){
     <p class="quote">"${booked ? 'We\'ll take the lot you\'re making for us first, then we\'ll talk again.' : pl.say}"</p>${offers}${accOffer}
     <button class="btn" data-pick="none" type="button" style="width:100%;margin-top:8px;min-height:44px">Thank them and drive back</button>`;
 }
-function adHtml(k){ const a = ADS[k], on = adOn(k), fri = !a.friday || dayNo() % 5 === 4;
+function adHtml(k){ const a = ADS[k], on = adOn(k), fri = !a.friday || isFriday();
   return `<div class="who"><img alt="" src="${portrait('council')}"><div><b>${a.name}</b><small>${a.forever ? 'At the works' : a.min + ' min from the works'}</small></div></div><p class="quote">"${a.say}"</p>
     ${on ? `<div class="offer"><b>Already running</b><p>${a.forever ? 'The sign is up.' : `Runs until ${dayDate(sales().ads[k]).split(' ').slice(0, 3).join(' ')}.`}</p></div>`
       : !fri ? `<div class="offer"><b>Not a show day</b><p>The County Show is on Fridays.</p></div>`
@@ -5353,7 +5731,7 @@ function pickOffer(k, what){
 function buyAd(k){ const a = ADS[k]; if (S.cash < a.cost || adOn(k)) return; S.cash -= a.cost; sales().ads[k] = a.forever ? true : dayNo() + a.days - 1; sfx('buy');
   toast(`${a.name}: paid. The phone will ring more often.`, 'good'); if (k === 'sign') putSign(); save(); }
 function putSign(){ if (M.millSign) return; const sb = put(inst('env_sale_sign'), 8.2, SITE.z1 + 1.3, 0, 0, 1.4); sb.userData.dyn = true;
-  const m = board(textTex([['IRON VALLEY WORKS', 46, 50], ['CRATES · PIPE · MILL ROAD', 30, 98, 500]], 512, 140, { bg:'#2f5d8a', fg:'#efe1bd', border:'#1d3a56', bw:10 }), 1.5, .41); m.position.set(0, 1.3, .1); sb.add(m); M.millSign = sb; }
+  const m = board(textTex([[signName().toUpperCase(), 46, 50], ['EST. 1921 · MILL ROAD', 30, 98, 500]], 512, 140, { bg:'#2f5d8a', fg:'#efe1bd', border:'#1d3a56', bw:10 }), 1.5, .41); m.position.set(0, 1.3, .1); sb.add(m); M.millSign = sb; }
 // the town map card: a small map of the valley and a row for every place you can drive to
 const TOWN_SVG = () => { const pin = (d, col) => `<g transform="translate(${d.x} ${d.y})"><circle r="30" fill="${col}" stroke="#fff" stroke-width="5"/><text y="11" text-anchor="middle" font-size="30" font-weight="700" fill="#2a1d14">${d.n}</text></g>`;
   return `<svg viewBox="40 130 1020 1040" style="width:100%;height:auto;display:block;border-radius:8px;background:#e8dfbf;border:2px solid #3a2a1e" font-family="Arial">
@@ -5366,7 +5744,7 @@ const TOWN_SVG = () => { const pin = (d, col) => `<g transform="translate(${d.x}
 const tripMin = d => 2 * d.min * (S.restored.car ? .8 : 1) + 25;
 const tooLate = d => !!d.min && dayMin() + tripMin(d) > SHIFT_MIN;
 function townHtml(){
-  const s = sales(), row = (k, d, ad) => { const acc = !ad && s.acc[k], seen = !ad && s.visited[k] === dayNo(), on = ad && adOn(k), fri = !ad || !d.friday || dayNo() % 5 === 4, lock = !ad && d.lv && S.level < d.lv, late = !lock && tooLate(d);
+  const s = sales(), row = (k, d, ad) => { const acc = !ad && s.acc[k], seen = !ad && s.visited[k] === dayNo(), on = ad && adOn(k), fri = !ad || !d.friday || isFriday(), lock = !ad && d.lv && S.level < d.lv, late = !lock && tooLate(d);
     const note = lock ? `opens at level ${d.lv}` : late ? 'back after 17:00' : ad ? (on ? 'running' : !fri ? 'Fridays only' : fmt(d.cost)) : acc ? 'account ★' : seen ? 'visited today' : (d.mix === 'tool' ? 'tools' : d.mix === 'pipe' ? (S.level >= 3 && k === 'kerr' ? 'pipes, tools' : 'pipes') : d.mix === 'mix' ? (S.level >= 3 ? 'crates, pipes, tools' : 'crates, pipes') : 'crates');
     return `<button class="trow ${ad ? 'ad' : ''}" data-go="${ad ? 'ad' : 'visit'}:${k}" type="button" ${lock || late || seen || (ad && (on || !fri)) ? 'disabled' : ''}><i>${d.n}</i><b>${d.name}</b><span>${d.min ? d.min + ' min' : 'here'}</span><small>${note}</small></button>`; };
   return `<div class="note" style="letter-spacing:.2em;text-transform:uppercase">Grandad's car · the valley</div><h3 style="margin:4px 0 8px;font:700 22px Georgia,serif">Where to, boss?</h3>${TOWN_SVG()}
@@ -5415,15 +5793,19 @@ let evT = 0, evNext = 200, rain = null;
 const BLADE_COST = 15;
 function updateEvents(dt){
   tickRain(dt); updateBlade(dt);
-  if (!S.tutDone || cardOpen || (S.day && S.day.closing) || S.gus.party || S.level > 2) return;
+  if (!S.tutDone || cardOpen || (S.day && S.day.closing) || S.gus.party) return;
+  // v2.0 7, Level 3 Thursday: the blunt saw blade turns up as one of the level's issues
+  if (S.level >= 3 && S.level === 3 && weekday() === 3 && !S.lv3.bladeDone && dayMin() > 150 && !S.blade && sawOn && !(S.order && S.order.guided)) { S.lv3.bladeDone = true; bluntBlade(); }
   evT += dt; if (evT < evNext) return; evT = 0; evNext = rand(170, 280);
   // Bible 4.5: no issues of any kind on levels 1 and 2, so the blunt blade is not one of their events (build 0.20)
-  const opts = []; if (!rain) opts.push('rain'); if (accounts().length && !(S.sales.rivalDay >= dayNo() - 2)) opts.push('rival');
+  const opts = []; if (accounts().length && !(S.sales.rivalDay >= dayNo() - 2)) opts.push('rival'); if (S.level >= 3 && !S.blade && sawOn && sessionT > 60) opts.push('blade');
   const e = opts.length ? pick(opts) : null;
-  if (e === 'blade') { S.blade = { at:dayNo() }; toast('The crate machine\'s blade has gone blunt: it cuts at 60%. Fit a new one at the side of the machine ($' + BLADE_COST + ').', 'bad'); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, 'Hear that? Blade\'s blunt. There\'s new ones on the bench.'); save(); }
+  if (e === 'blade') bluntBlade();
+  if (e === 'bladeOld') { S.blade = { at:dayNo() }; toast('The crate machine\'s blade has gone blunt: it cuts at 60%. Fit a new one at the side of the machine ($' + BLADE_COST + ').', 'bad'); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, 'Hear that? Blade\'s blunt. There\'s new ones on the bench.'); save(); }
   if (e === 'rain') startRain();
   if (e === 'rival') { const k = pick(accounts()); S.sales.rivalDay = dayNo(); story({ kind:'rival', key:k }); }
 }
+function bluntBlade(){ S.blade = { at:dayNo() }; toast('The crate machine\'s blade has gone blunt: it cuts at 60%. Fit a new one at the side of the machine ($' + BLADE_COST + ').', 'bad'); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, 'Hear that? Blade\'s blunt. There\'s new ones on the bench.'); save(); }
 // the blunt blade: stand at the side of the crate machine for three seconds to fit a new one
 let bladeT = 0;
 function updateBlade(dt){
@@ -5433,9 +5815,19 @@ function updateBlade(dt){
   else bladeT = Math.max(0, bladeT - dt);
 }
 const bladeK = () => S.blade ? .6 : 1;
+// the wrong timber: soft deal planks for a hardwood order. Planks of it in the stock count against the next cuts at 80% speed
+const wrongK = () => (S.wrongTimber || 0) > 0 ? .8 : 1;
+function wrongTimberCard(){ return `<div class="who"><img alt="" src="${portrait('gus')}"><div><b>The wrong timber</b><small>Valley Timber Co. · the flatbed at goods-in</small></div></div>
+  <p class="quote">"That's soft deal, not the hardwood we ordered. It'll cut, but slow, and the saw won't thank you." · Gus</p>
+  <div class="offer"><b>Send it back</b><button class="btn primary" data-wt="back" type="button">Send back</button><p>The flatbed leaves with it. The right timber comes tomorrow morning: a day's wait.</p></div>
+  <div class="offer"><b>Use it</b><button class="btn" data-wt="use" type="button">Unload</button><p>Unload it now. The crate machine runs at 80% until these ${S.delivery ? S.delivery.qty : ''} planks are used.</p></div>`; }
+function wrongTimberPick(what){ const d = S.delivery; if (!d) return;
+  if (what === 'back') { S.retryTimber = { qty:d.qty, day:dayNo() + 1 }; S.delivery = null; sup.state = 'leave'; sup.s = 0; sup.path = SUP_LEAVE; COL.delete('supply'); toast('The flatbed takes the wrong timber back. The right planks come tomorrow morning.', ''); }
+  else { S.wrongTimber = (S.wrongTimber || 0) + d.qty; toast(`Unloading the soft deal: the crate machine runs at 80% for the next ${d.qty} crates.`, ''); }
+  save(); }
 // the shower: rain streaks over the screen, a darker sky, a patter; the crew walks 10% slower and nobody walks in
-function startRain(){ rain = { t:0, dur:rand(40, 70) }; buildRainFx(); toast('A shower over the valley: the yard is wet and the crew goes carefully (10% slower).', ''); const g = gusChar(); if (g && !S.gus.retired) gusSay(g, pick(['Here it comes. Mind the timber.', 'Rain! The farmers will be happy.']));
-  let el = document.getElementById('rain'); if (!el) { el = document.createElement('div'); el.id = 'rain'; $('stage').insertBefore(el, $('labels')); } el.hidden = false; }
+function startRain(secs = 55){ wxForce = 'shower'; wxForceT = secs; }   // a shower now (tests): the weather system draws and times it
+let wxForceT = 0;
 // build 0.21e: real rain. Streaks fall through the scene around the camera's view (one line batch, wind-slanted, a little
 // longer the nearer they are to the camera), and drops burst into small rings on the yard; the old screen overlay of
 // painted stripes is gone (it read as lines, and on phones the blended overlay cost frames)
@@ -5476,13 +5868,151 @@ function rainFxTick(dt, k){
   rainFx.splash.instanceMatrix.needsUpdate = true;
 }
 function tickRain(dt){
-  const k = rain ? Math.min(1, rain.t / 3, (rain.dur - rain.t) / 3) : 0; hemi.intensity = 1.0 - .3 * k; sun.intensity = 2.0 - 1.1 * k;
-  if (!rain) return; rain.t += dt; if (Math.random() < dt * 2.5) noiseS(.5, 4200, .006 * k, 'highpass');
-  const el = document.getElementById('rain'); if (el) el.style.opacity = (.75 * k).toFixed(2);
-  rainFxTick(dt, k);
-  if (rain.t >= rain.dur) { rain = null; rainFxTick(dt, 0); if (el) el.hidden = true; toast('The shower has passed.', ''); }
+  if (wxForce && (wxForceT -= dt) <= 0) wxForce = null;
+  updateWeather(dt);
+  const k = clamp(wxRain(), 0, 1.2); if (!rain) return; if (Math.random() < dt * 2.5 * Math.min(1, k + .3)) noiseS(.5, 4200, .006 * k, 'highpass');
+  rainFxTick(dt, Math.min(1, k));
 }
-const rainK = () => rain ? .9 : 1;
+const rainK = c => showerOn() && !(c && S.restored.canopy && c.st && (c.st.role === 'loader' || c.st.role === 'helper')) ? .9 : 1;   // the lane canopy keeps the loaders dry   // v2.0 17.3: in a shower people hurry and go carefully
+/* =====================================================================
+   WEATHER AND SEASONS (Bible v2.0 17, Act I). The calendar's date sets the season and the likely weather; each working
+   day has a plan of at most three spells (so the weather changes at most twice a day), blended over 20-40 s, never in a
+   snap. The level specs' set pieces are written in: Tuesday's first shower (Level 1), Thursday's shower and rainbow as
+   Bolt arrives (Level 2), the fog lifting off the North field as the tool press comes (Level 3), Thursday's heat wave
+   and the thunderstorm that breaks it (Level 4). Weather only delays: it never destroys anything or blocks a charter
+   line. It is seeded per game and saved; it stops on pause and does not run offline. The 07:00 wireless reads a
+   forecast, the barometer on the office wall shows the trend, and the day book carries tomorrow's weather.
+   ===================================================================== */
+const WX = {
+  clear:   { name:'Clear',        say:'Fine and clear',               hemi:1.06, sun:1.08, exp:1.0,  rain:0,   fog:0,   tint:'#fff5e6', bar:.82 },
+  overcast:{ name:'Overcast',     say:'Grey and overcast',            hemi:1.0,  sun:.8,   exp:.98,  rain:0,   fog:0,   tint:'#f1f1f0', bar:.5 },
+  drizzle: { name:'Drizzle',      say:'Grey, with drizzle',           hemi:.86,  sun:.42,  exp:.96,  rain:.38, fog:.15, tint:'#e8ebee', bar:.34 },
+  shower:  { name:'Rain shower',  say:'Showers',                      hemi:.76,  sun:.32,  exp:.95,  rain:1,   fog:.2,  tint:'#e2e7ec', bar:.22 },
+  fog:     { name:'Valley fog',   say:'Fog in the valley, lifting by ten', hemi:.9, sun:.38, exp:1.0, rain:0, fog:1,   tint:'#eeeeec', bar:.45 },
+  heat:    { name:'Heat wave',    say:'Hot: a heat wave',             hemi:1.12, sun:1.22, exp:1.03, rain:0,   fog:0,   tint:'#ffeacc', bar:.95, big:true },
+  storm:   { name:'Thunderstorm', say:'Thunderstorms',                hemi:.6,   sun:.18,  exp:.92,  rain:1.2, fog:.25, tint:'#d8dde6', bar:.08, big:true },
+};
+const wxRng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+// the plan for one working day: [[minute after 07:00, kind, extra], ...]
+function wxPlan(wd = calDay()){
+  const lv = S.level, d = wd - (LV_START[lv] ?? wd), set = {
+    1:[[[0, 'overcast']], [[0, 'overcast'], [210, 'shower'], [262, 'overcast']], [[0, 'clear'], [330, 'overcast']]],
+    2:[[[0, 'clear', 'blossom']], [[0, 'overcast'], [372, 'shower'], [418, 'clear', 'rainbow']], [[0, 'clear', 'blossom'], [300, 'overcast']]],
+    3:[[[0, 'clear']], [[0, 'fog'], [180, 'clear']], [[0, 'overcast'], [240, 'clear']], [[0, 'clear']]],
+    4:[[[0, 'clear']], [[0, 'clear'], [300, 'overcast']], [[0, 'heat', 'icecream']], [[0, 'heat'], [360, 'storm'], [405, 'overcast']]],
+  }[lv];
+  if (set && d >= 0 && d < set.length) return set[d];
+  // beyond the level's days: the season's likely weather, from the game's seed (17.4)
+  const r = wxRng(((S.wx && S.wx.seed) || 7) ^ (wd * 2654435761)), season = seasonOf(wd), x = r();
+  const pickK = season === 'summer' ? (x < .55 ? 'clear' : x < .85 ? 'overcast' : 'shower') : season === 'spring' ? (x < .3 ? 'clear' : x < .65 ? 'overcast' : x < .82 ? 'drizzle' : 'shower') : (x < .25 ? 'clear' : x < .6 ? 'overcast' : x < .8 ? 'drizzle' : 'shower');
+  const plan = [[0, pickK === 'shower' ? 'overcast' : pickK, season === 'spring' && r() < .5 ? 'blossom' : null]];
+  if (pickK === 'shower') { const at = Math.round(90 + r() * 360); plan.push([at, 'shower'], [at + 35 + Math.round(r() * 30), r() < .5 ? 'clear' : 'overcast', at > 300 && r() < .5 ? 'rainbow' : null]); }
+  else if (season !== 'summer' && lv >= 3 && r() < .25) plan[0][1] = 'fog', plan.push([150 + Math.round(r() * 60), pickK === 'fog' ? 'overcast' : pickK]);
+  return plan;
+}
+const wxAt = (wd, m) => { const p = wxPlan(wd); let k = p[0]; for (const q of p) if (q[0] <= m) k = q; return k; };
+// the day's headline weather for the wireless and the day book: the biggest spell of the day
+function wxSummary(wd){ const p = wxPlan(wd), ks = p.map(q => q[1]), big = ks.find(k => WX[k].big), wet = ks.includes('shower') ? 'shower' : ks.includes('drizzle') ? 'drizzle' : null;
+  return big ? (big === 'storm' ? 'Hot, with thunderstorms in the afternoon' : 'Hot all day: a heat wave') : ks[0] === 'fog' ? 'Fog in the valley first thing, lifting by ten' : wet ? `${WX[ks[0]].say}, with ${wet === 'shower' ? 'a shower' : 'drizzle'} ${p.find(q => q[1] === wet)[0] < 300 ? 'in the morning' : 'in the afternoon'}` : WX[ks[0]].say; }
+var wx = { kind:'overcast', from:'overcast', k:1, dur:30, extra:null, flashT:0, flash:0, thunder:[], rainbow:0, petal:0, said:'' };
+let wxInit = false;
+function updateWeather(dt){
+  S.wx ||= { seed:Math.floor(Math.random() * 1e9) };
+  if (!S.tutDone && S.level === 1) { if (!wxInit) { wxInit = true; wx.kind = wx.from = 'overcast'; wx.k = 1; } applyWeather(dt); return; }   // the guided Monday: grey and still
+  const closing = S.day && S.day.closing, m = closing ? SHIFT_MIN : dayMin(), [, kind, extra] = wxAt(calDay(), m);
+  let want = kind; if (WX[want].big && sessionT < 60) want = 'overcast';   // big weather never in the first minute of a session
+  if (wxForce) want = wxForce;
+  if (!wxInit) { wxInit = true; wx.kind = wx.from = want; wx.k = 1; }
+  if (want !== wx.kind) { wx.from = wx.kind; wx.kind = want; wx.k = 0; wx.dur = rand(20, 40); wx.extra = extra;
+    if (S.tutDone && !closing) wxNews(want, extra); }
+  wx.k = Math.min(1, wx.k + dt / wx.dur);
+  if (wx.extra === 'rainbow' && wx.k > .4 && !wx.rbDone) { wx.rbDone = true; wx.rainbow = 1; const g = gusChar(); if (g && !S.gus.retired) gusSay(g, 'Look at that, boss. A rainbow over the hills.'); for (const c of staffObj.values()) if (!c.stack.length && c.state !== 'fixing') c.say = { text:pick(['Look at that!', 'A rainbow!', 'Pot of gold up the valley.']), until:T + 2.4 }; }
+  if (wx.extra === 'icecream' && wx.k > .6 && !wx.icDone && !closing && dayMin() > 120 && dayMin() < 420) { wx.icDone = true; iceCreamVan(); }
+  applyWeather(dt); updateIce(dt); updateYardLamps(dt);
+}
+let wxForce = null;
+function wxNews(kind, extra){
+  const g = gusChar(), gus = (t) => { if (g && !S.gus.retired) gusSay(g, t); };
+  if (kind === 'shower') { toast('A shower over the valley: the yard is wet and the crew goes carefully (10% slower). Nobody walks in from the road.', ''); gus(pick(['Here it comes. Mind the timber.', 'Rain! The farmers will be happy.'])); }
+  else if (kind === 'drizzle') toast(`Drizzle. ${S.restored.awning ? 'The gate awning keeps the walk-in trade coming.' : 'Walk-in trade stays at home in the wet.'}`, '');
+  else if (kind === 'storm') { toast('A thunderstorm breaks over the valley. Lightning trips supplies: power cuts are three times as likely while it lasts.', 'bad'); gus('That\'s the heat breaking. Count the seconds after the flash.'); }
+  else if (kind === 'heat') { toast(`A heat wave. Old Faithful loses 10% in the heat${mainsUp() ? ' (the mains does not care)' : ''}.`, 'gold'); gus('Hot enough to fry an egg on the dock plate.'); }
+  else if (kind === 'fog') toast('Fog lies on the valley floor. Lorries feel their way in: about 15 minutes late.', '');
+  else if ((wx.from === 'shower' || wx.from === 'storm' || wx.from === 'drizzle') && !wx.rain) toast('The rain has passed.', '');
+  else if (wx.from === 'fog') toast('The fog lifts off the valley.', '');
+}
+// what the weather does to work (17.3)
+const wxK = n => { const a = WX[wx.from][n], b = WX[wx.kind][n]; return a + (b - a) * wx.k; };
+const wxRain = () => wxK('rain');
+const showerOn = () => wxRain() > .55;                              // a proper shower: the crew goes carefully, nobody walks in
+const drizzleOn = () => !showerOn() && wxRain() > .18;
+const wxFog = () => wxK('fog');
+const heatOn = () => wx.kind === 'heat' && wx.k > .5 || (wx.from === 'heat' && wx.k < .5);
+const stormOn = () => wx.kind === 'storm' && wx.k > .3;
+const wxGenK = () => heatOn() ? .9 : 1;                             // engines lose power in heat
+const wxLorryLate = () => wxFog() > .6 ? 15 : 0;                     // drivers need to see: 15 game minutes late
+const noWalkIns = () => showerOn() || (drizzleOn() && !S.restored.awning);
+function applyWeather(dt){
+  const tint = new THREE.Color(WX[wx.from].tint).lerp(new THREE.Color(WX[wx.kind].tint), wx.k);
+  wx.light = { hemi:wxK('hemi'), sun:wxK('sun'), exp:wxK('exp'), tint };
+  const r = wxRain(); if (r > .02 && !rain) { rain = { wx:true }; buildRainFx(); } if (rain && rain.wx && r <= .02) { rain = null; rainFxTick(dt, 0); }
+  // fog: the scene's own fog, tinted by the time of day, thick at the far side of the view
+  const f = wxFog(); if (f > .02) { if (!scene.fog) scene.fog = new THREE.Fog('#bfc3c2', 40, 120); scene.fog.color.set(tint).multiplyScalar(.82); scene.fog.near = 52 - 26 * f; scene.fog.far = 118 - 52 * f; } else if (scene.fog) scene.fog = null;
+  // lightning: a brief light flash (never over three a second, dimmed with reduced motion), thunder delayed by distance
+  if (stormOn() && !paused) { wx.flashT -= dt; if (wx.flashT <= 0) { wx.flashT = rand(5, 14); const km = rand(.6, 5); wx.flash = REDUCED ? .35 : 1; wx.thunder.push({ at:T + km * 3, km }); } }
+  wx.flash = Math.max(0, wx.flash - dt * 6);
+  for (let i = wx.thunder.length - 1; i >= 0; i--) if (T >= wx.thunder[i].at) { const km = wx.thunder[i].km; wx.thunder.splice(i, 1); noiseS(2.4 + km * .3, 160 + 200 / km, .09 / Math.max(.8, km * .6)); noiseS(.6, 900, .02 / km); }
+  // spring blossom on the wind, petals from the town's trees
+  if (wx.extra === 'blossom' || (seasonOf() === 'spring' && wx.kind === 'clear')) { wx.petal += dt * 6; while (wx.petal > 1) { wx.petal--; sprite(pick(['#f6d9e4', '#f2e6ee', '#ffffff']), camPos.x + rand(-14, 10), rand(2.5, 5), camPos.z + rand(-14, 8), rand(.6, 1.4), rand(-.3, -.1), rand(.1, .4), 6, .07, -.05); } }
+  // the rainbow over the hills behind the works, after an afternoon shower
+  if (wx.rainbow > 0) { wx.rainbow = Math.max(0, wx.rainbow - dt / 75); showRainbow(Math.min(1, wx.rainbow * 4, (1 - wx.rainbow) * 6)); } else if (M.rainbow) M.rainbow.visible = false;
+}
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// the camera never sees the sky, so the rainbow is drawn where the hills would be: a faint arc across the top of the view,
+// in the scene (it moves with the camera, behind the HUD), coloured light, never a flat painted stripe
+function showRainbow(k){
+  if (!M.rainbow) { const g = new THREE.Group(), cols = ['#ff5a4a', '#ff9a3a', '#ffe14a', '#6fd46a', '#4aa8ff', '#6a5aff', '#b25aff'];
+    cols.forEach((c, i) => { const m = new THREE.Mesh(new THREE.RingGeometry(10.6 - i * .26, 10.86 - i * .26, 96, 1, .18, Math.PI - .36), new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:0, depthTest:false, depthWrite:false, fog:false, blending:THREE.AdditiveBlending })); m.renderOrder = 9; g.add(m); });
+    scene.add(g); M.rainbow = g; }
+  const R = M.rainbow; R.visible = k > .01; if (!R.visible) return;
+  R.quaternion.copy(cam.quaternion); const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion), fw = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+  R.position.copy(cam.position).addScaledVector(fw, 20).addScaledVector(up, -7.5 * camZoom); R.scale.setScalar(camZoom);
+  R.children.forEach(m => m.material.opacity = .16 * k); }
+// the barometer: brass rim, the old words round the dial, the needle on today's pressure; a tap swings it to tomorrow's
+let baroTap = 0;
+function baroDraw(tomorrow = false){ const el = $('offBaro'); if (!el) return; const w = tomorrow ? WX[wxAt(calDay() + 1, 240)[1]] : WX[wx.kind], a = -110 + 220 * w.bar;
+  el.title = `Barometer: ${tomorrow ? 'tomorrow' : 'now'} ${w.name.toLowerCase()}`;
+  el.innerHTML = `<svg viewBox="0 0 64 64"><circle cx="32" cy="34" r="27" fill="#3b2f22" stroke="#b8913e" stroke-width="3"/><circle cx="32" cy="34" r="22" fill="#efe6cf"/>
+    <text x="13" y="47" font-size="6.5" fill="#6b3a2a" font-family="Georgia">RAIN</text><text x="23" y="21" font-size="6.5" fill="#3b3a35" font-family="Georgia">CHANGE</text><text x="42" y="47" font-size="6.5" fill="#2f5a3a" font-family="Georgia">FAIR</text>
+    <g class="ndl" style="transform:rotate(${a}deg)"><line x1="32" y1="34" x2="32" y2="15" stroke="#1d1a16" stroke-width="1.8"/><circle cx="32" cy="34" r="2.6" fill="#b8913e"/></g></svg>`; }
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#offBaro')) { baroTap = T; baroDraw(true); sfx('tick'); toast(`The barometer swings: tomorrow, ${wxSummary(calDay() + 1).toLowerCase()}.`, ''); setTimeout(() => { if (T - baroTap >= 2.5) baroDraw(); }, 3000); } });
+// the 07:00 wireless: one line of forecast, and for the day book a line about tomorrow (big weather is always forecast)
+function wxForecastToast(){ const t = wxSummary(calDay()); toast(`The wireless at seven: "${t}."`, ''); }
+// heat wave joy (17.5): the ice-cream van stops at the gate; buy the crew ice creams for $10 and they work 5% faster today
+function iceCreamVan(){ S.day.ice = { n:dayNo(), bought:false }; toast('The ice-cream van stops at the gate, chimes playing. Buy the crew a round ($10): 5% faster for the rest of the day. Stand at the van.', 'gold');
+  for (const [i, f] of [[0, 659], [1, 784], [2, 880], [3, 784], [4, 659]]) tone(f, .16, 'triangle', .03, i * .18); }
+// the van stands on the far verge across Mill Road with its chimes; the owner buys at the ring inside the gate
+const ICE_AT = [6.3, 11.55];
+function updateIce(dt){
+  const ic = S.day && S.day.ice && S.day.ice.n === dayNo() ? S.day.ice : null, show = !!ic && !ic.bought && !(S.day && S.day.closing) && dayMin() < 520;
+  if (show && !M.iceVan) buildIceVan(); if (M.iceVan) M.iceVan.visible = show; if (M.rings && M.rings.ice) M.rings.ice.g.visible = show;
+  if (!show) return; if (Math.random() < dt * .03) for (const [i, f] of [[0, 659], [1, 784], [2, 880]]) tone(f, .14, 'triangle', .02, i * .17);
+  if (near(owner.o, ICE_AT, .6) && ownerStill() && S.cash >= 10) { ic.t = (ic.t || 0) + dt; setArc(M.rings.ice, ic.t / .8);
+    if (ic.t > .8) { ic.bought = true; S.cash -= 10; sfx('buy'); toast('Ice creams all round ($10). The crew works 5% faster for the rest of the day.', 'good'); for (const c of staffObj.values()) c.say = { text:pick(['Cheers, boss!', 'Lovely.', 'Strawberry for me!']), until:T + 2.4 }; save(); } }
+  else if (ic.t) { ic.t = 0; setArc(M.rings.ice, 0); }
+}
+function buildIceVan(){
+  const g = new THREE.Group(), cream = new THREE.MeshStandardMaterial({ color:'#f1e8d2', roughness:.6 }), pink = new THREE.MeshStandardMaterial({ color:'#d9798f', roughness:.6 }), dark = new THREE.MeshStandardMaterial({ color:'#22252a', roughness:.8 }), glass = new THREE.MeshStandardMaterial({ color:'#5a7080', roughness:.2, metalness:.3 });
+  const box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; b.receiveShadow = true; g.add(b); return b; };
+  box(3.2, 1.55, 1.75, cream, -.3, 1.25, 0); box(1.0, 1.0, 1.7, cream, 1.75, .98, 0); box(.05, .45, 1.5, glass, 2.26, 1.25, 0);   // body, cab, windscreen
+  box(3.25, .22, 1.78, pink, -.3, .62, 0); box(4.2, .1, 1.8, dark, .2, .48, 0); box(1.6, .7, .04, dark, -.4, 1.45, .9);            // the stripe, the sill, the serving hatch
+  for (const [x, z] of [[-1.3, .78], [-1.3, -.78], [1.6, .78], [1.6, -.78]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(.34, .34, .22, 14), dark); w.rotation.x = Math.PI / 2; w.position.set(x, .34, z); g.add(w); }
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(.22, .6, 12), new THREE.MeshStandardMaterial({ color:'#d8a85a' })); cone.rotation.x = Math.PI; cone.position.set(-.3, 2.35, 0); g.add(cone);
+  const scoop = new THREE.Mesh(new THREE.SphereGeometry(.24, 12, 10), pink); scoop.position.set(-.3, 2.7, 0); g.add(scoop);
+  g.position.set(9.6, 0, ROAD_Z + 3.9); g.rotation.y = Math.PI; g.userData.dyn = true; world.add(g); M.iceVan = g;
+  if (!M.rings.ice) M.ring('ice', ...ICE_AT, '#f2a3b8', .55); }
+const iceK = () => S.day && S.day.ice && S.day.ice.bought && S.day.ice.n === dayNo() ? 1.05 : 1;
+
 function rivalHtml(k){ const pl = PLACES[k];
   return `<div class="who"><img alt="" src="${portrait('buyer_' + k)}"><div><b>${pl.buyer}</b><small>${pl.name} · on the telephone</small></div></div>
     <p class="quote">"Hendry's yard in Dunmore came round. They'll do it 10% cheaper. I'd rather stay with you, but money's money."</p>
@@ -5494,6 +6024,17 @@ function rivalPick(k, what){ const a = sales().acc[k]; if (!a) return;
   save(); }
 
 let cashShown = 0, hudT = 0, cardKey = '';
+// a drum counter: one rolling drum per digit, the punctuation printed between them; rebuilt only when the length changes
+function drums(el, str){ if (!el) return; if (el._s === str) return; const old = el._s || '';
+  if (!el._d || old.length !== str.length || old.replace(/\d/g, '0') !== str.replace(/\d/g, '0')) { el.innerHTML = [...str].map(ch => /\d/.test(ch) ? `<span class="drum"><span class="strip">${'0123456789'.split('').map(d => `<i>${d}</i>`).join('')}</span></span>` : `<span class="dsep">${ch}</span>`).join(''); el._d = [...el.querySelectorAll('.strip')]; el.setAttribute('aria-label', str); }
+  let k = 0; for (const ch of str) if (/\d/.test(ch)) { el._d[k].style.transform = `translateY(${-+ch * 10}%)`; k++; }
+  el._s = str; el.setAttribute('aria-label', str); }
+// the reputation dial: a needle over the bands (shaky, known, trusted, respected, renowned)
+function repDial(el, r){ if (!el) return; const a = -90 + 180 * clamp(r, 0, 100) / 100;
+  if (!el._n) { el.innerHTML = `<svg viewBox="0 0 48 28" class="dial" aria-hidden="true"><path d="M4 26 A20 20 0 0 1 44 26" fill="none" stroke="#2a2416" stroke-width="6"/>
+      <path d="M4 26 A20 20 0 0 1 24 6" fill="none" stroke="#b3291e" stroke-width="4"/><path d="M24 6 A20 20 0 0 1 37.4 11.1" fill="none" stroke="#e2a72c" stroke-width="4"/><path d="M37.4 11.1 A20 20 0 0 1 44 26" fill="none" stroke="#7fae4a" stroke-width="4"/>
+      <g class="ndl"><line x1="24" y1="26" x2="24" y2="8" stroke="#ece2c6" stroke-width="2.2" stroke-linecap="round"/></g><circle cx="24" cy="26" r="3" fill="#c9a24a"/></svg>`; el._n = el.querySelector('.ndl'); }
+  el._n.style.transform = `rotate(${a}deg)`; }
 
 /* build 0.16: the concept HUD. A management bar along the bottom opens the office at the right page from anywhere;
    chips show the day, the crew and open issues; the objectives panel ticks off the charter with a hint underneath. */
@@ -5506,18 +6047,19 @@ let hudSig = '';
 function updateHud2(){
   const ch = charter(), done = ch.filter(lineDone).length;
   const badges = [S.call ? 1 : 0, S.staff.filter(xpReady).length, S.faults.length, 0];
-  const sig = [dayClock(), JSON.stringify(targetProg() && targetProg().slice(0, 2)), S.day && S.day.target && S.day.target.done, S.staff.length, S.faults.length, done, ch.map(c => lineVal(c)).join(','), badges.join(','), S.level].join('|');
+  const sig = [dayClock(), JSON.stringify(targetProg() && targetProg().slice(0, 2)), JSON.stringify(chalkProg() && chalkProg().slice(0, 2)), S.day && S.day.target && S.day.target.done, S.staff.length, S.faults.length, done, ch.map(c => lineVal(c)).join(','), badges.join(','), S.level].join('|');
   if (sig === hudSig) return; hudSig = sig;
   $('clock').hidden = false; $('clock').classList.toggle('lunch', lunchTime()); $('clock').innerHTML = `${icon('wait', lunchTime() ? '#9bd26f' : '#e8ab2c')}<span>${dayClock()}</span>`; $('issC').hidden = S.level < 3;
   $('crewC').innerHTML = `${icon('people', '#9bd26f')}<span>${S.staff.length}</span>`;
-  const tp = targetProg(); $('tgtC').hidden = !tp || !S.tutDone; if (tp) { $('tgtC').classList.toggle('ok', tp[2].done); $('tgtC').innerHTML = `${icon('star', tp[2].done ? '#9bd26f' : '#e8ab2c')}<span>${tp[2].kind === 'takings' ? `${fmt(tp[0])} / ${fmt(tp[1])}` : `${tp[0]} / ${tp[1]}`}</span>`; $('tgtC').title = `Today's target: ${TARGETS[tp[2].kind].txt(tp[1])}`; }
+  const tp = targetProg(), ck = chalkProg(); $('tgtC').hidden = !(tp || ck) || !S.tutDone; if (ck) { $('tgtC').classList.toggle('ok', ck[0] === ck[1]); $('tgtC').innerHTML = `${icon('clip', ck[0] === ck[1] ? '#9bd26f' : '#e8ab2c')}<span>Jobs ${ck[0]} / ${ck[1]}</span>`; $('tgtC').title = 'The foreman\'s chalkboard: ' + ck[2].jobs.map(j => (j.done ? '✓ ' : '') + CHALK[j.k].txt(j.need)).join(' · '); }
+  if (tp) { $('tgtC').classList.toggle('ok', tp[2].done); $('tgtC').innerHTML = `${icon('star', tp[2].done ? '#9bd26f' : '#e8ab2c')}<span>${tp[2].kind === 'takings' ? `${fmt(tp[0])} / ${fmt(tp[1])}` : `${tp[0]} / ${tp[1]}`}</span>`; $('tgtC').title = `Today's target: ${TARGETS[tp[2].kind].txt(tp[1])}`; }
   $('issC').innerHTML = `${icon('alert', S.faults.length ? '#ff8f80' : '#8d939a')}<span>${S.faults.length}</span>`; $('issC').classList.toggle('bad', S.faults.length > 0);
   [...$('dock').children].forEach((b, i) => { const bd = b.querySelector('.bd'), n = badges[i]; bd.hidden = !n; bd.textContent = i === 0 ? '!' : n; bd.classList.toggle('g', i === 1); });
 }
 function updateHud(dt){
-  cashShown += (S.cash - cashShown) * Math.min(1, dt * 10); if (Math.abs(S.cash - cashShown) < 1) cashShown = S.cash; $('cash').textContent = fmt(cashShown);
+  cashShown += (S.cash - cashShown) * Math.min(1, dt * 6); if (Math.abs(S.cash - cashShown) < 1) cashShown = S.cash; drums($('cash'), fmt(Math.round(cashShown)));
   hudT -= dt; if (hudT > 0) return; hudT = .15; updateHud2();
-  const band = repBand(); $('rep').textContent = Math.round(S.rep) + '%'; $('repBox').title = `Reputation: ${band[1]}`; $('repBox').querySelector('svg').style.fill = band[2]; $('repBand').textContent = band[1].toUpperCase(); $('repBand').style.color = band[2];
+  const band = repBand(); $('rep').textContent = Math.round(S.rep) + '%'; $('repBox').title = `Reputation: ${band[1]}`; repDial($('repDial'), S.rep); $('repBand').textContent = band[1].toUpperCase(); $('repBand').style.color = band[2];
   const done = charterDone(), ch = charter(), money = ch.find(c => c.money); $('lvFill').style.width = (S.levelUp ? 100 : done / ch.length * 100) + '%';
   $('lvProg').textContent = S.levelUp ? 'Charter complete' : `Charter ${done} of ${ch.length}${money ? ` · ${fmt(lineVal(money))} / ${fmt(money.need)}` : ''}`;
   const L = LEVELS[S.level]; if ($('lvName')._l !== S.level) { $('lvName')._l = S.level; $('lvN').textContent = 'LEVEL ' + String(S.level).padStart(2, '0'); $('lvName').textContent = L.name; $('lvNext').textContent = 'Next: ' + L.next; }
@@ -5536,17 +6078,17 @@ function updateHud(dt){
       : (od.tcut || 0) < (od.tq || 0) && !toolOn ? `Press: ${toolReason().label[2].toLowerCase()}`
       : od.cut < od.qty || (od.pcut || 0) < (od.pq || 0) || (od.tcut || 0) < (od.tq || 0) ? (overloaded() ? 'Making: slowed by the generator' : 'Making') : truck.state !== 'docked' ? (S.lv2.wh >= 2 ? 'Covered: waiting for the truck' : 'Waiting for the truck') : [...staffObj.values()].some(c => c.state === 'toWhTake' || c.state === 'takeWh') ? 'Loading from the warehouse' : 'Loading the truck';
     const made = [od.qty ? `Cut ${od.cut}/${od.qty}` : '', od.pq ? `Pipes ${od.pcut || 0}/${od.pq}` : '', od.tq ? `Tools ${od.tcut || 0}/${od.tq}` : ''].filter(Boolean).join(' · ');
-    tk.innerHTML = `<div class="h"><span>${od.terms === 'rush' ? '<b class="rush">RUSH</b> ' : od.terms === 'bulk' ? 'BULK · ' : ''}ORDER #${od.id}</span><span>${od.nodl ? 'NO DEADLINE' : late ? 'LATE' : Math.ceil(left) + ' s'}</span></div><div class="q">${[od.qty ? `${S.bed} / ${od.qty} crates` : '', od.pq ? `${S.pbed} / ${od.pq} pipes` : '', od.tq ? `${S.tbed} / ${od.tq} tools` : ''].filter(Boolean).join('<br>')}</div><div class="pay">${fmt(od.pay)}${late ? ' · half pay' : ''}</div><div class="st">${made} · ${hold}</div><div class="tb"><i style="width:${clamp(left / od.deadline, 0, 1) * 100}%"></i></div>`;
+    tk.innerHTML = `<div class="h"><span>${od.terms === 'rush' ? '<b class="rush">RUSH</b> ' : od.terms === 'bulk' ? 'BULK · ' : ''}ORDER #${od.id}</span><span>${od.nodl ? 'NO DEADLINE' : late ? 'LATE' : 'DUE ' + dueAt(left).toUpperCase()}</span></div><div class="q">${[od.qty ? `${S.bed} / ${od.qty} crates` : '', od.pq ? `${S.pbed} / ${od.pq} pipes` : '', od.tq ? `${S.tbed} / ${od.tq} tools` : ''].filter(Boolean).join('<br>')}</div><div class="pay">${fmt(od.pay)}${late ? ' · half pay' : ''}</div><div class="st">${made} · ${hold}</div><div class="tb"><i style="width:${clamp(left / od.deadline, 0, 1) * 100}%"></i></div>`;
     tk.style.top = (moneyBottom() + 8) + 'px';
   } else tk.hidden = true;
   const tk2 = $('ticket2'), o2 = S.level >= 5 ? S.order2 : null;
   if (o2) { tk2.hidden = false; const left = o2.deadline - o2.time, late = left < 0, sh = short2(); tk2.classList.toggle('late', late);
     const hold = o2.ready ? (hasRole('supervisor') ? 'Ready: supervisor signs' : 'Ready: sign at dock 2') : truckB.state !== 'docked' ? (o2.lateBy && truckB.state === 'away' ? `Truck held up: ${truckWait(truckB, o2)} s` : 'Truck on its way') : !hasRole('forklift') ? 'Hire a forklift driver' : sh ? `Waiting for stock: ${sh}` : 'Forklift loading';
-    tk2.innerHTML = `<div class="h"><span>${o2.rush ? '<b class="rush">RUSH</b> ' : ''}DOCK 2 · #${o2.id}</span><span>${late ? 'LATE' : Math.ceil(left) + ' s'}</span></div><div class="q">${[o2.qty ? `${o2.l.c}/${o2.qty} crates` : '', o2.pq ? `${o2.l.p}/${o2.pq} pipes` : '', o2.tq ? `${o2.l.t}/${o2.tq} tools` : ''].filter(Boolean).join(' · ')}</div><div class="pay">${fmt(o2.pay)}${late ? ' · half pay' : ''}</div><div class="st">From stock · ${hold}</div><div class="tb"><i style="width:${clamp(left / o2.deadline, 0, 1) * 100}%"></i></div>`;
+    tk2.innerHTML = `<div class="h"><span>${o2.rush ? '<b class="rush">RUSH</b> ' : ''}DOCK 2 · #${o2.id}</span><span>${late ? 'LATE' : 'DUE ' + dueAt(left).toUpperCase()}</span></div><div class="q">${[o2.qty ? `${o2.l.c}/${o2.qty} crates` : '', o2.pq ? `${o2.l.p}/${o2.pq} pipes` : '', o2.tq ? `${o2.l.t}/${o2.tq} tools` : ''].filter(Boolean).join(' · ')}</div><div class="pay">${fmt(o2.pay)}${late ? ' · half pay' : ''}</div><div class="st">From stock · ${hold}</div><div class="tb"><i style="width:${clamp(left / o2.deadline, 0, 1) * 100}%"></i></div>`;
     if (!(T - (tk2._t || -9) < .5)) { tk2._t = T; tk2.style.top = ((tk.hidden ? moneyBottom() : tk.getBoundingClientRect().bottom) + 8) + 'px'; }
   } else tk2.hidden = true;
   const cc = $('callc');
-  if (S.call && !officeOpen) { const c = S.call, h = `<div class="ch">${icon('phone', '#fff')}<div><span class="k">INCOMING CALL</span><b>${c.client}</b></div></div><div class="d">${c.dock === 2 ? (c.rush ? 'RUSH · dock 2 · ' : 'Dock 2 · ') : ''}${describe(c)} · ${fmt(c.pay)} · ${c.deadline} s</div><div class="go">Tap to answer</div>`;
+  if (S.call && !officeOpen) { const c = S.call, h = `<div class="ch">${icon('phone', '#fff')}<div><span class="k">INCOMING CALL</span><b>${c.client}</b></div></div><div class="d">${c.dock === 2 ? (c.rush ? 'RUSH · dock 2 · ' : 'Dock 2 · ') : ''}${describe(c)} · ${fmt(c.pay)} · due ${dueAt(c.deadline)}</div><div class="go">Tap to answer</div>`;
     if (cc._h !== h) { cc.innerHTML = h; cc._h = h; } cc.hidden = false;
     // where the slip sits is measured twice a second, not every frame: measuring right after the HUD's writes forced a full layout each frame (the stutter when the phone rang)
     if (!(T - (cc._t || -9) < .5) || cc._wasHidden) { cc._t = T; cc.style.top = (Math.max($('money').getBoundingClientRect().bottom, tk.hidden ? 0 : tk.getBoundingClientRect().bottom, $('ticket2').hidden ? 0 : $('ticket2').getBoundingClientRect().bottom) + 8) + 'px'; } cc._wasHidden = false; }
@@ -5613,7 +6155,8 @@ function frame(){
 // (frames over 100 ms) in the last 10 seconds, so a stutter on a phone can be seen and reported
 const FPS = { n:0, t0:performance.now(), last:performance.now(), worst:0, hitch:[], el:null };
 function fpsMeter(){
-  if (!PREVIEW) return; const now = performance.now(), d = now - FPS.last; FPS.last = now; FPS.n++; FPS.worst = Math.max(FPS.worst, d); if (d > 100) FPS.hitch.push(now);
+  if (!PREVIEW || typeof __PLAYABLES__ !== 'undefined') return;   // v2.0 22.3: never in the Playables build
+  const now = performance.now(), d = now - FPS.last; FPS.last = now; FPS.n++; FPS.worst = Math.max(FPS.worst, d); if (d > 100) FPS.hitch.push(now);
   if (now - FPS.t0 < 500) return;
   const fps = FPS.n * 1000 / (now - FPS.t0); FPS.hitch = FPS.hitch.filter(t => now - t < 10000);
   const el = FPS.el ||= $('fps'); if (!el) return;
@@ -5634,7 +6177,7 @@ function step(dt){
   T += dt; S.time += dt;
   for (const m of mixers) m.update(dt);
   if (!officeOpen && !trip) { updateOwner(dt); updateCarDoor(); } else target = null;
-  healthCheck(dt); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateTruck(dt); updateTrip(dt); carTip(); updateDay(dt); updateTarget(); updateEvents(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); syncCarry(); updateTutorial(dt); updateFx(dt);
+  healthCheck(dt); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateTruck(dt); updateTrip(dt); carTip(); updateDay(dt); updateTarget(); updateEvents(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateBolt(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); syncCarry(); updateTutorial(dt); updateFx(dt);
   saveT += dt; if (saveT > 8) { saveT = 0; save(); }
 }
 const MAX_DPR = Math.min(2, devicePixelRatio || 1); let dpr = MAX_DPR, perfT = 0, perfN = 0, perfGood = 0, perfBad = 0, lastDpr = 0, dprSettled = false, needResize = false;
@@ -5686,13 +6229,14 @@ async function boot(){
   // build 0.18c: in another app or with the screen off nothing is drawn, but the machine sounds kept playing at their last
   // volume. The audio is suspended while the page is hidden and resumed when it comes back.
   const bgAudio = () => { if (!AC) return; if (document.hidden) AC.suspend().catch(() => {}); else if (audioAllowed()) { AC.resume().catch(() => {}); clock.getDelta(); } };
-  document.addEventListener('visibilitychange', bgAudio); addEventListener('pagehide', () => { if (AC) AC.suspend().catch(() => {}); }); addEventListener('pageshow', bgAudio);
+  if (typeof __PLAYABLES__ === 'undefined' && !yt) { document.addEventListener('visibilitychange', bgAudio); addEventListener('pagehide', () => { if (AC) AC.suspend().catch(() => {}); }); addEventListener('pageshow', bgAudio); }   // v2.0 21: never the Page Visibility API inside Playables
   // gameReady only once the loading screen is gone and the player can act
   prog(100, 'Ready');
   const ld = $('loading'); setTimeout(() => { ld.style.opacity = 0; setTimeout(() => { ld.remove(); try { yt && yt.game.gameReady(); } catch(e){} }, 600); }, 350);
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
-  window.__iv = { get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  else { awayEnvelope(); loginCalendar(); }
+  window.__iv = { rainK, noWalkIns, wxLorryLate, stormOn, helperOf, walkPatience, PAY_Q, ICE_AT, BOLT_NAP, BOLT_SHADE, setWx:k => { wxForce = k; wxForceT = 1e9; wx.from = wx.kind = k; wx.k = 1; }, wxFlash:() => { wx.flash = 1; }, rainbowNow:() => { wx.rainbow = .7; }, get wx(){ return wx; }, bolt, chalkProg, CHALK, awayEnvelope, loginCalendar, wxPlan, wxSummary, migrate, DAY_S, PAY_MIN, PAY_AT, LV_START, calDay, weekday, isFriday, dateOf, dueAt, seasonOf, payTime, payDay, payStep, ownerAtHatch, payNeeded, knockOff, get M_hatch(){ return M.hatch; }, get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payBill, takeLoan, repayLoan, issueBill, billParts, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });

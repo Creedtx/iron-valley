@@ -7,22 +7,23 @@
 // ---------------------------------------------------------------- the ladder (strategy doc, "Levels")
 export const LEVEL_TABLE = [
   null,
-  { n:1,  act:'I',   title:'Inherited Workshop',      system:'Run a machine, fill an order',            product:'Wooden crates',            goal:2000,      minutes:5 },
-  { n:2,  act:'I',   title:'Reopened Factory',        system:'Loaders, the truck, the power limit',     product:'Steel pipes',              goal:4000,      minutes:7 },
-  { n:3,  act:'I',   title:'Local Manufacturer',      system:'Issues and repairs',                      product:'Basic tools',              goal:8000,      minutes:9 },
-  { n:4,  act:'I',   title:'Growing Enterprise',      system:'Supervisor zone (+15% speed)',            product:'Forklift',                 goal:20000,     minutes:11 },
-  { n:5,  act:'II',  title:'Regional Manufacturer',   system:'Bills: wages and power',                  product:'Second truck',             goal:50000,     minutes:13 },
-  { n:6,  act:'II',  title:'Industrial Company',      system:'Office clerk pays bills',                 product:'Bigger office',            goal:100000,    minutes:15 },
-  { n:7,  act:'II',  title:'Major Manufacturer',      system:'Order board: choose from three',          product:'Second supervisor zone',   goal:350000,    minutes:15 },
-  { n:8,  act:'II',  title:'Steel Works',             system:'Raw materials by rail; storage limits',   product:'Steel beams, rail siding', goal:900000,    minutes:20 },
-  { n:9,  act:'III', title:'Assembly Plant',          system:'Two-step recipes',                        product:'Valves',                   goal:2e6,       minutes:25 },
-  { n:10, act:'III', title:'Night Shift',             system:'Shifts and a foreman',                    product:'Floodlights, night look',  goal:5e6,       minutes:25 },
-  { n:11, act:'III', title:'Quality Lab',             system:'Quality grades, premium orders',          product:'Precision parts',          goal:12e6,      minutes:25 },
-  { n:12, act:'III', title:'Export Depot',            system:'Export contracts by train',               product:'Freight terminal',         goal:30e6,      minutes:25 },
-  { n:13, act:'IV',  title:'Second Plant',            system:'A second site under a manager',           product:'Engines',                  goal:75e6,      minutes:30 },
-  { n:14, act:'IV',  title:'Automated Line',          system:'Robots replace operators on one line',    product:'Robot arms',               goal:180e6,     minutes:30 },
-  { n:15, act:'IV',  title:'Industrial Group',        system:'Research office',                         product:'Heavy machinery',          goal:450e6,     minutes:30 },
-  { n:16, act:'IV',  title:'Iron Valley Corporation', system:'Endless contracts',                       product:'Headquarters',             goal:null,      minutes:null },
+  // Bible v2.0 6.1 and 6.2: dates, target minutes and cash goals (VERIFY in the simulator, within 20%)
+  { n:1,  act:'I',   title:'Inherited Workshop',      system:'Assign a worker; the first order',        product:'Wooden crates',            goal:4000,      minutes:30, days:3 },
+  { n:2,  act:'I',   title:'Reopened Factory',        system:'Loaders, the lorry, the power limit',     product:'Steel pipes',              goal:10000,     minutes:30, days:3 },
+  { n:3,  act:'I',   title:'Local Manufacturer',      system:'Issues and repairs; supplies; mains',     product:'Basic tools',              goal:24000,     minutes:40, days:4 },
+  { n:4,  act:'I',   title:'Growing Enterprise',      system:'Supervisor zone; forklift',               product:'Second crate line',        goal:55000,     minutes:40, days:4 },
+  { n:5,  act:'II',  title:'Regional Manufacturer',   system:'Pay day, weekly accounts, loans',         product:'Second pipe mill, dock 2', goal:120000,    minutes:50, days:5 },
+  { n:6,  act:'II',  title:'Industrial Company',      system:'The clerk; tier 2; machine service',      product:'Tier 2 refits',            goal:250000,    minutes:40, days:4 },
+  { n:7,  act:'II',  title:'Major Manufacturer',      system:'The order board',                         product:'Second supervisor zone',   goal:600000,    minutes:50, days:5 },
+  { n:8,  act:'II',  title:'Steel Works',             system:'Rail supplies; storage limits; build zones', product:'Steel beams',           goal:1.5e6,     minutes:50, days:5 },
+  { n:9,  act:'III', title:'Assembly Plant',          system:'Two-step recipes; conveyors',             product:'Valves',                   goal:3.5e6,     minutes:50, days:5 },
+  { n:10, act:'III', title:'Night Shift',             system:'Shifts and the night shift',              product:'Tier 3 refits',            goal:8e6,       minutes:55, days:5 },
+  { n:11, act:'III', title:'Quality Lab',             system:'Quality grades; premium orders',          product:'Precision parts',          goal:18e6,      minutes:50, days:5 },
+  { n:12, act:'III', title:'Export Depot',            system:'Export by train; dispatch',               product:'Export containers',        goal:45e6,      minutes:50, days:5 },
+  { n:13, act:'IV',  title:'Second Plant: Heavy Works', system:'A second site under a manager; defence clearance', product:'Engines, Abel bulldozer, Dunmore lorry', goal:110e6, minutes:60, days:6 },
+  { n:14, act:'IV',  title:'Automated Line',          system:'Robots replace operators on one line',    product:'Armour plate, Tarn carrier', goal:260e6,   minutes:60, days:6 },
+  { n:15, act:'IV',  title:'Industrial Group',        system:'Research office and paths',               product:'Big Tom crane, Ironhill tank', goal:600e6, minutes:60, days:6 },
+  { n:16, act:'IV',  title:'Iron Valley Corporation', system:'Aircraft works; endless contracts',       product:'Wend, Mallory, Ashcombe, Founder', goal:null, minutes:null, days:null },
 ];
 export const LAST_LEVEL = 16;
 export const levelRow = n => LEVEL_TABLE[Math.max(1, Math.min(LAST_LEVEL, n))];
@@ -31,18 +32,31 @@ export const levelRow = n => LEVEL_TABLE[Math.max(1, Math.min(LAST_LEVEL, n))];
 // one operator per machine; more loaders as the site grows; trades double up as plant gets bigger.
 // Level Bible: the owner starts alone; mechanics (and electricians, for power cuts) join at level 3 with
 // issues and repairs, supervisors at level 4 with the supervisor zone.
+// Bible v2.0 12.2, the staffing matrix: the most posts of each role at each level (index = level). The total is the
+// worker cap. Gus, robot cells and the contracted pilot never count. Electricians and cleaners are not in the game (12.1).
 export const ROLE_CAPS = {
-  operator:    [0, 1, 2, 3, 4, 5, 5, 5, 6, 7, 8, 8, 9, 10, 10, 11, 12],
-  loader:      [0, 2, 3, 4, 4, 5, 6, 6, 7, 8, 9, 10, 10, 12, 12, 14, 16],
-  electrician: [0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6],
-  mechanic:    [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7],
-  supervisor:  [0, 0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6],
-  cleaner:     [0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 6],
+  operator:    [0, 1, 2, 3, 4, 5, 5, 6, 8, 9, 14, 16, 17, 25, 26, 30, 36],
+  loader:      [0, 1, 2, 2, 3, 4, 4, 5, 5, 6, 8, 8, 9, 12, 12, 14, 16],
+  helper:      [0, 0, 1, 2, 3, 4, 4, 5, 5, 6, 8, 8, 8, 10, 10, 10, 10],
+  mechanic:    [0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 6, 6, 8, 10],
+  supervisor:  [0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 5, 6],
+  forklift:    [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 6, 8, 10],
+  clerk:       [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3],
+  foreman:     [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 3],
+  dispatcher:  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 3],
+  manager:     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 3],
+  guard:       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 3, 4],
+  driver:      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 3],
+  technician:  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 6, 8],
+  engineer:    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 6],
+  electrician: Array(17).fill(0),
+  cleaner:     Array(17).fill(0),
 };
+export const workerCap = level => Object.values(ROLE_CAPS).reduce((a, r) => a + (r[Math.max(1, Math.min(16, level))] || 0), 0);
 export const roleCap = (role, level) => (ROLE_CAPS[role] || [])[Math.max(1, Math.min(LAST_LEVEL, level))] ?? 1;
 // first hire is free for the starting crew; after that each hire costs more, and wages rise with the level
 export const hirePrice = (role, have, level) => {
-  const base = { operator:220, loader:150, helper:120, electrician:160, mechanic:180, supervisor:300, cleaner:110 }[role] ?? 200;
+  const base = { operator:220, loader:150, helper:120, mechanic:180, supervisor:240, forklift:160, clerk:260, foreman:400, dispatcher:350, manager:900, guard:200, driver:300, engineer:700, electrician:160, cleaner:110 }[role] ?? 200;   // v2.0 12.1
   if (have === 0 && (role === 'operator' || role === 'loader')) return 0;
   return Math.round(base * Math.pow(1.35, Math.max(0, have - 1)) * Math.pow(1.25, level - 1) / 10) * 10;
 };
@@ -66,7 +80,7 @@ export const UPGRADES = [
   { id:'pipe',  lv:2, group:'Machines',  kind:'speed',     name:'Pipe mill speed',   per:'forms pipes 20% faster',              cost:[250, 550, 1000], growth:1.9, icon:'gear',  tiers:[[2, 3], [5, 2], [6, 2], [9, 2], [13, 2]] },
   { id:'batch', lv:2, group:'Machines',  kind:'batch',     name:'Crate batch',       per:'one plank in four gives a second crate', cost:[300, 600, 1100], growth:1.8, icon:'boxes', tiers:[[2, 3], [6, 1], [12, 1]] },
   { id:'press', lv:3, group:'Machines',  kind:'speed',     name:'Tool press speed',  per:'stamps tools 20% faster',             cost:[400, 850, 1500], growth:1.9, icon:'gear',  tiers:[[3, 3], [6, 2], [9, 2], [13, 2]] },
-  { id:'autofeed',lv:4, group:'Machines', kind:'speed',    name:'Auto-feed',         per:'crate, pipe and tool machines 5% faster', cost:[400, 800, 1600], growth:1.9, icon:'gear', tiers:[[4, 3], [8, 2], [12, 2]] },
+  { id:'autofeed',lv:4, group:'Machines', kind:'speed',    name:'Auto-feed',         per:'one helper keeps two neighbouring machines fed (crate machine and pipe mill), and the machines run 5% faster', cost:[400, 800, 1600], growth:1.9, icon:'gear', tiers:[[4, 3], [8, 2], [12, 2]] },
   { id:'sturdy',lv:3, group:'Machines',  kind:'breakdown', name:'Sturdier parts',    per:'jams and worn parts 15%, 30%, then 50% rarer', cost:[350, 750, 1400], growth:1.9, icon:'wrench', tiers:[[3, 3], [7, 2], [11, 2]] },
   // power
   { id:'gen',   lv:1, group:'Power',     kind:'breakdown', name:'Generator tune-up', per:'the old generator stalls less: every 60 s, 90 s, then never',        cost:[80, 200, 400], growth:1.8, icon:'gear',    tiers:[[1, 3], [3, 2], [8, 2]] },
