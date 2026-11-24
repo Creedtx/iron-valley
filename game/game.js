@@ -106,6 +106,7 @@ const PADS = [
   { id:'counter', label:'Trade counter at the gate', price:120, at:[1.0, 8.6], icon:'box', after:s => s.walk && s.walk.served >= 1, note:'Customers wait longer, pay 10% more' },
   { id:'car',     label:'Service and signwrite the car', price:200, at:[13.6, 9.3], icon:'truck', after:s => s.sales && s.sales.trips >= 1, note:'Trips 20% quicker; the car advertises' },
   // Bible v2.0 18.4: purchases that change what you see
+  { id:'hatch',   label:'Wages hatch', price:150, at:[-2.6, -1.85], icon:'window', after:s => s.level >= 2, note:'Hand out the pay packets yourself on Fridays at 16:30', lv:2 },
   { id:'awning',  label:'Gate awning', price:200, at:[-.75, 9.65], icon:'window', after:s => s.level >= 2 && s.lv2.mill >= 2, note:'Walk-ins keep coming in light rain', lv:2 },
   { id:'lamps',   label:'Yard lamps', price:480, at:[-4.6, 8.4], icon:'bulb', after:s => s.level >= 3, note:'Work on into dusk: the gate trade runs to 16:50, a lit yard at the whistle', lv:3 },
   { id:'bell',    label:'Counter bell (trade counter, step 2)', price:250, at:[-.75, 8.25], icon:'box', after:s => s.level >= 3 && s.restored.counter, note:'You hear a walk-in from anywhere; they wait 160 s', lv:3 },
@@ -1133,6 +1134,7 @@ function applyRestore(id, fx){
     g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); g.position.set(1.15, 0, 9.7); g.userData.dyn = true; world.add(g); M.counter = g; addCol([.65, 9.42, 1.65, 9.98], 'counter'); rebuildNav(); }
   if (id === 'car' && M.car && !M.carSigns) { M.carSigns = []; for (const sd of [1, -1]) { const s = board(textTex([[signName().toUpperCase(), 40, 46], ['EST. 1921 · MILL ROAD', 24, 82, 500]], 512, 110, { bg:'#efe1bd', fg:'#2a1d14', border:'#8a3b1b', bw:6 }), 1.5, .33);
     s.position.set(-.2, .6, sd * .87); s.rotation.y = sd > 0 ? 0 : Math.PI; M.car.add(s); M.carSigns.push(s); } }
+  if (id === 'hatch') { buildHatch(); M.hatch.g.visible = true; }
   if (id === 'awning') buildAwning();
   if (id === 'lamps') M.lampsOn = true;
   if (id === 'bell' && M.counter && !M.bell) { const b = new THREE.Group(), brass = std('#c9a24a', .3, .8); const dome = new THREE.Mesh(new THREE.SphereGeometry(.07, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), brass); dome.position.y = .03; b.add(dome); const base = new THREE.Mesh(CY(.08, .03, 14), std('#3a2a1a')); b.add(base); b.position.set(.3, .995, 0); M.counter.add(b); M.bell = b; }
@@ -2494,13 +2496,13 @@ function walk(c, dt){
   // arrival tolerance grows with the step size: at a low frame rate one step (and one crowd push) can be
   // larger than a fixed 6 cm, and the walker would circle the spot for ever (build 0.7: Walt stuck at 8 cm
   // from the saw while the owner stood beside it). The last waypoint snaps so the work spot is exact.
-  if (d < Math.max(.06, sp * dt * (last ? 1.6 : 1))) { if (last) c.o.position.set(tx, 0, tz); c.path.shift(); c.wd = null; return !c.path.length; }
+  if (d < Math.max(.06, sp * dt * (last ? 1.6 : 1))) { if (last) c.o.position.set(tx, groundY(tx, tz), tz); c.path.shift(); c.wd = null; return !c.path.length; }
   // watchdog: no headway on this waypoint for 2.5 s (someone standing in the way, a crowd push) -> re-path,
   // and after two re-paths step over the gap. Counted in S.unstuck so the soak test can see it.
   const wd = c.wd && c.wd.wp === c.path[0] ? c.wd : (c.wd = { wp:c.path[0], best:d, t:0, n:c.wd ? c.wd.n : 0 });
   if (d < wd.best - .12) { wd.best = d; wd.t = 0; } else if ((wd.t += dt) > 2.5) {
     S.unstuck = (S.unstuck || 0) + 1; wd.n++; (S.unstuckLog || (S.unstuckLog = [])).push(`${c.st ? c.st.name : '?'}:${c.state} at ${c.o.position.x.toFixed(1)},${c.o.position.z.toFixed(1)} to ${tx.toFixed(1)},${tz.toFixed(1)}`); if (S.unstuckLog.length > 8) S.unstuckLog.shift();
-    if (d < .3) { c.o.position.set(tx, 0, tz); c.path.shift(); c.wd = null; return !c.path.length; }
+    if (d < .3) { c.o.position.set(tx, groundY(tx, tz), tz); c.path.shift(); c.wd = null; return !c.path.length; }
     if (wd.n > 2 && !segBlocked(c.o.position.x, c.o.position.z, c.o.position.x + dx * .3 / d, c.o.position.z + dz * .3 / d, .02)) { const k = .3 / d; c.o.position.x += dx * k; c.o.position.z += dz * k; wd.best = d - .3; wd.t = 0; return false; }   // squeeze past a person, 30 cm at a time, never through a wall
     const g = c.goal || c.path[c.path.length - 1]; c.path = findPath(c.o.position.x, c.o.position.z, g[0], g[1]); c.wd = { wp:c.path[0], best:Infinity, t:0, n:wd.n }; return !c.path.length;
   }
@@ -3667,8 +3669,14 @@ function groundY(x, z){
   const f = LDOCK.fork; if (f && x > f[0] && x < f[2] && z > f[1] && z < f[3]) return LDOCK.H * (z - f[1]) / (f[3] - f[1]);   // the forklift ramp, rising south onto the deck
   return 0;
 }
+const _gd = new THREE.Vector3();
 function updateDock(dt){
-  for (const c of [owner, ...staffObj.values(), ...folk.values(), ...temps]) { if (!c) continue; const p = c.o.position, want = groundY(p.x, p.z); p.y += (want - p.y) * Math.min(1, dt * 14); }
+  // everybody stands on the surface under their feet: the yard, the dock ramp's slope, the deck. Exact, every frame, so a
+  // walker climbs the ramp step by step and nobody sinks into it when a work spot or a waypoint sets them down
+  for (const c of [owner, ...staffObj.values(), ...folk.values(), ...temps, ...(walker ? [walker.c] : []), ...(bolt.o ? [bolt] : [])]) { if (!c || !c.o) continue; const p = c.o.position; p.y = groundY(p.x, p.z);
+    // a trolley being pushed lies on the slope: pitched with the ground along the way it points, wheels on the concrete
+    if (c.cart) { const d = c.o.getWorldDirection(_gd), sz = (groundY(p.x + d.x * .45, p.z + d.z * .45) - groundY(p.x - d.x * .45, p.z - d.z * .45)) / .9, want = -Math.atan(sz);
+      c.cart.rotation.x += (want - c.cart.rotation.x) * Math.min(1, dt * 16); } }
   if (M.dockLamp) setLamp(M.dockLamp, '#ffd28a', truck.state === 'docked' ? 2.4 : 0);
 }
 // ---- the mains: apply, the council permit, the board's crew fits the transformer, then the generator stands by -------
@@ -4762,13 +4770,41 @@ function buildGuide(){
 }
 // the cash box's bottom edge, read at most twice a second (a read each frame forced a layout each frame)
 let mbY = 0, mbT = -9; function moneyBottom(){ if (T - mbT > .5 || T < mbT) { mbT = T; mbY = $('money').getBoundingClientRect().bottom; } return mbY; }
+// The way to the next job (reference: an arcade-idle guide). A dashed orange trail on the ground follows the real walking
+// route from the owner to the target and flows towards it; a ring pulses at the target and the arrow bobs over it; when the
+// target is off the screen a round arrow at the edge of the screen points the way. Red for an alert, orange otherwise.
+const TRAIL_N = 70, TRAIL_GAP = .62; let trail = null, trailPath = null, trailKey = '', trailT = 0, guideRing = null;
+function buildTrail(){
+  const g = new THREE.PlaneGeometry(.34, .13); g.rotateX(-Math.PI / 2);
+  trail = new THREE.InstancedMesh(g, new THREE.MeshBasicMaterial({ color:'#f08a24', transparent:true, opacity:.92, depthWrite:false, toneMapped:false }), TRAIL_N); trail.frustumCulled = false; trail.renderOrder = 5; trail.count = 0; scene.add(trail);
+  guideRing = new THREE.Mesh(new THREE.RingGeometry(.5, .62, 40), new THREE.MeshBasicMaterial({ color:'#f08a24', transparent:true, depthWrite:false, toneMapped:false })); guideRing.rotation.x = -Math.PI / 2; guideRing.renderOrder = 5; scene.add(guideRing);
+}
+const _tm = new THREE.Matrix4(), _tq = new THREE.Quaternion(), _ts = new THREE.Vector3(1, 1, 1), _tp = new THREE.Vector3(), _ty = new THREE.Vector3(0, 1, 0);
 function updateGuide(o){
-  const at = o.at; guide.visible = guideFoot.visible = !!at && !officeOpen;
-  if (!at) return;
-  guide.position.set(at[0], 2.1 + Math.sin(T * 4) * .15, at[1]); guide.rotation.set(-.5, 0, 0);
-  guide.material.color.set(o.alert ? '#ff5a45' : '#e8ab2c'); guideFoot.material.color.set(o.alert ? '#ff5a45' : '#e8ab2c');
-  const dx = at[0] - owner.o.position.x, dz = at[1] - owner.o.position.z, d = Math.hypot(dx, dz);
-  guideFoot.visible = d > 1.4; guideFoot.position.set(owner.o.position.x + dx / d * .9, .03, owner.o.position.z + dz / d * .9); guideFoot.rotation.z = Math.atan2(-dx, -dz) + Math.PI;
+  if (!trail) buildTrail();
+  const at = o && o.at, show = !!at && !officeOpen && !cardOpen && !trip && owner && owner.o.visible, col = o && o.alert ? '#ff4a3a' : '#f08a24';
+  guide.visible = !!at && !officeOpen; guideFoot.visible = false; trail.visible = guideRing.visible = show; const edge = $('guideEdge');
+  if (!at) { if (edge) edge.hidden = true; return; }
+  guide.position.set(at[0], groundY(at[0], at[1]) + 2.1 + Math.sin(T * 4) * .15, at[1]); guide.rotation.set(-.5, 0, 0); guide.material.color.set(col);
+  trail.material.color.set(col); guideRing.material.color.set(col);
+  const k = (T * 1.1) % 1; guideRing.position.set(at[0], groundY(at[0], at[1]) + .035, at[1]); guideRing.scale.setScalar(.75 + k * .55); guideRing.material.opacity = .9 * (1 - k);
+  // the route: the people's paths from the owner to the target, worked out again every half second or when the target changes
+  const op = owner.o.position, key = at[0].toFixed(1) + ',' + at[1].toFixed(1), d0 = Math.hypot(at[0] - op.x, at[1] - op.z);
+  if (key !== trailKey || T - trailT > .5) { trailKey = key; trailT = T; const p = findPath(op.x, op.z, at[0], at[1]); trailPath = [[op.x, op.z], ...p]; }
+  else if (trailPath) trailPath[0] = [op.x, op.z];
+  let n = 0; if (show && d0 > 1.3 && trailPath) { const off = (T * 1.6) % TRAIL_GAP; let carry = TRAIL_GAP - off + .5;   // starts half a metre ahead of the owner, flows towards the target
+    for (let i = 1; i < trailPath.length && n < TRAIL_N; i++) { const a = trailPath[i - 1], b = trailPath[i], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 1e-3) continue; const ux = (b[0] - a[0]) / L, uz = (b[1] - a[1]) / L;
+      _tq.setFromAxisAngle(_ty, Math.atan2(-uz, ux));
+      for (let s = carry; s < L && n < TRAIL_N; s += TRAIL_GAP) { const x = a[0] + ux * s, z = a[1] + uz * s; if (Math.hypot(at[0] - x, at[1] - z) < .7) { s = L; break; }
+        _tp.set(x, groundY(x, z) + .03, z); _tm.compose(_tp, _tq, _ts); trail.setMatrixAt(n++, _tm); }
+      carry = ((carry - L) % TRAIL_GAP + TRAIL_GAP) % TRAIL_GAP; } }
+  trail.count = n; trail.instanceMatrix.needsUpdate = true;
+  // off the screen: a round arrow at the edge, pointing the way (clear of the board at the top and the plates at the bottom)
+  if (!edge) return; v3.set(at[0], groundY(at[0], at[1]) + .5, at[1]).project(cam); const W = innerWidth, H = innerHeight, sx = (v3.x + 1) / 2 * W, sy = (1 - v3.y) / 2 * H;
+  const top = Math.min(H * .45, moneyBottom() + 70), bot = H - 120, l = 34, r = W - 34, off = sx < l || sx > r || sy < top || sy > bot;
+  edge.hidden = !show || !off; if (edge.hidden) return; const cx = W / 2, cy = (top + bot) / 2, dx = sx - cx, dy = sy - cy;
+  let t = Infinity; if (dx) t = Math.min(t, ((dx > 0 ? r : l) - cx) / dx); if (dy) t = Math.min(t, ((dy > 0 ? bot : top) - cy) / dy);
+  edge.style.transform = `translate(${cx + dx * t}px, ${cy + dy * t}px)`; edge.firstElementChild.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`; edge.classList.toggle('alert', !!o.alert);
 }
 
 /* =====================================================================
@@ -5399,6 +5435,9 @@ function buildHatch(){
 }
 let payRing = null;
 function updatePay(dt){
+  const hatch = !!S.restored.hatch;
+  if (!hatch) { if (payTime() && !payDay()) { const sum = payNeeded().reduce((a, st) => a + (WAGES[st.role] || 120), 0); S.day.pay = { n:dayNo(), paid:{}, seq:0, sum, est:estatePays(), told:true, noHatch:true };
+      if (payNeeded().length) toast(`16:30, pay day. ${S.level >= 2 ? 'No wages hatch yet: the packets go out at the gate at five. Build the hatch on the workshop front to hand them out yourself.' : 'The packets go out at the gate at five.'}`, 'gold'); } return; }
   const H = buildHatch(), want = payTime() ? 1 : 0; H.open += clamp(want - H.open, -dt * 1.5, dt * 1.5); H.sh.rotation.x = -H.open * 1.45; H.tin.visible = H.open > .5;
   if (M.ring && !payRing) { payRing = M.ring('pay', ...PAY_AT, '#e2a72c', .55); payRing.g.visible = false; }
   if (payRing) payRing.g.visible = want > 0 && !!payDay() && payNeeded().some(st => !payDay().paid[st.id]);
@@ -5412,7 +5451,7 @@ function updatePay(dt){
 // one worker's part in pay day; true while he is busy with it
 function payStep(c, dt){
   const pd = payDay(), st = c.st;
-  if (!pd || !payTime() || pd.paid[st.id] || st.role === 'forklift') { if (c.pay) { c.pay = null; c.state = 'idle'; c.path = null; c.task = null; } return false; }
+  if (!pd || !S.restored.hatch || !payTime() || pd.paid[st.id] || st.role === 'forklift') { if (c.pay) { c.pay = null; c.state = 'idle'; c.path = null; c.task = null; } return false; }
   if (!c.pay) { if (c.stack.length || c.trolley || (c.tplanks && c.tplanks.length) || c.lunch || ['fixing', 'arrive', 'pour', 'fill', 'servicing'].includes(c.state)) return false;
     if ([...staffObj.values()].filter(o => o.pay).length >= PAY_Q.length) return false;
     releaseCart(c); c.state = 'pay'; if (cartHome(c, dt)) return true;

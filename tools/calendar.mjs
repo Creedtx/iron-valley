@@ -28,7 +28,7 @@ check(await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * 600 + 240; 
 // 2. pay day: a Friday afternoon with a crew of four
 await ev(async () => { const v = window.__iv, S = v.S; while (v.cardOpen) v.nextCard(); S.letter = true; S.tutDone = true; S.tut = 99; S.met.gus = true; S.cash = 9000; S.orderSeq = 4; S.delivered = 4; S.sales.told = true; v.evNext = 1e9;
   v.hire('operator'); v.hire('loader'); v.closeOffice(); v.applyRestore('yard', false); S.levelUp = true; await v.startLevel(2); while (v.cardOpen) v.nextCard();
-  v.startMillBuild(false); v.finishMill(false); v.hire('operator'); v.hire('loader'); v.closeOffice(); for (const st of S.staff) st.posted = true;
+  v.startMillBuild(false); v.finishMill(false); v.hire('operator'); v.hire('loader'); v.closeOffice(); for (const st of S.staff) st.posted = true; v.applyRestore('hatch', false);
   while (v.cardOpen) v.nextCard(); v.hold = true; v.step(.05); v.hold = false; const d = v.dayNo(); S.cal.off = Math.ceil((v.calDay(d) + 1) / 5) * 5 - 1 - d; S.time = d * 600 + 560; S.day.n = d; });
 check(await ev(() => window.__iv.isFriday()), 'the test day is a Friday');
 check(await ev(() => window.__iv.dateOf(window.__iv.calDay()).startsWith('Friday')), 'level 2 runs on into Friday');

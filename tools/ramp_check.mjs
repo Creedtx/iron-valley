@@ -1,34 +1,39 @@
-// Plays the whole of level 1 the way a player would: day one by hand, then an operator and a loader,
-// taking every call, briefing, ordering timber, signing and collecting. Logs the saw's reason every 10 s.
+// The dock ramp: everybody climbs it on its slope (feet on the concrete, never sunk into it), a pushed trolley tilts with
+// it, and the guide trail follows the walking route. Game time, then pictures.
+//   node tools/ramp_check.mjs <url> <outDir>
 import puppeteer from 'puppeteer-core';
 import fs from 'node:fs'; import path from 'node:path';
-const [url, out, mins = '12'] = process.argv.slice(2); fs.mkdirSync(out, { recursive:true });
-const b = await puppeteer.launch({ executablePath:'/usr/bin/google-chrome', args:['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
-const p = await b.newPage(); await p.setViewport({ width:390, height:844, deviceScaleFactor:1, isMobile:true, hasTouch:true });
+const [url, out] = process.argv.slice(2); fs.mkdirSync(out, { recursive:true });
+const b = await puppeteer.launch({ executablePath:'/usr/bin/google-chrome', protocolTimeout:1800000, args:['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const p = await b.newPage(); await p.setViewport({ width:720, height:1100, deviceScaleFactor:1 });
 await p.setRequestInterception(true);
 p.on('request', r => { const u = r.url(), pre = 'https://cdn.jsdelivr.net/npm/three@0.170.0/';
   if (u.startsWith(pre)) return r.respond({ status:200, contentType:'text/javascript', headers:{ 'access-control-allow-origin':'*' }, body:fs.readFileSync(path.join(import.meta.dirname, 'node_modules/three', u.slice(pre.length))) });
   if (u.includes('fonts.g') || u.endsWith('favicon.ico')) return r.abort(); r.continue(); });
 const errs = []; p.on('pageerror', e => errs.push(e.message));
-await p.evaluateOnNewDocument(() => { if (!sessionStorage.getItem('s')) { sessionStorage.setItem('s', '1'); localStorage.clear(); } setInterval(() => { if (window.__iv && window.__iv.cardOpen) window.__iv.nextCard(); }, 200); });
-await p.goto(url, { waitUntil:'domcontentloaded' });
-await p.waitForFunction('window.__iv && window.__iv.owner && window.__iv.frames > 20', { timeout:180000 });
-const ev = (f, a) => p.evaluate(f, a), wait = ms => new Promise(r => setTimeout(r, ms));
-const P = await ev(() => window.__iv.P);
-const until = async (cond, secs) => { const t0 = Date.now(); while (Date.now() - t0 < secs * 1000) { if (await ev(cond).catch(() => false)) return true; await wait(1500); } console.log('timeout waiting'); return false; };
-await ev(() => { const v = window.__iv, S = v.S; S.tutDone = true; S.tut = 99; S.cash = 3000; v.hire('operator'); v.hire('loader'); v.hire('helper'); S.staff.forEach(s => s.posted = true); S.call = { qty:20, pq:0, tq:0, pay:240, client:'Test', deadline:900 }; v.acceptCall(); v.briefOrder(null); v.closeOffice(); v.speed = 12; });
-// the dock: the truck at it, the loader on it
-await until(() => window.__iv.truck.state === 'docked', 600);
-await ev(() => window.__iv.owner.o.position.set(window.__iv.P.dock[0] - 4, 0, window.__iv.P.dock[1] + 1));
-for (let i = 0; i < 14; i++) { await wait(3000); const r = await ev(() => { const v = window.__iv, l = [...v.staffObj.values()].find(c => c.st.role === 'loader'); return { ls:l.state, carry:l.stack.length, y:+l.o.position.y.toFixed(2), x:+l.o.position.x.toFixed(1), z:+l.o.position.z.toFixed(1), bed:v.S.bed, pal:v.S.pallet, unstuck:v.S.unstuck || 0 }; }); console.log('DOCK', JSON.stringify(r)); if (i === 3) await p.screenshot({ path:path.join(out, 'r1_loader_ramp.png') }); }
-// the owner walks to the ramp foot, up the ramp and onto the signing circle
-await until(() => window.__iv.S.order && window.__iv.S.order.ready, 400);
-const walkTo = async (x, z) => { for (let i = 0; i < 200; i++) { const d = await ev(([x, z]) => { const o = window.__iv.owner.o.position, dx = x - o.x, dz = z - o.z, d = Math.hypot(dx, dz), s = Math.min(d, .25); if (d > .05) o.set(o.x + dx / d * s, o.y, o.z + dz / d * s); return d; }, [x, z]); if (d < .1) return; await wait(150); } };
-await walkTo(P.dock[0] - 6.0, P.dock[1] - 1.2); await walkTo(P.dock[0] - 3.2, P.dock[1] - 1.2);
-console.log('owner mid-ramp y', await ev(() => window.__iv.owner.o.position.y.toFixed(2)));
-await p.screenshot({ path:path.join(out, 'r2_owner_ramp.png') });
-await walkTo(P.drop[0], P.drop[1]); await wait(2500);
-console.log('owner at drop y', await ev(() => window.__iv.owner.o.position.y.toFixed(2)), 'ring y', await ev(() => window.__iv.M.rings.drop.g.position.y));
-await p.screenshot({ path:path.join(out, 'r3_sign.png') });
-await until(() => window.__iv.S.delivered > 0, 120); console.log('signed', await ev(() => window.__iv.S.delivered));
-console.log(errs.length ? 'ERRORS ' + JSON.stringify(errs.slice(0, 6)) : 'no errors'); await b.close();
+await p.evaluateOnNewDocument(() => { try { localStorage.clear(); } catch(e){} });
+await p.goto(url, { waitUntil:'domcontentloaded' }); await p.waitForFunction('window.__iv && window.__iv.owner && window.__iv.frames > 20', { timeout:300000 });
+const ev = (f, a) => p.evaluate(f, a);
+const fail = []; const check = (ok, what) => { console.log((ok ? 'PASS ' : 'FAIL ') + what); if (!ok) fail.push(what); };
+await ev(() => { const v = window.__iv, S = v.S; while (v.cardOpen) v.nextCard(); S.letter = true; S.tutDone = true; S.tut = 99; S.met.gus = true; S.cash = 3000; S.orderSeq = 4; S.delivered = 4; S.sales.told = true; v.evNext = 1e9;
+  v.hire('operator'); v.hire('loader'); v.closeOffice(); for (const st of S.staff) st.posted = true; S.pallet = 14; v.syncPallet();
+  S.call = { client:'Valley Grocers', qty:14, pq:0, tq:0, pay:200, deadline:400 }; v.acceptCall(); v.closeOffice(); });
+// play until the loader is on the ramp with his trolley; record heights against the slope the whole way
+const r = await ev(() => { const v = window.__iv, S = v.S; v.hold = true; let t = 0, worst = 0, seen = 0, tilt = 0, onRamp = null;
+  while (t < 160) { if (v.cardOpen) v.nextCard(); if (S.order && !S.order.briefed) v.briefOrder(null); if (S.order && S.order.ready && v.truck.state === 'docked') v.signOrder(v.owner);
+    v.step(.05); t += .05;
+    for (const c of [v.owner, ...v.staffObj.values()]) { const q = c.o.position, g = v.groundY(q.x, q.z); if (g > .05) { seen++; worst = Math.max(worst, Math.abs(q.y - g)); if (c.cart && g < v.LDOCK.H - .05) { tilt = Math.max(tilt, Math.abs(c.cart.rotation.x)); if (!onRamp) onRamp = [q.x, q.z]; } } } }
+  v.hold = false; return { worst, seen, tilt, onRamp, shipped:S.shipped }; });
+console.log(JSON.stringify(r));
+check(r.seen > 50, 'people walked up the ramp and on the deck');
+check(r.worst < .02, `feet stay on the slope and the deck (worst ${r.worst.toFixed(3)} m)`);
+check(r.tilt > .15, `a pushed trolley tilts with the ramp (${(r.tilt * 57.3).toFixed(1)}°)`);
+// a picture with somebody half way up, and the guide trail
+await ev(() => { const v = window.__iv; v.owner.o.position.set(12.2, 0, 6.15); v.camLock = [12.5, 6.5]; v.camZoom = .7; });
+await new Promise(r => setTimeout(r, 2500)); await p.screenshot({ path:path.join(out, 'ramp.png') });
+await ev(() => { const v = window.__iv; v.owner.o.position.set(-6, 0, 6); v.camLock = null; v.camZoom = 1; });
+await new Promise(r => setTimeout(r, 2500)); await p.screenshot({ path:path.join(out, 'trail.png') });
+check(await ev(() => document.getElementById('guideEdge') !== null), 'the edge arrow is in the page');
+check(!errs.length, 'no page errors' + (errs.length ? ': ' + errs.slice(0, 3).join(' | ') : ''));
+console.log(fail.length ? `\n${fail.length} FAILED` : '\nRAMP CLEAN');
+await b.close(); process.exit(fail.length ? 1 : 0);
