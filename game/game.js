@@ -558,7 +558,7 @@ function buildNav(){
   // the spots people walk to, the doorways, and a point off each corner of every obstacle (build 0.16: no hand-placed graph)
   const pts = [P.timberRing, P.feedRing, P.op, [P.pallet[0] + 0.1, P.pallet[1] + 0.85], ...P.seats, P.cash, P.frontIn, P.frontOut, P.boardSpot, P.genFix, P.filler, P.pump,
     P.jboxSpot, P.sawFix, P.mechHome, P.elecHome, ...P.patrol, P.storeSpot, P.unload, P.drop, P.deskRing, P.coolerSpot, P.bottleSpot, P.cleanerHome, P.wcCleanSpot, P.loaderWait, P.dockWait, ...P.sweep, ...P.wait,
-    [20.6, -2.6], [20.6, 0.4], [22.45, 3.4], [22.4, 5.2], [P.wsDoor[0], P.wsDoor[1] + 1.0], [P.wsDoor[0], P.wsDoor[1] - .9], [P.workshop[0] - 2.6, P.workshop[1] + .2], [P.dock[0] - 6.0, P.dock[1] - 1.2], [P.canopy[0] - 4.2, P.canopy[1] + 3.4]];
+    [20.6, -2.6], [20.6, 0.4], [22.45, 3.4], [22.4, 5.2], [P.wsDoor[0], P.wsDoor[1] + 1.0], [P.wsDoor[0], P.wsDoor[1] - .9], [P.workshop[0] - 2.6, P.workshop[1] + .2], [P.dock[0] - 6.0, P.dock[1] - 1.2], [P.dock[0] - 6.8, P.dock[1] - 1.2], [P.canopy[0] - 4.2, P.canopy[1] + 3.4]];   // two points on the ramp's centre line below its foot: walkers and trolleys line up before they climb
   if (M.scrapOpen) pts.push([-15.0, 5.1], [-15.0, -0.45], [-16.6, 8.2], [-20.0, 8.6], [-22.6, 6.6], [-24.4, 1.2], [-20.0, -2.4], [-16.4, -2.6]);
   if (S.level === 4 && M.forkLane) pts.push(...LANE4.pts.filter(q => groundY(q[0], q[1]) < .02));
   if (S.level >= 4 && M.l4Built) pts.push(P.feed2Ring, P.forkFeed2, P.saw2Fix, P.forkPark, P.forkHome, P.stallRing, P.forkDock, P.forkStore, P.forkWh, ...(P.op2 ? [P.op2] : []), ...(P.fork2 ? [P.fork2] : []));
@@ -844,7 +844,7 @@ function buildWorld(){
   { const [x0, z0, x1, z1] = LDOCK.deck, [rx0, rz0, , rz1] = LDOCK.ramp;
     addCol([x1 - .12, z0, x1 + .04, z1]); addCol([x0, z0 - .08, x1, z0 + .08], 'dockN'); addCol([x0, z1 - .08, x1, z1 + .08]);       // face, ends
     addCol([x0 - .06, z0, x0 + .06, rz0 - .02]); addCol([x0 - .06, rz1 + .02, x0 + .06, z1]);                              // back, either side of the ramp
-    addCol([rx0 + .3, rz0 - .3, x0, rz0 - .02]); addCol([rx0 + .3, rz1 + .02, x0, rz1 + .3]); }                           // the ramp's kerbs and rails (open at the foot)
+    addCol([rx0 + .05, rz0 - .3, x0, rz0 - .02]); addCol([rx0 + .05, rz1 + .02, x0, rz1 + .3]); }                          // the ramp's kerbs and rails, the full length: it is entered square at its foot, never over its side
   // ---- the electricity board's pole transformer in the yard's south-east corner, a span over the road to the line ------
   const Xf = P.xfmr; M.xfmr = put(inst('site_transformer'), Xf[0], Xf[1], 0); M.xfmr.userData.dyn = true;
   M.xfTank = findNode(M.xfmr, 'xf_tank'); M.xfLamp = findNode(M.xfmr, 'xf_lamp');
@@ -4764,7 +4764,7 @@ let guide, guideFoot;
 function buildGuide(){
   const shape = new THREE.Shape(); shape.moveTo(-.22, .25); shape.lineTo(.22, .25); shape.lineTo(.22, 0); shape.lineTo(.42, 0); shape.lineTo(0, -.42); shape.lineTo(-.42, 0); shape.lineTo(-.22, 0); shape.closePath();
   const g = new THREE.ExtrudeGeometry(shape, { depth:.12, bevelEnabled:false }); g.translate(0, 0, -.06);
-  guide = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color:'#e8ab2c' })); guide.position.y = 2; scene.add(guide);
+  guide = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color:'#e2b54a', roughness:.35, metalness:.55, emissive:'#5a4210', emissiveIntensity:.35 })); guide.position.y = 2; scene.add(guide);
   const fs = new THREE.Shape(); fs.moveTo(0, .5); fs.lineTo(.26, .1); fs.lineTo(.1, .14); fs.lineTo(.1, -.1); fs.lineTo(-.1, -.1); fs.lineTo(-.1, .14); fs.lineTo(-.26, .1); fs.closePath();
   guideFoot = new THREE.Mesh(new THREE.ShapeGeometry(fs), new THREE.MeshBasicMaterial({ color:'#e8ab2c', transparent:true, opacity:.85, depthWrite:false })); guideFoot.rotation.x = -Math.PI / 2; guideFoot.renderOrder = 4; scene.add(guideFoot);
 }
@@ -4782,8 +4782,11 @@ function buildTrail(){
 const _tm = new THREE.Matrix4(), _tq = new THREE.Quaternion(), _ts = new THREE.Vector3(1, 1, 1), _tp = new THREE.Vector3(), _ty = new THREE.Vector3(0, 1, 0);
 function updateGuide(o){
   if (!trail) buildTrail();
-  const at = o && o.at, show = !!at && !officeOpen && !cardOpen && !trip && owner && owner.o.visible, col = o && o.alert ? '#ff4a3a' : '#f08a24';
-  guide.visible = !!at && !officeOpen; guideFoot.visible = false; trail.visible = guideRing.visible = show; const edge = $('guideEdge');
+  // the arrow is for events in the yard only (sign a lorry, brief a new order, a gate customer, land for sale, a new pad or
+  // unlock, a sales trip): never for office work such as hiring or training, and no line on the ground, just the arrow
+  const ev = o && o.at && !(o.at === P.deskRing || (Math.abs(o.at[0] - P.deskRing[0]) < .01 && Math.abs(o.at[1] - P.deskRing[1]) < .01)) && !/office|train/i.test(o.t || '');
+  const at = ev ? o.at : null, show = !!at && !officeOpen && !cardOpen && !trip && owner && owner.o.visible, col = o && o.alert ? '#b3412e' : '#e2b54a';
+  guide.visible = !!at && !officeOpen; guideFoot.visible = false; trail.visible = false; guideRing.visible = show; const edge = $('guideEdge');
   if (!at) { if (edge) edge.hidden = true; return; }
   guide.position.set(at[0], groundY(at[0], at[1]) + 2.1 + Math.sin(T * 4) * .15, at[1]); guide.rotation.set(-.5, 0, 0); guide.material.color.set(col);
   trail.material.color.set(col); guideRing.material.color.set(col);
@@ -4792,7 +4795,7 @@ function updateGuide(o){
   const op = owner.o.position, key = at[0].toFixed(1) + ',' + at[1].toFixed(1), d0 = Math.hypot(at[0] - op.x, at[1] - op.z);
   if (key !== trailKey || T - trailT > .5) { trailKey = key; trailT = T; const p = findPath(op.x, op.z, at[0], at[1]); trailPath = [[op.x, op.z], ...p]; }
   else if (trailPath) trailPath[0] = [op.x, op.z];
-  let n = 0; if (show && d0 > 1.3 && trailPath) { const off = (T * 1.6) % TRAIL_GAP; let carry = TRAIL_GAP - off + .5;   // starts half a metre ahead of the owner, flows towards the target
+  let n = 0; if (false && show && d0 > 1.3 && trailPath) { const off = (T * 1.6) % TRAIL_GAP; let carry = TRAIL_GAP - off + .5;   // starts half a metre ahead of the owner, flows towards the target
     for (let i = 1; i < trailPath.length && n < TRAIL_N; i++) { const a = trailPath[i - 1], b = trailPath[i], L = Math.hypot(b[0] - a[0], b[1] - a[1]); if (L < 1e-3) continue; const ux = (b[0] - a[0]) / L, uz = (b[1] - a[1]) / L;
       _tq.setFromAxisAngle(_ty, Math.atan2(-uz, ux));
       for (let s = carry; s < L && n < TRAIL_N; s += TRAIL_GAP) { const x = a[0] + ux * s, z = a[1] + uz * s; if (Math.hypot(at[0] - x, at[1] - z) < .7) { s = L; break; }
