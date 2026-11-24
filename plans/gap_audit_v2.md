@@ -41,7 +41,7 @@
 - [x] 16.8 optional micro-activity: join a milestone photo (crew lines up, flash)
 - [x] 17.1 weather changes at most twice a working day (trim my L6 Wed, L7 Thu, L8 Wed plans)
 - [x] 17.1 crew dress for the weather: donkey jackets and flat caps in cold, oilskins in rain, shirtsleeves in heat
-- [x] 17.1 vehicles: headlights in rain/fog/snow, wipers, tyre spray; chains in deep snow
+- [ ] 17.1 vehicles: headlights and tyre spray done; windscreen wipers and visible tyre chains still to do
 - [x] 17.2 gale: trees bend, papers fly, tarpaulins flap, a windsock straight out
 - [x] 17.2 frost: icicles on gutters, breath steam, crunching steps; light snow: footprints (check)
 - [x] 17.3 downpour: loaders in the open 15% slower (canopy saves), vehicles slower, puddles spread
@@ -61,3 +61,7 @@
 - [x] 21 an "Act III coming soon" card when the Level 8 charter is done (partial release ending)
 - [x] L8 Wed: Joe sends idle workers to empty posts (an operator with no work moves to an unmanned machine)
 - [x] 13.5 without mains, a cut halves speed until the generator is restarted (10 s; 20 s on frosty mornings) (check)
+
+## Still open after build 0.27
+- [x] the crane's horn when it waits for people
+- [ ] windscreen wipers and visible snow chains on the lorries

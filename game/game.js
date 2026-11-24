@@ -2172,7 +2172,7 @@ async function startLevel(n){
     toast('Level 8: Steel Works. The siding is laid behind the North field, the furnace house and the 11 kV plinth are up. The first train is due at eight.', 'gold'); }
   if (n === 3) { S.lv3.e0 = S.earned; S.lv3.f0 = S.fixed; buildLevel3(); applyUpgradeVisuals(); sfx('level', .7); toast(plotOwned('north') ? 'Level 3: Local Manufacturer. Install the tool press on the North field.' : 'Level 3: Local Manufacturer. Buy the North field from Abel Thorne, then install the tool press on it.', 'gold'); }
   if (n === 3) toast('Valley Timber Co. has closed the free account. From now on you buy timber in the office (Stock), and the generator burns diesel your loaders fetch from the tank.', 'gold');
-  placeFolk(); story({ kind:'skip', level:n, w0, w1 }); story({ kind:'courier', level:n });
+  placeFolk(); story({ kind:'skip', level:n, w0, w1 }); story({ kind:'courier', level:n }); setTimeout(() => { levelShot = yardShot(); }, 1500);
   if (CHOICE[n]) setTimeout(() => toast(`This level's choice: ${CHOICE[n]}`, ''), 2500);
   save(); renderOffice();
 }
@@ -2723,6 +2723,8 @@ function loaderTask(c){
     if (f === 'coils' && S.coils > 0 && millReady()) return 'coils';
     if (f === 'coilsPress' && S.coils > 0 && pressReady()) return 'coilsPress'; }
   if (S.power.fuel < 40 && !others.some(t => t === 'fuel' || t === 'deliverFuel')) return 'fuel';
+  const rem1 = S.order ? S.order.deadline - S.order.time : 1e9, rem2 = S.order2 ? S.order2.deadline - S.order2.time : 1e9;   // goods go to the order due first
+  if (rem2 < rem1 && S.level >= 5 && mill2Ready() && truckB.state === 'docked' && S.order2 && !S.order2.ready && need2('p') - pipes2Out() > 0 && S.l5.rack2 > 0 && others.filter(t => t === 'pipes2').length < 2) return 'pipes2';
   if (truck.state === 'docked' && S.pallet > 0 && S.order && !S.order.ready && S.bed + truckCrates() < S.order.qty) return 'crates';
   if (truck.state === 'docked' && S.pipes > 0 && S.order && !S.order.ready && S.pbed + truckPipes() < (S.order.pq || 0) && !others.includes('pipes')) return 'pipes';
   if (truck.state === 'docked' && S.tools > 0 && S.order && !S.order.ready && S.tbed + truckTools() < (S.order.tq || 0) && !others.includes('tools')) return 'tools';
@@ -3239,7 +3241,9 @@ function checkCharter(){
   sfx('level'); confetti();
   setTimeout(showLevelUp, 1400);
 }
-function showLevelUp(){ buzz(300);
+let levelShot = null;
+function yardShot(){ try { renderer.render(scene, cam); return renderer.domElement.toDataURL('image/jpeg', .55); } catch(e){ return null; } }
+function showLevelUp(){ buzz(300); const now = yardShot();
   const n = S.level + 1, L = LEVELS[S.level], built = n <= MAX_LEVEL;
   $('luNum').textContent = String(n).padStart(2, '0'); $('luT').textContent = L.next;
   $('luP').textContent = { 2:'The crew runs itself, power flows and the orders keep coming. Your factory is back in business.', 3:'Two machines, two products and a generator that keeps up. Iron Valley is a real manufacturer now.', 4:'Three products, your own field and a licence from the council. The valley knows your name now.', 5:'Four machines, a forklift yard and a supervisor on the floor. Act I is done: the works is back on its feet.', 6:'Two docks, the weekly accounts paid and Gus\'s send-off in the snow. Iron Valley Manufacturing is a regional name.', 7:'A clerk, refitted machines and a service book. An industrial company in every sense.', 8:'Orders on the board, two supervisors and a siding approved. The valley\'s biggest employer.', 9:'Steel by rail and beams from the furnace. Act II is done: steel flows again in Iron Valley.' }[n] || '';
@@ -3247,7 +3251,7 @@ function showLevelUp(){ buzz(300);
     4:[['people', 'Supervisor zone', '+15% speed'], ['truck', 'Forklift', 'Marked lanes'], ['boxes', 'Mixed orders', 'Three products']], 5:[['coins', 'Pay day', 'The weekly accounts'], ['truck', 'Dock 2', 'Two orders at once'], ['gear', 'Second pipe mill', 'Ada\'s corner plot']],
     6:[['clip', 'June Finch', 'The clerk'], ['gear', 'Tier 2', 'Refits +25%'], ['wrench', 'Service book', 'Healthy or due']], 7:[['clip', 'Order board', 'Choose from three'], ['people', 'Second zone', 'Two supervisors'], ['truck', 'Siding', 'Survey with Cyrus Bell']],
     8:[['truck', 'Rail supplies', 'Valley Belle'], ['bolt', 'Furnace', 'Steel beams'], ['people', 'Foreman', 'Joe Brennan']] }[n] || [];
-  $('luUnl').innerHTML = unl.map(([i, a, b]) => `<div>${icon(i)}<b style="color:var(--chalk)">${a}</b><br>${b}</div>`).join('');
+  $('luUnl').innerHTML = (levelShot && now ? `<div style="grid-column:1/-1;display:flex;gap:6px"><figure style="flex:1;margin:0"><img alt="The yard when the level began" src="${levelShot}" style="width:100%;border-radius:6px"><figcaption style="font-size:12px">Before</figcaption></figure><figure style="flex:1;margin:0"><img alt="The yard now" src="${now}" style="width:100%;border-radius:6px"><figcaption style="font-size:12px">After</figcaption></figure></div>` : '') + unl.map(([i, a, b]) => `<div>${icon(i)}<b style="color:var(--chalk)">${a}</b><br>${b}</div>`).join('');
   $('luNote').textContent = built ? 'Everything you own carries over: cash, crew, machines and upgrades.' : n === 9 ? 'Act II is complete: steel flows again in Iron Valley. Act III, Run the Plant, is coming soon. The works keeps running and everything you earn carries over.' : `Level ${n} opens in the next build. Keep the orders moving: everything you earn carries over.`;
   if (!built && n === 9 && !S.actEnd2) { S.actEnd2 = true; story({ kind:'courier', level:9 }); save(); }
   $('luOk').textContent = built ? `Open level ${n}` : 'Keep playing'; $('levelup').hidden = false;
@@ -5055,14 +5059,14 @@ function updateCrane(dt){
   if (c.hailTold && !craneHail()) { c.hailTold = false; toast('The hail has passed. The lift goes on.', ''); }
   if (c.st === 'flatIn') { c.fd = Math.min(FLAT_IN.len, c.fd + dt * (c.fd > FLAT_IN.len - 10 ? 2.2 : 6) * vehSnowK()); const f = pathAt(FLAT_IN, c.fd); c.flat.position.set(f.x, 0, f.z); c.flat.rotation.y = f.yaw; onBed(c, c.newSaw);
     if (c.fd >= FLAT_IN.len) { c.st = 'in'; c.g.visible = true; addCol([FLAT_AT[0] - 2.8, FLAT_AT[1] - 1.2, FLAT_AT[0] + 2.8, FLAT_AT[1] + 1.2], 'flatbed'); } }
-  else if (c.st === 'in') { if (!craneBlocked(c, 1)) c.d = Math.min(CRANE_IN.len, c.d + dt * (c.d > CRANE_IN.len - 8 ? 1.6 : 4.5) * vehSnowK());
+  else if (c.st === 'in') { if (craneBlocked(c, 1)) { if (Math.random() < dt * .6) sfxAt('horn', c.g.position.x, c.g.position.z, .4); } else c.d = Math.min(CRANE_IN.len, c.d + dt * (c.d > CRANE_IN.len - 8 ? 1.6 : 4.5) * vehSnowK());
     const q = pathAt(CRANE_IN, c.d); c.g.position.set(q.x, 0, q.z); c.g.rotation.y = q.yaw;
     if (c.d >= CRANE_IN.len) { c.st = 'rig'; addCol([CRANE_AT[0] - 1.2, CRANE_AT[1] - 3.25, CRANE_AT[0] + 1.2, CRANE_AT[1] + 3.2], 'crane'); rebuildNav(); sfx('clank', .5);
       toast('The crane stands in the gateway, the road coned off. Outriggers down; the crate machine stops for the swap.', ''); } }
   else if (c.st === 'rig') { c.out = Math.min(1, c.out + dt * .5); if (c.out >= 1) { c.st = 'lift1'; c.lift = 0; } }
   else if (c.st.startsWith('lift')) craneLift(c, dt);
   else if (c.st === 'stow') { const done = craneAim(c, CRANE_AT[0], CRANE_AT[1] + 3.0, 2.3, dt, 1.4) && craneHookTo(c, 2.4, dt); if (done) { c.out = Math.max(0, c.out - dt * .5); if (c.out <= 0) { c.st = 'out'; c.d = 0; c.fd = 0; COL.delete('crane'); COL.delete('flatbed'); rebuildNav(); } } }
-  else if (c.st === 'out') { if (!craneBlocked(c, -1)) c.d = Math.min(CRANE_OUT.len, c.d + dt * (c.d < 9 ? 1.4 : 5)); const q = pathAt(CRANE_OUT, c.d); c.g.position.set(q.x, 0, q.z); c.g.rotation.y = q.yaw;
+  else if (c.st === 'out') { if (craneBlocked(c, -1)) { if (Math.random() < dt * .6) sfxAt('horn', c.g.position.x, c.g.position.z, .4); } else c.d = Math.min(CRANE_OUT.len, c.d + dt * (c.d < 9 ? 1.4 : 5)); const q = pathAt(CRANE_OUT, c.d); c.g.position.set(q.x, 0, q.z); c.g.rotation.y = q.yaw;
     c.fd = Math.min(FLAT_OUT.len, c.fd + dt * (c.fd < 8 ? 2 : 6)); const f = pathAt(FLAT_OUT, c.fd); c.flat.position.set(f.x, 0, f.z); c.flat.rotation.y = f.yaw; if (c.old) onBed(c, c.old);
     if (c.d >= CRANE_OUT.len && c.fd >= FLAT_OUT.len) { craneGone(); return; } }
   craneDraw(c);
@@ -5790,7 +5794,7 @@ let stepT = 0;
 function updateFootsteps(dt){ const k = inputDir()[2]; if (k <= 0 || !owner.o.visible) { stepT = 0; return; } stepT -= dt * (1.6 + k * 1.4); if (stepT > 0) return; stepT = 1;
   const p = owner.o.position, onDeck = typeof groundY === 'function' && groundY(p.x, p.z) > .5, inYard = p.x > SITE.x0 && p.x < SITE.x1 && p.z > SITE.z0 && p.z < SITE.z1;
   if (onDeck) tone(330 + Math.random() * 40, .04, 'triangle', .012); else if (snowLying() > .3 && !(inYard && (S.wx.cleared || 0) > .6)) noiseS(.07, 900, .02); else if (wxRain() > .3) noiseS(.05, 2400, .012, 'bandpass'); else if (!inYard) noiseS(.04, 3200, .01, 'bandpass'); else noiseS(.03, 600, .008); }
-function updatePolish(dt){ if (S.reduced !== undefined) REDUCED = S.reduced; updateFootsteps(dt);
+function updatePolish(dt){ if (S.reduced !== undefined) REDUCED = S.reduced; updateFootsteps(dt); if (!levelShot && frames > 90 && !cardOpen) levelShot = yardShot();
   updateGusTale(dt); updateDim(); updateShovels(dt); updateBreath(dt); updateSledge(dt); updateSnowman(dt); syncHats(); dressFor(); updateHeadlights(); updateGale(dt); updateIcicles(); updateSplash(dt); updatePhoto(dt); updateTally(); updateOrderTags(); updateOfficePegs(); syncLicence();
 }
 
@@ -6825,6 +6829,7 @@ const PLACES = {
   docks:   { n:'5', name:'Dunmore Docks', buyer:'the shipping clerk', min:40, mix:'crate', size:2, say:'Export packing. Big lots, and the ship sails when it sails.', x:250, y:700 },
   bottling:{ n:'6', name:'Ashby Bottling', buyer:'Miss Ashby', min:25, mix:'crate', size:1.3, say:'Bottle crates. When a lorry\'s waiting, I need them yesterday.', x:760, y:380 },
   kerr:    { n:'7', name:'Kerr & Sons', buyer:'Angus Kerr', min:30, mix:'pipe', size:1, lv:2, say:'Builders\' merchant. Drain pipe, every size you can roll, and spanners once you make them.', x:980, y:360 },
+  hollis:  { n:'9', name:'Hollis Reed\'s warehouse', buyer:'Hollis Reed', min:25, mix:'mix', size:2.2, lv:7, say:'Bulk of everything: crates, pipe and tools for three warehouses down the valley.', x:330, y:880 },
   garage:  { n:'8', name:'Valley Garage', buyer:'Stan Moss, mechanic', min:20, mix:'tool', size:1, lv:3, say:'Spanners and wrenches. Mine keep walking off with the customers.', x:780, y:580 },
 };
 const ADS = {
