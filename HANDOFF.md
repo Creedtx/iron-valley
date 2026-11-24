@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (24 Nov 2026, build 0.22, Bible v2.0)
+# Handover: where Iron Valley stands (24 Nov 2026, build 0.23, Bible v2.0, Level 5 done)
 
 Read this first when continuing in a new session.
 
@@ -89,6 +89,23 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
+## Done in build 0.23 (Level 5: Regional Manufacturer, Bible v2.0, plans/level5_plan.png)
+- Opens Monday 14 January 1974 (5 days). Charter (`CHARTER5`): $120K earned, mill 2 running, dock 2 used, two orders out
+  the same day x5, the first weekly accounts paid, Gus's farewell held, reputation 68%.
+- `buildLevel5()`: Ada's corner plot `CORNER` re-fenced with a wicket and a lorry gate; dock 2 (`DK2`, `LDOCK.more`, colliders
+  `dock2*`), the white lorry (`truckB`, `ARRIVE2`/`LEAVE2`) loaded by hand from rack 2 (loader task `pipes2`); the office
+  block across Mill Road (`buildOfficeBlock`) and the zebra (`buildZebra`, NAVOUT keeps walkers on it; the north beacon
+  stands west of the works gate). The pine on the corner (`M.cornerTree`) is felled. `fenceRun` cuts short stubs to size.
+- Money: Friday 16:30 pay packets now come out of cash; the weekly accounts card after the whistle (`weekAccounts`,
+  `closeWeek`, `payAccounts`, `accountsHtml`): wages, power (30% less on the mains), diesel (`meterDiesel`), Gus's $35
+  pension, the loan instalment; one week's grace, then -2 rep a week (never closes the works). Loans (`takeLoan`): up to
+  30% of the goal, 110% back over five Fridays, one at a time.
+- Gus: asked on Monday, party on Friday at 17:00 (`S.gus.partyDue`); the clock waits at 16:59 while the party runs; the
+  farewell card always resolves (put away without a gift, it comes back; the brass clock is free).
+- Snow (WX `snow`, `heavysnow`, `frost`): flakes, lying snow on upward faces (`snowPatch`, `SNOW_U`), slower walking and
+  vehicles, icy mornings. Heavy snow on Monday morning.
+- Tests: `tools/level5.mjs` (19 checks), `tools/layout_lint.mjs <url> l5` (dock 2, lorry bay and gate, zebra, mill 2 spots).
 
 ## Done in build 0.22 (Bible v2.0, Act I re-fit)
 - One clock (v2.0 3): a working day is 600 s (one game minute a second), lunch 12:00-12:30 (30 s). The calendar counts
