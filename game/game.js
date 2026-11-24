@@ -1350,7 +1350,7 @@ function syncCarry(){
   const list = carriers(); if (walker) list.push(walker.c);
   for (const ch of list) if (ch._carryN !== ch.stack.length) { ch._carryN = ch.stack.length; layoutCarry(ch); }
 }
-function layoutCarry(ch){ if (ch.carryType === 'fuel') return; const n = ch.stack.length, cart = !!ch.cart; ch.stack.forEach((m, i) => { if (m.userData.flying) return; m.position.copy(carriedPos(ch.carryType, i, n, cart)); m.rotation.set(0, cart && ch.carryType === 'pipe' ? Math.PI / 2 : 0, 0); if (ch.carryType === 'fuel') m.scale.setScalar(.8); }); }
+function layoutCarry(ch){ if (ch.carryType === 'fuel') return; const n = ch.stack.length, cart = !!ch.cart; ch.stack.forEach((m, i) => { if (m.userData.flying) return; const par = cart ? ch.cart : ch.o; if (m.parent !== par) par.add(m); m.position.copy(carriedPos(ch.carryType, i, n, cart)); m.rotation.set(0, cart && ch.carryType === 'pipe' ? Math.PI / 2 : 0, 0); if (ch.carryType === 'fuel') m.scale.setScalar(.8); }); }
 const flights = [];
 function fly(obj, toParent, toLocal, dur = .25, done, arc = .5){
   const from = obj.getWorldPosition(new THREE.Vector3()); scene.add(obj); obj.position.copy(from); obj.userData.flying = true;
@@ -3670,13 +3670,20 @@ function groundY(x, z){
   return 0;
 }
 const _gd = new THREE.Vector3();
+// A platform trolley is rigid: its rear wheels (0.38 m ahead of the pusher's feet) and front wheels (0.92 m) each stand on the
+// concrete under them, so it pitches by the difference and lifts by the rear wheels' height: flat in the yard, kinked at the
+// foot of the ramp with the front wheels already climbing, along the slope, and onto the deck. Its load rides on its bed.
+const CART_REAR = .38, CART_FRONT = .92, CART_STEP = .14;   // more than the ramp gives over the wheelbase is an edge (the deck's face): the trolley stays level, it never hangs over
+function cartOnGround(c){ const k = c.cart, p = c.o.position, ry = c.o.rotation.y, d = _gd.set(Math.sin(ry), 0, Math.cos(ry));   // the facing now, not the last drawn frame's
+  const hr = groundY(p.x + d.x * CART_REAR, p.z + d.z * CART_REAR), hf0 = groundY(p.x + d.x * CART_FRONT, p.z + d.z * CART_FRONT), hf = Math.abs(hf0 - hr) > CART_STEP ? hr : hf0, sz = (hf - hr) / (CART_FRONT - CART_REAR), a = Math.atan(sz);
+  k.rotation.x = -a; k.position.y = (hr - p.y) - CART_REAR * Math.sin(a);
+  for (const m of c.stack) if (!m.userData.flying && m.parent === c.o) k.add(m); }   // a load handed over by a flight lands on the bed, not in mid-air
 function updateDock(dt){
   // everybody stands on the surface under their feet: the yard, the dock ramp's slope, the deck. Exact, every frame, so a
   // walker climbs the ramp step by step and nobody sinks into it when a work spot or a waypoint sets them down
   for (const c of [owner, ...staffObj.values(), ...folk.values(), ...temps, ...(walker ? [walker.c] : []), ...(bolt.o ? [bolt] : [])]) { if (!c || !c.o) continue; const p = c.o.position; p.y = groundY(p.x, p.z);
     // a trolley being pushed lies on the slope: pitched with the ground along the way it points, wheels on the concrete
-    if (c.cart) { const d = c.o.getWorldDirection(_gd), sz = (groundY(p.x + d.x * .45, p.z + d.z * .45) - groundY(p.x - d.x * .45, p.z - d.z * .45)) / .9, want = -Math.atan(sz);
-      c.cart.rotation.x += (want - c.cart.rotation.x) * Math.min(1, dt * 16); } }
+    if (c.cart) cartOnGround(c); }
   if (M.dockLamp) setLamp(M.dockLamp, '#ffd28a', truck.state === 'docked' ? 2.4 : 0);
 }
 // ---- the mains: apply, the council permit, the board's crew fits the transformer, then the generator stands by -------
