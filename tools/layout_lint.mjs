@@ -41,7 +41,7 @@ const ZONES = [
 if (D.lane) { for (const [i, j] of D.lane.links) { const a = D.lane.pts[i], b = D.lane.pts[j]; if (D.fork && a[0] > 14.9 && a[1] > 1.7) continue; ZONES.push([`forklift lane ${i}-${j}`, [Math.min(a[0], b[0]) - .55, Math.min(a[1], b[1]) - .55, Math.max(a[0], b[0]) + .55, Math.max(a[1], b[1]) + .55], /^$/]); }
   ZONES.push(['forklift ramp', D.fork, /^$/]); for (const k of ['op2', 'feed2Ring', 'forkFeed2', 'saw2Fix', 'stallRing', 'forkStore', 'fork2', 'forkWh']) if (P[k]) ZONES.push([`work spot ${k}`, sq(P[k]), /^$/]); }
 // level 5: dock 2 on Ada's corner, the white lorry's bay, its gate and the wicket, the zebra, the office door, mill 2's spots
-if (D.l5) { for (const m of D.more) { ZONES.push(['dock 2 ramp', m.ramp, /loading_dock/], ['dock 2 deck', m.deck, /loading_dock/]); }
+if (D.l5) { ZONES.push(['snowman', [-7.9, 5.7, -6.9, 6.7], /^$/]); for (const m of D.more) { ZONES.push(['dock 2 ramp', m.ramp, /loading_dock/], ['dock 2 deck', m.deck, /loading_dock/]); }
   ZONES.push(['white lorry bay', [P.truck2[0] - 1.25, P.truck2[1] - 2.6, P.truck2[0] + 1.25, P.truck2[1] + 2.6], /truck|loading_dock/], ['lorry gate 2', [25.0, 18.6, 27.6, 19.8], /gate|truck/], ['zebra crossing', [4.2, 14.4, 5.8, 18.1], /zebra|road|crossing/]);
   for (const k of ['coil2', 'coil2Ring', 'rack2Spot', 'officeDoor', 'priya', 'crossN', 'crossS']) if (P[k]) ZONES.push([`work spot ${k}`, sq(P[k]), /^$/]); }
 // level 6: the crane's stand in the gateway (kept clear of fixed things), the new pads, June's kiosk door

@@ -1,63 +1,63 @@
 # Bible v2.0 gap audit, Levels 1-8
-- [ ] 2.5 sign repainted at L5 (texture regenerated on startLevel, workshop sign + gate sign + car)
-- [ ] 3.1 Saturday card: the quiet yard and the week's totals (check)
-- [ ] 3.2 hurry the clock only while every line is staffed
-- [ ] 3.4 skip: before/after view of the yard (check)
-- [ ] 3.6 away envelope: Gus until farewell, then Alf Pryce (senior supervisor), Joe from L8; 50% / 75% with foreman (check)
-- [ ] 4.4 rule 1: the beam forklift (fork8) and the crane/flatbed stop and toot for people
-- [ ] 5.1 order terms (regular/rush/bulk) on every phone call, not only L1-4 (dock-1 calls at L5-6)
-- [ ] 5.1 finished goods go to the active order with the earliest deadline first (dock 1 vs dock 2) (check)
-- [ ] 5.3 reputation bands: permits 25% faster (Trusted) / 50% (Respected); land discount 1% per 2.5 pts over 50 (check)
-- [ ] 5.4/3.4 level-up card shows a before/after view (check)
-- [ ] 5.5 Hollis Reed's warehouse on the town map from L7 (bulk of everything) (check PLACES)
-- [ ] 5.6 FIX: from L7 the order board adds offers ON TOP of phone calls (I turned calls off)
-- [ ] L1 Tue: Gus tells a story at lunch (a short tale in bubbles)
-- [ ] L2 Thu: overloaded generator -> lamps dim, Old Faithful's note deepens; Mk II: lamps brighten, roar
-- [ ] L2 Fri: a rival yard undercuts an account (scripted once)
-- [ ] L3 Wed: the tool press arrives on a low-loader
-- [ ] L3: the licence framed on the office wall
-- [ ] L4 Tue: the forklift arrives on the back of a lorry and is driven down its ramps
-- [ ] L4 Fri: Big Tom's contractors peg out the new office block (pegs and string across Mill Road)
-- [ ] L5 Mon: the crew shovels snow off the lanes (shovel props, scraping); the owner can grab a shovel
-- [ ] L5: breath steams in the cold; children sledge on Ironhill; crew stamp their feet at the gate
-- [ ] L5: Wilf Dunn becomes dock crew chief (title; leads dock 2's loading)
-- [ ] 13.6/L5 Thu: late lorry issue (30 game minutes late) from L5, first one scripted Thursday
-- [ ] L5 Mon: Eldon's letter card (probate done, the estate account closes, wages are yours from Friday; diesel doubles)
-- [ ] 12.3 an empty post shows an empty hard hat on its hook; the hint line names it
-- [ ] 12.4 training at the training bench (L3+): the worker leaves his post for 30 game minutes
-- [ ] 12.4 promotion: supervisor from an operator at worker level 5+; dock crew chief from a loader at level 5+
-- [ ] 12.5 Gus tells grandad stories and yard tips every 35-60 s (check)
-- [ ] 13.7 fuel price notice event (L5+): diesel price changes on the next delivery
-- [ ] 14.1 build zones: preview footprint with input/output sides, power and access before choosing
-- [ ] 14.5 L8 railway strip: leased from the railway (lease line on the weekly accounts)
-- [ ] 14.5 dairy plot bought via Vera Lind: reputation discount and her 5% fee apply
-- [ ] 15.1 L8 Dolores's contract also covers timber and steel (fixed, lower price)
-- [ ] 15.3 a timetable board at the siding (next train, its load, arrival); the foreman can sign for the wagons
-- [ ] 15.5 from L8 the rival undercut is shown to be Krane; Krane also bids on the oldest unclaimed board offer; counter at +10% during the countdown
-- [ ] 16.2 Plant tab: one row per line: rate now, best rate, cause; hint names the earliest stopped step
-- [ ] 16.3 chalk tally board at goods-in (each material, days of cover); goods kept for an order wear a red tag with the order number
-- [ ] 16.3 Stock tab: on hand, kept for orders, on the way, days of cover, cash tied up; reorder warning threshold; auto-reorder with Dolores's contract (L8)
-- [ ] 16.4 phone order cards show estimated profit, machine hours and fits-this-week from L3 (L1-2 pay and deadline only)
-- [ ] 16.8 optional micro-activity: join a milestone photo (crew lines up, flash)
-- [ ] 17.1 weather changes at most twice a working day (trim my L6 Wed, L7 Thu, L8 Wed plans)
-- [ ] 17.1 crew dress for the weather: donkey jackets and flat caps in cold, oilskins in rain, shirtsleeves in heat
-- [ ] 17.1 vehicles: headlights in rain/fog/snow, wipers, tyre spray; chains in deep snow
-- [ ] 17.2 gale: trees bend, papers fly, tarpaulins flap, a windsock straight out
-- [ ] 17.2 frost: icicles on gutters, breath steam, crunching steps; light snow: footprints (check)
-- [ ] 17.3 downpour: loaders in the open 15% slower (canopy saves), vehicles slower, puddles spread
-- [ ] 17.3 frost: generator cold start 20 s in a cut; heat: generator -10% (check)
-- [ ] 17.5 crew build a snowman at lunch, Bolt steals its carrot; puddles splash when the owner runs
-- [ ] 18.2 leases line on the weekly accounts from L8 (siding)
-- [ ] 18.3 every L1-15 upgrade has three steps at ~2/4/8% of its level's goal: fix L6-8 (schedule, ledger, board4, salesrep, docklamps, reach, heat, rawstore, sidingx) with step effects
-- [ ] 18.3 automatic changeover is an L6 UPGRADE (not a yard pad); fixed-price supply is an L8 upgrade (Dolores's contract)
-- [ ] 18.5 owner skills: a skill point at each level-up, chosen on the level-up card/office; Brisk walk (+10/20/30%), Strong arms, Sharp deals, Good name, Long nights (+1/2/3 h offline)
-- [ ] 18.6 trophies: lifetime totals shown in the office cabinet (L6+)
-- [ ] 19.1 owner walking speed by load: two crates 95%, pipes 92%, loaded trolley 90%, snow/mud a further -10% (check)
-- [ ] 19.1 footsteps change with the ground (concrete, gravel, wet, snow, steel dock deck)
-- [ ] 19.2 haptics with an on/off toggle: tick on pick-up, double tick on signing, long pulse on level-up
-- [ ] 20.3 every office tab opens on a "Needs you" card with one "Show me" action
-- [ ] 20.4 More: settings (music and effects sliders, haptics, reduced motion) and trophies (lifetime totals)
-- [ ] 20.5 keyboard: Space or Enter acts in the nearest circle; Esc also closes story cards
-- [ ] 21 an "Act III coming soon" card when the Level 8 charter is done (partial release ending)
-- [ ] L8 Wed: Joe sends idle workers to empty posts (an operator with no work moves to an unmanned machine)
-- [ ] 13.5 without mains, a cut halves speed until the generator is restarted (10 s; 20 s on frosty mornings) (check)
+- [x] 2.5 sign repainted at L5 (texture regenerated on startLevel, workshop sign + gate sign + car)
+- [x] 3.1 Saturday card: the quiet yard and the week's totals (check)
+- [x] 3.2 hurry the clock only while every line is staffed
+- [x] 3.4 skip: before/after view of the yard (check)
+- [x] 3.6 away envelope: Gus until farewell, then Alf Pryce (senior supervisor), Joe from L8; 50% / 75% with foreman (check)
+- [x] 4.4 rule 1: the beam forklift (fork8) and the crane/flatbed stop and toot for people
+- [x] 5.1 order terms (regular/rush/bulk) on every phone call, not only L1-4 (dock-1 calls at L5-6)
+- [x] 5.1 finished goods go to the active order with the earliest deadline first (dock 1 vs dock 2) (check)
+- [x] 5.3 reputation bands: permits 25% faster (Trusted) / 50% (Respected); land discount 1% per 2.5 pts over 50 (check)
+- [x] 5.4/3.4 level-up card shows a before/after view (check)
+- [x] 5.5 Hollis Reed's warehouse on the town map from L7 (bulk of everything) (check PLACES)
+- [x] 5.6 FIX: from L7 the order board adds offers ON TOP of phone calls (I turned calls off)
+- [x] L1 Tue: Gus tells a story at lunch (a short tale in bubbles)
+- [x] L2 Thu: overloaded generator -> lamps dim, Old Faithful's note deepens; Mk II: lamps brighten, roar
+- [x] L2 Fri: a rival yard undercuts an account (scripted once)
+- [x] L3 Wed: the tool press arrives on a low-loader
+- [x] L3: the licence framed on the office wall
+- [x] L4 Tue: the forklift arrives on the back of a lorry and is driven down its ramps
+- [x] L4 Fri: Big Tom's contractors peg out the new office block (pegs and string across Mill Road)
+- [x] L5 Mon: the crew shovels snow off the lanes (shovel props, scraping); the owner can grab a shovel
+- [x] L5: breath steams in the cold; children sledge on Ironhill; crew stamp their feet at the gate
+- [x] L5: Wilf Dunn becomes dock crew chief (title; leads dock 2's loading)
+- [x] 13.6/L5 Thu: late lorry issue (30 game minutes late) from L5, first one scripted Thursday
+- [x] L5 Mon: Eldon's letter card (probate done, the estate account closes, wages are yours from Friday; diesel doubles)
+- [x] 12.3 an empty post shows an empty hard hat on its hook; the hint line names it
+- [x] 12.4 training at the training bench (L3+): the worker leaves his post for 30 game minutes
+- [x] 12.4 promotion: supervisor from an operator at worker level 5+; dock crew chief from a loader at level 5+
+- [x] 12.5 Gus tells grandad stories and yard tips every 35-60 s (check)
+- [x] 13.7 fuel price notice event (L5+): diesel price changes on the next delivery
+- [x] 14.1 build zones: preview footprint with input/output sides, power and access before choosing
+- [x] 14.5 L8 railway strip: leased from the railway (lease line on the weekly accounts)
+- [x] 14.5 dairy plot bought via Vera Lind: reputation discount and her 5% fee apply
+- [x] 15.1 L8 Dolores's contract also covers timber and steel (fixed, lower price)
+- [x] 15.3 a timetable board at the siding (next train, its load, arrival); the foreman can sign for the wagons
+- [x] 15.5 from L8 the rival undercut is shown to be Krane; Krane also bids on the oldest unclaimed board offer; counter at +10% during the countdown
+- [x] 16.2 Plant tab: one row per line: rate now, best rate, cause; hint names the earliest stopped step
+- [x] 16.3 chalk tally board at goods-in (each material, days of cover); goods kept for an order wear a red tag with the order number
+- [x] 16.3 Stock tab: on hand, kept for orders, on the way, days of cover, cash tied up; reorder warning threshold; auto-reorder with Dolores's contract (L8)
+- [x] 16.4 phone order cards show estimated profit, machine hours and fits-this-week from L3 (L1-2 pay and deadline only)
+- [x] 16.8 optional micro-activity: join a milestone photo (crew lines up, flash)
+- [x] 17.1 weather changes at most twice a working day (trim my L6 Wed, L7 Thu, L8 Wed plans)
+- [x] 17.1 crew dress for the weather: donkey jackets and flat caps in cold, oilskins in rain, shirtsleeves in heat
+- [x] 17.1 vehicles: headlights in rain/fog/snow, wipers, tyre spray; chains in deep snow
+- [x] 17.2 gale: trees bend, papers fly, tarpaulins flap, a windsock straight out
+- [x] 17.2 frost: icicles on gutters, breath steam, crunching steps; light snow: footprints (check)
+- [x] 17.3 downpour: loaders in the open 15% slower (canopy saves), vehicles slower, puddles spread
+- [x] 17.3 frost: generator cold start 20 s in a cut; heat: generator -10% (check)
+- [x] 17.5 crew build a snowman at lunch, Bolt steals its carrot; puddles splash when the owner runs
+- [x] 18.2 leases line on the weekly accounts from L8 (siding)
+- [x] 18.3 every L1-15 upgrade has three steps at ~2/4/8% of its level's goal: fix L6-8 (schedule, ledger, board4, salesrep, docklamps, reach, heat, rawstore, sidingx) with step effects
+- [x] 18.3 automatic changeover is an L6 UPGRADE (not a yard pad); fixed-price supply is an L8 upgrade (Dolores's contract)
+- [x] 18.5 owner skills: a skill point at each level-up, chosen on the level-up card/office; Brisk walk (+10/20/30%), Strong arms, Sharp deals, Good name, Long nights (+1/2/3 h offline)
+- [x] 18.6 trophies: lifetime totals shown in the office cabinet (L6+)
+- [x] 19.1 owner walking speed by load: two crates 95%, pipes 92%, loaded trolley 90%, snow/mud a further -10% (check)
+- [x] 19.1 footsteps change with the ground (concrete, gravel, wet, snow, steel dock deck)
+- [x] 19.2 haptics with an on/off toggle: tick on pick-up, double tick on signing, long pulse on level-up
+- [x] 20.3 every office tab opens on a "Needs you" card with one "Show me" action
+- [x] 20.4 More: settings (music and effects sliders, haptics, reduced motion) and trophies (lifetime totals)
+- [x] 20.5 keyboard: Space or Enter acts in the nearest circle; Esc also closes story cards
+- [x] 21 an "Act III coming soon" card when the Level 8 charter is done (partial release ending)
+- [x] L8 Wed: Joe sends idle workers to empty posts (an operator with no work moves to an unmanned machine)
+- [x] 13.5 without mains, a cut halves speed until the generator is restarted (10 s; 20 s on frosty mornings) (check)

@@ -38,12 +38,13 @@ check(await ev(() => !!window.__iv.S.staff.find(s => s.chief)), 'Wilf Dunn is do
 // snow: the crew and the owner shovel; sledging; breath; the snowman at lunch
 await ev(() => { const v = window.__iv, S = v.S; v.setWx('heavysnow'); S.wx.lying = .8; S.time = v.dayNo() * 600 + 30; });
 await run(8); check(await ev(() => !!window.__iv.M.shovelRack && window.__iv.M.sledges && window.__iv.M.sledges[0].g.visible), 'snow: shovels by the workshop door, children sledging on Ironhill');
-await ev(() => { const v = window.__iv; v.owner.o.position.set(...v.SHOVEL_AT); }); await run(2);
+await ev(() => { const v = window.__iv; v.owner.o.position.set(v.SHOVEL_AT[0], 0, v.SHOVEL_AT[1]); }); await run(2);
+console.log('  shov:', await ev(() => { const v = window.__iv, o = v.owner; return JSON.stringify({ x:o.o.position.x.toFixed(2), z:o.o.position.z.toFixed(2), st:o.stack.length, cart:!!o.cart, lying:v.S.wx.lying, m:v.dayMin(), office:!!document.getElementById('office').hidden, rack:!!v.M.shovelRack }); }));
 check(await ev(() => !!window.__iv.owner.shovel), 'the owner grabs a shovel and pitches in');
 await ev(() => { const v = window.__iv; v.owner.o.position.set(2, 0, 6); v.camLock = [-3, 2]; v.camZoom = 1.3; v.hold = false; }); await wait(2500); await p.screenshot({ path:path.join(out, 'gap_snow.png') });
 await ev(() => { const v = window.__iv; v.camLock = null; v.S.time = v.dayNo() * 600 + 302; }); await run(26);
 check(await ev(() => !!window.__iv.M.snowman && window.__iv.M.snowman.scale.x > .9), 'the crew build a snowman at lunch');
-await ev(() => { const v = window.__iv; v.camLock = [-11, 0]; v.camZoom = 1.0; v.hold = false; }); await wait(2500); await p.screenshot({ path:path.join(out, 'gap_snowman.png') }); await ev(() => { window.__iv.camLock = null; });
+await ev(() => { const v = window.__iv; v.camLock = [-7, 5]; v.camZoom = 1.0; v.hold = false; }); await wait(2500); await p.screenshot({ path:path.join(out, 'gap_snowman.png') }); await ev(() => { window.__iv.camLock = null; });
 // frost: icicles; the crew dress for the cold
 await ev(() => { const v = window.__iv; v.setWx('frost'); v.S.time = v.dayNo() * 600 + 40; }); await run(3);
 check(await ev(() => !!window.__iv.M.icicles && window.__iv.M.icicles.visible), 'icicles on the workshop gutter on a frosty morning');
@@ -60,7 +61,7 @@ check(await ev(() => !!window.__iv.M.tally), 'the chalk tally board at goods-in'
 await ev(() => { const v = window.__iv, S = v.S; if (!S.order) { S.call = { client:'Valley Grocers', qty:6, pq:0, tq:0, pay:300, deadline:400 }; v.acceptCall(); v.closeOffice(); } S.pallet = 4; v.syncPallet(); }); await run(1);
 check(await ev(() => window.__iv.M.otags && window.__iv.M.otags.pal.visible), 'goods kept for the order wear a red tag with its number');
 // the milestone photo
-await ev(() => { const v = window.__iv; v.milestonePhoto('Test milestone'); v.owner.o.position.set(...v.PHOTO_AT); }); await run(2);
+await ev(() => { const v = window.__iv; v.milestonePhoto('Test milestone'); v.owner.o.position.set(v.PHOTO_AT[0], 0, v.PHOTO_AT[1]); }); await run(2);
 check(await ev(() => (window.__iv.S.photos || 0) >= 1), 'the milestone photo: the owner joins the crew');
 // the lease and a late lorry
 check(await ev(() => { const v = window.__iv, S = v.S, lv = S.level; S.level = 8; const a = v.weekAccounts().lease; S.level = lv; return a > 0; }), 'Level 8 accounts carry the siding lease');

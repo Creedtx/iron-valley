@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (24 Nov 2026, build 0.26, Bible v2.0, Act II (Levels 5-8) done)
+# Handover: where Iron Valley stands (24 Nov 2026, build 0.27, Bible v2.0, Act II done, gap audit for 1-8 done)
 
 Read this first when continuing in a new session.
 
@@ -89,6 +89,12 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
+## Done in build 0.27 (Bible v2.0 gap audit for Levels 1-8: plans/gap_audit_v2.md)
+- A line-by-line audit of the whole Bible against the code found 62 gaps, most of them in the cross-cutting chapters
+  (2 cast, 3 time, 5 orders, 12 people, 13 machines, 14 land, 15 rail and rivals, 16 managing, 17 weather, 18 economy,
+  19 feel, 20 UI). The list, with what was done, is plans/gap_audit_v2.md; tools/gaps.mjs checks the main ones.
+- Read that file before starting Act III so the same chapters are covered for Levels 9-12.
 
 ## Done in build 0.26 (Level 8: Steel Works, Bible v2.0, plans/level8_plan.png) — Act II complete
 - Opens Monday 7 April 1975 (5 days). Charter (`CHARTER8`): $1.5M earned, the furnace lit, 150 beams shipped, 4 trains
