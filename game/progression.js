@@ -118,6 +118,10 @@ export const UPGRADES = [
   { id:'salesrep',lv:7, group:'Crew',  kind:'sales',     name:'Sales representative', per:'makes visits while you work: a fresh contact on the board every eight minutes', cost:[8000], growth:1.9, icon:'people', tiers:[[7, 1]] },
   { id:'docklamps',lv:7, group:'Site', kind:'speed',     name:'Loading lamps', per:'lamps on both docks: the lorries back in on time through the fog', cost:[4000], growth:1.9, icon:'bulb', tiers:[[7, 1]] },
   { id:'reach',   lv:7, group:'Crew',  kind:'zone',      name:'Zone reach', per:'each supervisor\'s ring 1.5 m wider', cost:[5000], growth:1.9, icon:'people', tiers:[[7, 1]] },
+  // level 8 (Bible v2.0 18.3): furnace heat, a bigger raw store, the siding extension (the fixed-price supply is Dolores's contract)
+  { id:'heat',    lv:8, group:'Machines', kind:'speed', name:'Furnace heat', per:'beams 20% faster', cost:[20000, 40000], growth:1.9, icon:'gear', tiers:[[8, 2]] },
+  { id:'rawstore',lv:8, group:'Site', kind:'capacity', name:'Bigger raw store', per:'each bay holds 20 t more', cost:[15000, 30000], growth:1.9, icon:'boxes', tiers:[[8, 2]] },
+  { id:'sidingx', lv:8, group:'Site', kind:'capacity', name:'Siding extension', per:'a fifth wagon on every train', cost:[25000], growth:1.9, icon:'truck', tiers:[[8, 1]] },
   { id:'parts', lv:3, group:'Site',      kind:'capacity',  name:'Spare-parts shelf', per:'the parts shelf holds 3 more',        cost:[200, 450, 900], growth:1.8, icon:'boxes', tiers:[[3, 3], [6, 2], [10, 2]], need:'field' },
   { id:'wc',    lv:1, group:'Facilities',kind:'facility',  name:'Washroom stalls',   per:'one more toilet stall',               cost:[180, 420], growth:1.8, icon:'people',      tiers:[[1, 2], [3, 2], [6, 2], [9, 2], [13, 2]] },
   { id:'cooler',lv:1, group:'Facilities',kind:'facility',  name:'Bigger water bottles', per:'10 more cups a bottle',            cost:[50, 130], growth:1.8, icon:'drop',         tiers:[[1, 2], [4, 1], [8, 1], [11, 1]] },
@@ -125,7 +129,6 @@ export const UPGRADES = [
   // planned: rows from the strategy doc's "Upgrades by level" table for levels 3 to 16. Each opens with the
   // machine or building it belongs to; the builds for those levels give them their effect code.
   ...[
-    [8, 'Machines', 'speed', 'Furnace heat', 'beams 20% faster', 'gear'], [8, 'Power', 'power', 'Grid connection', 'the generator becomes the backup', 'bolt'], [8, 'Crew', 'speed', 'Foreman', 'idle workers are given jobs', 'people'], [8, 'Site', 'capacity', 'Longer rail siding', 'more raw material per train', 'truck'],
     [9, 'Machines', 'speed', 'Assembly bench speed', 'valves 20% faster', 'gear'], [9, 'Power', 'power', 'Load balancer', 'no slowdown at peak', 'bolt'], [9, 'Crew', 'speed', 'Assembler skill', 'recipes 20% faster', 'hand'], [9, 'Site', 'speed', 'Conveyor', 'parts move between machines', 'boxes'],
     [10, 'Power', 'bill', 'Off-peak tariff', 'cheaper power at night', 'bolt'], [10, 'Crew', 'focus', 'Night crew stamina', 'night shift tires 20% slower', 'zzz'], [10, 'Site', 'offline', 'Offline earnings cap', '+2 hours of offline earnings', 'coins'],
     [11, 'Machines', 'quality', 'Calibration', 'higher quality grade', 'gear'], [11, 'Power', 'quality', 'Clean power', 'steady quality', 'bolt'], [11, 'Crew', 'quality', 'Inspector\'s eye', 'fewer rejects', 'eye'], [11, 'Site', 'quality', 'Lab equipment', 'faster quality tests', 'star'],

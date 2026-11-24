@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (24 Nov 2026, build 0.25, Bible v2.0, Levels 5-7 done)
+# Handover: where Iron Valley stands (24 Nov 2026, build 0.26, Bible v2.0, Act II (Levels 5-8) done)
 
 Read this first when continuing in a new session.
 
@@ -89,6 +89,36 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
+## Done in build 0.26 (Level 8: Steel Works, Bible v2.0, plans/level8_plan.png) — Act II complete
+- Opens Monday 7 April 1975 (5 days). Charter (`CHARTER8`): $1.5M earned, the furnace lit, 150 beams shipped, 4 trains
+  unloaded, a foreman, a full day with no stockout and no overflow (`cleanDays`, counted at the whistle by `l8DayEnd`),
+  the plot next door, reputation 76%. `MAX_LEVEL` is 8: Level 9 says "next build".
+- `buildLevel8()`: the siding (`SIDING_Z` -21.9, from the main line's turnout at x -52..-46 to a buffer at x 2: moved from
+  the plan's x 6, which ran into the North field fence); raw-store bays beside the siding (`BAYS`, limits painted on their
+  back walls, `rawCap` 40 t, +20 per Bigger raw store; moved up to the siding so wagons can tip into them); the furnace
+  house (`FURN`, stack, door south onto the cooling bed `BED`); a belt conveyor from the bays into it; the fenced 11 kV
+  plinth (`PLINTH`, transformer shown once the heavy-duty supply is live); gates opened in the back fence west of the
+  workshop (`BACK_GATE`) and in the forklift yard's north fence (`FORK_GATE`) with `openGap()`; trees in the way felled.
+- The train (`rail`, `buildTrain`, `updateTrain`, `TIMETABLE`): No. 7 "Valley Belle" pushes 4 wagons (5 with the
+  Siding extension) in; the owner signs at `SIGN_RING` (by the bays); each wagon is shunted over its bay and tipped; a
+  wagon a full bay cannot take goes back part-full (overflow). Raw is billed per train (market $55/t, Dolores's contract
+  $44/t); the spot price ($82/t, `buyRaw`, Machines tab) is always on offer. Beams in the store and on the bed leave on
+  the empty wagons (`BEAM_PRICE`, shipped count).
+- The furnace (`updateFurnace`): needs the heavy-duty supply pad ($25,000, +40 kW on the mains) and "Light the furnace"
+  ($2,000), two operators (`st.mach = 'furnace'`, `FURN_OPS`, operator cap +2), raw in the bays, room on the cooling bed
+  (12). A beam every 12 s (Furnace heat +20% a step); beams glow and grey; smoke from the stack, steam off the roof in rain.
+  The second letter is found when it is lit.
+- The beam store: Thursday the three build zones are marked (`PADS8`: A behind the back fence by the bays, B in the
+  forklift yard, C west of the furnace house: moved from the North field, which the beam forklift cannot reach);
+  $15,000, Big Tom builds it; the forklift cap becomes 2 and the second driver runs the beam forklift (`fork8`,
+  `fork8Driver`, `fork8Route`) from the bed to the store.
+- Joe Brennan, foreman (role `foreman`, Wednesday): fills empty posts, books every due service, patrols; Gus hands him
+  the whistle. Hurry the clock: hold the HUD clock with a foreman and nothing needing the owner (`hurryOk`): x2.
+- Victor Krane bids for the old dairy plot (`DAIRY`) on Thursday: five minutes to buy at `DAIRY_PAD` ($150,000), else he
+  has it for five minutes and it returns at 20% more. Friday: the train is 150 min late unless the spot price is paid;
+  Dolores Marsh offers her fixed-price contract. Bus shelter $30,000 at the gate. Weather: Wednesday's downpour.
+- Tests: `tools/level8.mjs`, `tools/layout_lint.mjs <url> l8`.
 
 ## Done in build 0.25 (Level 7: Major Manufacturer, Bible v2.0, plans/level7_plan.png)
 - Opens Monday 7 October 1974 (5 days). Charter (`CHARTER7`): $600K earned, 12 orders off the board, Hollis Reed a
