@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (24 Nov 2026, build 0.23, Bible v2.0, Level 5 done)
+# Handover: where Iron Valley stands (24 Nov 2026, build 0.24, Bible v2.0, Levels 5-6 done)
 
 Read this first when continuing in a new session.
 
@@ -89,6 +89,35 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
+## Done in build 0.24 (Level 6: Industrial Company, Bible v2.0, plans/level6_plan.png)
+- Opens Tuesday 16 April 1974 (4 days). Charter (`CHARTER6`): $250K earned, clerk hired, 3 machines tier 2, 5 preventive
+  services, the factory inspector passed, weekly accounts paid on time, 2,000 crates shipped in all, reputation 70%.
+- June Finch (role `clerk`, `ROLE.clerk`, `updateClerk`): free with Ada's sweetener (`S.perks.freeClerk`). Her kiosk
+  (`buildBooth`, `BOOTH`, `P_JUNE`) stands against the office front east of the porch; she crosses the zebra to fetch the
+  dock takings (>= $400, or before the whistle), sets off for the wages hatch at 16:24 on Friday and hands out the
+  packets (`clerkAtHatch` in `payStep`), and after the whistle pays the weekly accounts (`juneSettle`): short of cash she
+  holds them and says so. Every payment goes in her ledger (`ledger()`, `ledgerHtml`, Finance tab). The trophy cabinet
+  in her kiosk appears on Friday. The pay queue is five places long now (`PAY_Q`).
+- Tier 2 refits (`REFIT`, `orderRefit`, `finishRefit`, `tierK`, `tierBadge`): +25%, one job at a time, Machines tab.
+  The crate machine is swapped by the mobile crane (`buildCrane`, `updateCrane`, `craneLift`): the makers' flatbed waits
+  in the far lane of Mill Road (`FLAT_AT`), the 6.4 m crane turns in square between the open gate leaves (`CRANE_AT`,
+  2.4 m clear) and stops short of the lane canopy; lift 1 sets grandad's machine end-on inside the front fence
+  (`CRANE_SET`), lift 2 the new one onto the pad (thud, camera shake), lift 3 grandad's onto the flatbed. Hail stops the
+  lift; on the first lift the forecast hail arrives on cue. Grandad's machine ends under a tarpaulin in the yard's
+  back-right corner (`TARP`, `M.tarp6`; the plan's spot was inside the warehouse racking). Others: Big Tom's crew in place.
+- Service book (`SVC_AT`, `machCycle`, `svcPost`, `svcDone`, FAULTS `svc*`): about 200 cycles (150 for pipes and tools),
+  then an amber tag and an oil can (`syncSvcTags`), 3x the fault chance; services are non-blocking fault records (amber
+  ring), the mechanic 8 s when booked (`bookService`) or always with the Service schedule upgrade, the owner 16 s by
+  hand; one spare part; the machine stands while it is opened up (`l6Run`). Old condition servicing stops for machines.
+- Thursday: Mr Hollins, the factory inspector (`INSPECT6`, `updateInspector6`): guards, lanes, the service book (at
+  June's window), the wiring; pass +2 rep, fail and he is back next morning.
+- Purchases: lightning conductor $5,000 (storm cuts back to normal), works canteen $5,000 across Mill Road (crew +3%
+  after 12:30, `CANTEEN`), automatic changeover $4,000 from Thursday (`cutDark`: a mains cut is 20 s dark without it,
+  3 s with it). Upgrades: Service schedule $3,000, Clerk's ledger alerts $2,000 (Thursday warning).
+- Weather: WX `hail` (pellets that bounce, settle a minute, crew shelter 15 s, clatter), the L6 plan with showers and
+  Wednesday's hail; the wireless no longer says "drizzle" twice, nor calls snow a heat wave.
+- Tests: `tools/level6.mjs` (26 checks), `tools/layout_lint.mjs <url> l6`.
 
 ## Done in build 0.23 (Level 5: Regional Manufacturer, Bible v2.0, plans/level5_plan.png)
 - Opens Monday 14 January 1974 (5 days). Charter (`CHARTER5`): $120K earned, mill 2 running, dock 2 used, two orders out

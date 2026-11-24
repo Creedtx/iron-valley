@@ -23,7 +23,7 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const signName = () => 'Iron Valley ' + (S.level >= 16 ? 'Corporation' : S.level >= 9 ? 'Industries' : S.level >= 5 ? 'Manufacturing' : 'Workshop');
 const LEVELS = { 1:{ name:'Inherited Workshop', next:'Reopened Factory' }, 2:{ name:'Reopened Factory', next:'Local Manufacturer' }, 3:{ name:'Local Manufacturer', next:'Growing Enterprise' }, 4:{ name:'Growing Enterprise', next:'Regional Manufacturer' }, 5:{ name:'Regional Manufacturer', next:'Industrial Company' }, 6:{ name:'Industrial Company', next:'Major Manufacturer' }, 7:{ name:'Major Manufacturer', next:'Steel Works' }, 8:{ name:'Steel Works', next:'Assembly Plant' } };
 const PREVIEW = true;                                    // build 0.16 preview: the new wide level 1 only, its own save
-const MAX_LEVEL = 5;                                      // levels built so far (Bible v2.0: Act II is built one level at a time)                       // levels built so far
+const MAX_LEVEL = 6;                                      // levels built so far (Bible v2.0: Act II is built one level at a time)                       // levels built so far
 // level 2: the pipe mill (strategy doc: "Metal machine: pipes", "the generator's power limit")
 const PIPE_PRICE = 95, PIPE_CYCLE = 4,   // Bible 4.2: pipe machine 4 s a pipe
  COIL_PIPES = 4, COIL_CAP = 6, MILL_PRICE = 600, MILL_BUILD = 18;   // Level Bible: pipe machine $600
@@ -51,7 +51,7 @@ const CLIENTS = ['Hartley Hardware', 'Valley Grocers', 'Mill Road Farm', 'Dunmor
 const maxLv = () => PG.workerLvCap(S.level);
 // Bible v2.0 2.3: the named crew join in this order in their roles; every other hire takes a first name and a surname from
 // the pools, never a cast name. Saves from before keep the names their crew already have.
-const CREW_CAST = { operator:[['Alf', 'Pryce']], loader:[['Wilf', 'Dunn'], ['Bert', 'Coombes']], helper:[['Danny', 'Moss']], mechanic:[['Stan', 'Kowalczyk']], forklift:[['Reggie', 'Platt']] };
+const CREW_CAST = { operator:[['Alf', 'Pryce']], loader:[['Wilf', 'Dunn'], ['Bert', 'Coombes']], helper:[['Danny', 'Moss']], mechanic:[['Stan', 'Kowalczyk']], forklift:[['Reggie', 'Platt']], clerk:[['June', 'Finch']] };
 const FIRST_POOL = ['Frank', 'Harry', 'Ivan', 'Jean', 'Kofi', 'Les', 'Maureen', 'Mohan', 'Norm', 'Pat', 'Pietro', 'Ray', 'Ron', 'Sheila', 'Ted', 'Vic', 'Winston', 'Carlos'];
 const SUR_POOL = ['Baxter', 'Fenwick', 'Garside', 'Hughes', 'Lowe', 'Novak', 'Okoro', 'Romano', 'Singh', 'Tate', 'Walsh', 'Crowther'];
 const FEM = new Set(['Jean', 'Maureen', 'Sheila', 'Doris', 'June', 'Ada', 'Vera', 'Priya', 'Rosa', 'Edna', 'Ruth', 'Imani', 'Nora', 'Peg', 'Beatrice', 'Dolores']);
@@ -74,6 +74,8 @@ const ROLE = {
                  job:'Jams and worn parts on every machine, twice as fast as you by hand. Fits spare parts from the shelf.' },
   supervisor:  { title:'Supervisor', dept:'mgmt', cap:1, cost:[250], icon:'clip', col:{ suit:'#3a3d41', hat:'#f4f1ea', shirt:'#f1ece0', vest:'#f07a22' }, gear:['hat_hard', 'vest', 'clipboard'],
                  job:'Manages the floor for you: takes the calls to the crew, keeps them from slacking (+15% near them), signs the deliveries.' },
+  clerk:       { title:'Office clerk', dept:'admin', cap:1, cost:[260], icon:'clip', col:{ suit:'#556b3a', shirt:'#efe6da', hat:'#556b3a' }, gear:['clipboard'],
+                 job:'Works the clerk\'s window: collects the takings at the dock, hands out Friday\'s packets and pays the weekly accounts, every line in her ledger.' },
   forklift:    { title:'Forklift driver', dept:'logistics', cap:1, cost:[300], icon:'truck', col:{ suit:'#3e4a5c', hat:'#e8ab2c', vest:'#f2c230' }, gear:['hat_hard', 'vest'],
                  job:'Drives the forklift: timber to the second crate machine, its crates to the truck or the warehouse.' },
   cleaner:     { title:'Cleaner', dept:'facilities', cap:1, cost:[110], icon:'broom', col:{ suit:'#2f7f78', hat:'#2f7f78', shirt:'#dfe9e6', vest:'#cfe3df' }, gear:['hat_cap'],
@@ -85,7 +87,7 @@ const DEPTS = [
   ['maint', 'Maintenance', 'Repairs, each in their own trade', 'wrench', ['electrician', 'mechanic']],
   ['mgmt', 'Management', 'Runs the floor while you do the business', 'clip', ['supervisor']],
   ['facilities', 'Facilities', 'Washroom, drinking water and a clean floor', 'broom', ['cleaner']],
-  ['admin', 'Administration', 'Clerks pay the bills', 'coins', null, 6],
+  ['admin', 'Administration', 'The clerk collects the takings, hands out the packets and pays the bills', 'coins', ['clerk'], 6],
 ];
 // upgrades and equipment are data rows in progression.js; the number of steps open grows with the level
 const GONE = ['wc', 'cooler', 'mop', 'gen', 'ppe', 'meter'];   // welfare, diesel, timber runs, focus and the electrician are not in the Bible's game
@@ -111,6 +113,10 @@ const PADS = [
   { id:'lamps',   label:'Yard lamps', price:480, at:[-4.6, 8.4], icon:'bulb', after:s => s.level >= 3, note:'Work on into dusk: the gate trade runs to 16:50, a lit yard at the whistle', lv:3 },
   { id:'bell',    label:'Counter bell (trade counter, step 2)', price:250, at:[-.75, 8.25], icon:'box', after:s => s.level >= 3 && s.restored.counter, note:'You hear a walk-in from anywhere; they wait 160 s', lv:3 },
   { id:'window',  label:'Shop window (trade counter, step 3)', price:500, at:[-2.0, 9.65], icon:'window', after:s => s.level >= 4 && s.restored.bell, note:'Walk-ins every 45 to 90 s', lv:4 },
+  // level 6 (v2.0 18.4): the lightning conductor, the works canteen across Mill Road, the generator's automatic changeover
+  { id:'conductor', label:'Lightning conductor', price:5000, at:[-6.2, .4], icon:'bolt', after:s => s.level >= 6, note:'Storm power cuts back to normal', lv:6 },
+  { id:'canteen', label:'Works canteen', price:5000, at:[-9.0, 18.9], icon:'cup', after:s => s.level >= 6, note:'Crew +3% for the afternoon', lv:6 },
+  { id:'changeover', label:'Automatic changeover', price:4000, at:[7.0, -4.4], icon:'bolt', after:s => s.level >= 7 || (s.level >= 6 && s.l6 && (calDay() - (LV_START[6] || 0)) >= 2), note:'In a power cut the generator takes the load by itself in 3 s', lv:6 },
   { id:'canopy',  label:'Loading-lane canopy', price:1100, at:[4.4, 8.35], icon:'brush', after:s => s.level >= 4, note:'No rain slow-down on the lane', lv:4 },
   { id:'lanes',   label:'Mark out the loading lane and bays', price:120, at:[6.0, 8.3], icon:'brush', after:s => s.level >= 2 && s.lv2.mill >= 2, note:'Lines for the lane to the dock and both lorry bays', lv:2 },
   { id:'mill',    label:'Install the pipe machine', price:MILL_PRICE, at:[4.9, 3.6], icon:'gear', after:s => s.level >= 2, note:'A contractor builds it', lv:2 },
@@ -177,7 +183,19 @@ const CHARTER5 = [
   { id:'farewell', k:'People', text:'Hold Gus\'s farewell', need:1, get:s => +!!s.gus.retired, detail:() => 'Friday afternoon' },
   { id:'rep', k:'Standing', text:'Reputation 68%', need:68, get:s => Math.round(s.rep), pct:true },
 ];
-const CHARTERS = { 1:CHARTER, 2:CHARTER2, 3:CHARTER3, 4:CHARTER4, 5:CHARTER5 };
+// level 6 charter (Bible v2.0): $250K, the clerk, three tier 2 refits, five services, the inspector, accounts on time,
+// 2,000 crates shipped in all, 70%
+const CHARTER6 = [
+  { id:'money', k:'Money', text:'Earn $250,000 at this level', need:250000, get:s => s.earned - s.l6.e0, money:true },
+  { id:'clerk', k:'People', text:'Take on a clerk', need:1, get:s => +s.staff.some(x => x.role === 'clerk'), detail:() => 'June Finch, in the Staff tab' },
+  { id:'tier2', k:'Growth', text:'Refit 3 machines to tier 2', need:3, get:s => s.l6.refits || 0, detail:() => 'Machines tab' },
+  { id:'svc', k:'Output', text:'5 preventive services', need:5, get:s => s.l6.svc || 0 },
+  { id:'insp', k:'Papers', text:'Pass the factory inspector', need:1, get:s => +(s.l6.insp === 3), detail:s => s.l6.insp === 4 ? 'Failed: he is back tomorrow' : 'Thursday' },
+  { id:'acc', k:'Papers', text:'Pay the weekly accounts on time', need:1, get:s => Math.max(0, (s.l5.onTime || 0) - (s.l6.ot0 || 0)) },
+  { id:'crates', k:'Output', text:'2,000 crates shipped in all', need:2000, get:s => s.shipped },
+  { id:'rep', k:'Standing', text:'Reputation 70%', need:70, get:s => Math.round(s.rep), pct:true },
+];
+const CHARTERS = { 1:CHARTER, 2:CHARTER2, 3:CHARTER3, 4:CHARTER4, 5:CHARTER5, 6:CHARTER6 };
 const charter = () => CHARTERS[S.level] || CHARTER;
 // a ticked line stays ticked (strategy doc), even if reputation dips later
 const lineDone = c => { const k = S.level + ':' + (c.id || c.k); if (S.ticks[k]) return true; if (c.get(S) >= c.need) { S.ticks[k] = true; return true; } return false; };
@@ -265,7 +283,7 @@ const KEY = PREVIEW ? 'iron-valley-wide-preview' : 'iron-valley-save', OLD_KEYS 
 function migrate(o){
   if (!o || typeof o !== 'object' || !(o.v >= 5)) return null;
   const f = fresh(), out = Object.assign(f, o);
-  for (const k of ['cal', 'mains', 'gus', 'up', 'restored', 'cond', 'lv2', 'lv3', 'lv4', 'l5', 'ticks', 'checked', 'padPaid', 'wh', 'plots', 'met', 'skills', 'perks', 'walk', 'sales']) out[k] = Object.assign(fresh()[k], o[k] || {});
+  for (const k of ['cal', 'mains', 'gus', 'up', 'restored', 'cond', 'lv2', 'lv3', 'lv4', 'l5', 'l6', 'ticks', 'checked', 'padPaid', 'wh', 'plots', 'met', 'skills', 'perks', 'walk', 'sales']) out[k] = Object.assign(fresh()[k], o[k] || {});
   out.power = Object.assign(fresh().power, o.power || {}); out.power.breakers = Object.assign(fresh().power.breakers, (o.power || {}).breakers || {});
   out.level = Math.min(MAX_LEVEL, o.level || 1);
   // build 0.13: games started before the owner worked alone keep their crew and skip the new opening
@@ -320,7 +338,7 @@ function fresh(){
   return { v:8, level:1, lv2:{ e0:0, mill:0, buildT:0, seq:0, wh:0, whT:0 }, wh:{ c:0, p:0, t:0, make:true },
     lv3:{ e0:0, f0:0, field:false, press:0, pressT:0, licence:0, licT:0, seq:0, check:{}, step:0 },
     lv4:{ e0:0, saw2:0, saw2T:0, feed2:0, pallet2:0, promoted:false, post:null, mixed3:0, seq:0 },
-    l5:{ e0:0, ot0:0, t0:0, mill2:0, mill2T:0, coil2:0, coilLeft2:0, rack2:0, seq2:0, rushAt:0, bill:null, billSeq:0, nextBill:0, onTime:0, paid:0, spent:0, account:false, loan:null }, order2:null, tools:0, tbed:0, tmade:0, tshipped:0, tcoil:0, tfeed:0, parts:0, ticks:{}, cash:400, earned:0, rep:60, delivered:0, ontime:0, shipped:0, fedPlanks:0, made:0, history:[],
+    l5:{ e0:0, ot0:0, t0:0, mill2:0, mill2T:0, coil2:0, coilLeft2:0, rack2:0, seq2:0, rushAt:0, bill:null, billSeq:0, nextBill:0, onTime:0, paid:0, spent:0, account:false, loan:null }, l6:{ e0:0, ot0:0, tier:{}, cyc:{}, svc:0, refits:0, refit:null, insp:0, ledger:[], book:[], tarp:0, trophy:false }, order2:null, tools:0, tbed:0, tmade:0, tshipped:0, tcoil:0, tfeed:0, parts:0, ticks:{}, cash:400, earned:0, rep:60, delivered:0, ontime:0, shipped:0, fedPlanks:0, made:0, history:[],
     coils:0, coilFeed:0, coilLeft:0, pipes:0, pbed:0, pmade:0, pshipped:0, batchAcc:0, cooler:20, water:3, wcClean:100, wcUses:0, drinks:0,
     timber:8, store:16, feed:0, pallet:0, bed:0, cashPile:0, order:null, call:null, orderSeq:0, bills:0, billsPaid:0, delivery:null, timberBought:0,
     // Level Bible, level 1: the grandfather's letter, $400 and nobody on the payroll; the owner works by hand
@@ -991,13 +1009,16 @@ const mainsLive = () => S.mains.st >= 3;
 const mainsUp = () => mainsLive() && !S.faults.some(f => f.kind === 'powercut');
 const genActive = () => !mainsUp() && genRunning();
 const supplyKW = () => mainsUp() ? MAINS_KW : genKW();
-const powerOn = () => mainsUp() || (genRunning() && !S.faults.some(f => f.kind === 'alternator') && !stalled());
+// v2.0 13.5, Level 6: on a mains cut the generator needs about 20 s to run up and be switched over by hand; the automatic
+// changeover takes the load by itself in 3 s
+const cutDark = () => S.level >= 6 && mainsLive() && S.faults.some(f => f.kind === 'powercut' && f.t < (S.restored.changeover ? 3 : 20));
+const powerOn = () => mainsUp() || (genRunning() && !S.faults.some(f => f.kind === 'alternator') && !stalled() && !cutDark());
 function circuitOn(c, upstream){
   if (!powerOn() || !S.power.breakers[c]) return false;
   if (c === 'saw' && !upstream && S.faults.some(f => f.kind === 'junction')) return false;
   return true;
 }
-const sawBroken = () => S.faults.some(f => f.where === 'saw');
+const sawBroken = () => S.faults.some(f => f.where === 'saw' && !FAULTS[f.kind].svc);
 function load(){ return (S.level >= 5 && S.l5.mill2 >= 2 && circuitOn('pipe') ? (mill2On ? 6 : .5) : 0) + (S.lv4.saw2 >= 2 ? (saw2On ? 5.5 : .6) : 0) + (circuitOn('saw') ? (sawOn ? 5.5 : .6) : 0) + (S.lv2.mill >= 2 && circuitOn('pipe') ? (pipeOn ? 6 : .5) : 0) + (S.lv3.press >= 2 && circuitOn('tool') ? (toolOn ? 4.5 : .4) : 0) + (circuitOn('lights') ? 1.2 : 0) + (circuitOn('office') ? .9 + (S.restored.coffee ? .5 : 0) : 0); }
 // status lamps everywhere: running = blinking green, idle = steady yellow, fault or stopped = steady red
 const LAMP_IDLE = ['#ffb028', 2.6], LAMP_STOP = ['#ff2a1a', 3.2];
@@ -1068,7 +1089,7 @@ function buildBeacons(){
 }
 
 // every upgrade step shows up somewhere in the workshop
-const UPG_AT = { tbatch:() => P.tpress, tariff:() => P.gen, multi:() => P.drop, dock:() => typeof M !== 'undefined' && M.dock2 ? P.drop2 : P.drop, autofeed:() => P.saw, gen3:() => P.gen, fork:() => typeof fork !== 'undefined' && fork.o ? [fork.o.position.x, fork.o.position.z] : P.forkPark, ppe:() => P.op, meter:() => P.elecBench, mop:() => P.cleanerHome, truck2:() => P.drop, radio:() => P.desk, wc:() => [WC_BLOCKS[0][0], WC_BLOCKS[0][1]], cooler:() => P.cooler, gen2:() => P.gen, pipe:() => P.pmill, batch:() => P.saw, back:() => P.drop, prack:() => P.prack, saw:() => P.saw, gen:() => P.gen, surge:() => [2.4, .6], fuel:() => [1.3, .9], hands:() => P.op, tools:() => P.bench, stack:() => P.pallet, supply:() => P.trolleyPark, boots:() => [owner.o.position.x, owner.o.position.z] };
+const UPG_AT = { schedule:() => P.mechHome, ledger:() => [2.9, 25.3], tbatch:() => P.tpress, tariff:() => P.gen, multi:() => P.drop, dock:() => typeof M !== 'undefined' && M.dock2 ? P.drop2 : P.drop, autofeed:() => P.saw, gen3:() => P.gen, fork:() => typeof fork !== 'undefined' && fork.o ? [fork.o.position.x, fork.o.position.z] : P.forkPark, ppe:() => P.op, meter:() => P.elecBench, mop:() => P.cleanerHome, truck2:() => P.drop, radio:() => P.desk, wc:() => [WC_BLOCKS[0][0], WC_BLOCKS[0][1]], cooler:() => P.cooler, gen2:() => P.gen, pipe:() => P.pmill, batch:() => P.saw, back:() => P.drop, prack:() => P.prack, saw:() => P.saw, gen:() => P.gen, surge:() => [2.4, .6], fuel:() => [1.3, .9], hands:() => P.op, tools:() => P.bench, stack:() => P.pallet, supply:() => P.trolleyPark, boots:() => [owner.o.position.x, owner.o.position.z] };
 const GLOVES = ['#8a6a3e', '#e8c02a', '#e5772b', '#2f7fd0'], BOOTS = [null, '#2a2a2a', '#7a2f1f', '#1f3f6a'];
 let upgGroup = null, ownerTexBase = null;
 function upgMesh(geo, col, x, y, z, opt = {}){ const m = new THREE.Mesh(geo, std(col, opt.r ?? .6, opt.metal ?? .2, opt.emissive ? { emissive:opt.emissive, emissiveIntensity:1.5 } : {})); m.position.set(x, y, z); if (opt.rot) m.rotation.set(...opt.rot); m.castShadow = true; m.receiveShadow = true; upgGroup.add(m); return m; }
@@ -1144,6 +1165,11 @@ function applyRestore(id, fx){
   if (id === 'bell' && M.counter && !M.bell) { const b = new THREE.Group(), brass = std('#c9a24a', .3, .8); const dome = new THREE.Mesh(new THREE.SphereGeometry(.07, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), brass); dome.position.y = .03; b.add(dome); const base = new THREE.Mesh(CY(.08, .03, 14), std('#3a2a1a')); b.add(base); b.position.set(.3, .995, 0); M.counter.add(b); M.bell = b; }
   if (id === 'window') buildShopWindow();
   if (id === 'canopy') buildLaneCanopy();
+  if (id === 'conductor') buildConductor();
+  if (id === 'canteen') buildCanteen();
+  if (id === 'changeover') { const g = new THREE.Group(); g.position.set(P.gen[0] + 1.3, 0, P.gen[1] + 1.05); g.userData.dyn = true; const b = new THREE.Mesh(BX(.55, .75, .22), std('#5d6b74', .5, .4)); b.position.y = 1.1; b.castShadow = true; g.add(b);
+    const l = new THREE.Mesh(BX(.07, .07, .03), std('#4f9a5a', .3, 0, { emissive:'#3fd06a', emissiveIntensity:1.2 })); l.position.set(.15, 1.3, .12); g.add(l); const leg = new THREE.Mesh(BX(.06, .75, .06), std('#3a3d41')); leg.position.y = .37; g.add(leg); world.add(g); M.changeover = g;
+    if (fx) toast('The automatic changeover is wired in: in a mains cut the generator takes the load by itself in seconds.', 'good'); }
   if (id === 'mill') return;
   if (id === 'yard') { if (M.skip) { M.skip.visible = false; COL.delete('skip'); } (M.yardMarks || []).forEach(m => m.visible = false); M.junk.visible = false; M.junkCols.forEach(k => COL.delete(k)); M.yardDirt.visible = false; M.yardGravel.visible = true; M.plotSign.visible = true; }
   if (fx) { const at = PADS.find(p => p.id === id).at; for (let i = 0; i < 10; i++) puff(at[0] + rand(-1, 1), at[1] + rand(-1, 1), '#d8d2c4'); sfx('buy'); }
@@ -1245,7 +1271,7 @@ const sawK = () => (1 + .2 * S.up.saw) * autoFeedK();
 const sawRating = () => scaleRating(sawK(), GAME_TOP_SAW);
 const supervisor = () => staffOf('supervisor')[0];
 function crewSpeed(c){
-  return (S.restored.urn && c.st.id > 0 ? 1.05 : 1) * (c.st.id > 0 ? iceK() : 1) * rainK(c) * (typeof walkSnowK === 'function' ? walkSnowK() : 1) * lvSpeed(c.st) * (.85 + .15 * (c.st.focus ?? 100) / 100) * (c.zone ? 1.15 : 1) * (circuitOn('lights') ? 1 : .8) * (c.old ? .75 : 1) * (gusLift(c) ? 1.1 : 1) * (S.time < S.gus.cheerUntil && c.st.id > 0 ? 1.1 : 1);
+  return (S.restored.urn && c.st.id > 0 ? 1.05 : 1) * (c.st.id > 0 && typeof canteenK === 'function' ? canteenK() : 1) * (c.st.id > 0 ? iceK() : 1) * rainK(c) * (typeof walkSnowK === 'function' ? walkSnowK() : 1) * lvSpeed(c.st) * (.85 + .15 * (c.st.focus ?? 100) / 100) * (c.zone ? 1.15 : 1) * (circuitOn('lights') ? 1 : .8) * (c.old ? .75 : 1) * (gusLift(c) ? 1.1 : 1) * (S.time < S.gus.cheerUntil && c.st.id > 0 ? 1.1 : 1);
 }
 const repairSpeed = c => lvSpeed(c.st) * (S.gus.toolbox ? 1.15 : 1) * (1 + .3 * S.up.tools) * (c.st.role === 'electrician' ? 1 + .25 * S.up.meter : 1);
 const xpReady = st => st.lv < maxLv() && st.xp >= PG.xpNext(st.lv);
@@ -1453,14 +1479,14 @@ function updateSaw(dt){
   if (timberFree() && (S.timber < LINE_CAP || S.store < storeCap())) { S.timber = LINE_CAP; S.store = storeCap(); syncRack(); syncStore(); }   // levels 1-2: the supplier keeps the stock room and the line rack full; someone still has to feed the machine
   syncOrderCounts();
   const by = sawWorker(), canRun = by && S.feed > 0 && S.pallet < palletCap() && (orderLeft() > 0 || stockLeftC() > 0);
-  sawOn = !!canRun; sawBy = by;
+  sawOn = !!canRun && l6Run('saw'); sawBy = by;
   const blade = M.saw.getObjectByName('blade'), plank = M.saw.getObjectByName('plank');
-  if (canRun) {
+  if (sawOn) {
     if (ownerFeeds()) { owner.working = T; owner.workAt = P.feed; if (!owner.fedTold) { owner.fedTold = true; floatText('Feeding planks: +25%', P.feed[0], 1.6, P.feed[1], 'info'); } } else if (owner) owner.fedTold = false;
-    sawT += dt * (1 + .2 * S.up.saw) * autoFeedK() * crewSpeed(by) * pf() * brokenK(sawBroken()) * feedK() * bladeK() * wrongK(); animLine(M.saw, sawT / SAW_CYCLE, true, dt);
+    sawT += dt * (1 + .2 * S.up.saw) * tierK('saw') * autoFeedK() * crewSpeed(by) * pf() * brokenK(sawBroken()) * feedK() * bladeK() * wrongK(); animLine(M.saw, sawT / SAW_CYCLE, true, dt);
     if (Math.random() < dt * 14 * (S.up.saw >= 2 ? .3 : 1)) dustBurst();
     by.st.energy = Math.max(0, by.st.energy - dt * (100 / 90));
-    if (sawT >= SAW_CYCLE) { sawT = 0; S.feed--; S.pallet++; S.made++; if (S.wrongTimber > 0) S.wrongTimber--;
+    if (sawT >= SAW_CYCLE) { sawT = 0; S.feed--; S.pallet++; S.made++; machCycle('saw'); if (S.wrongTimber > 0) S.wrongTimber--;
       // crate batch upgrade: a steady share of planks yields a second crate (no luck involved)
       S.batchAcc += Math.min(1, .25 * S.up.batch); if (S.batchAcc >= 1 && (orderLeft() > 0 || stockLeftC() > 0) && S.pallet < palletCap()) { S.batchAcc -= 1; S.pallet++; S.made++; floatText('+1 crate', P.saw[0], 1.5, P.saw[1], 'info'); }
       syncOrderCounts(); if (S.order) { if (!S.order.t1) S.order.t1 = Math.round(S.order.time); if (!S.order.tc && S.order.cut >= S.order.qty) S.order.tc = Math.round(S.order.time); } S.cond.saw = Math.max(0, S.cond.saw - 2.2); syncFeed(); syncPallet(); sfxAt('saw', ...P.saw); sfxAt('thunk', P.saw[0] + .6, P.saw[1], .7); giveXp(by.st, 10); }
@@ -1481,7 +1507,7 @@ function updateSaw(dt){
 function sawReason(){
   const oc = sawOp(), o = S.order, st = oc ? oc.state : null;
   const R = (cls, title, sub, icon, text, stall = false) => ({ label:[cls, title, sub], op:[icon, text], stall });
-  const fault = S.faults.find(f => f.where === 'saw');
+  const fault = S.faults.find(f => f.where === 'saw' && !FAULTS[f.kind].svc);
   if (sawOn && fault) return R('warn', 'Half speed', fault.name, 'wrench', 'Working a broken saw');
   if (!powerOn()) return R('bad', 'No power', 'Generator is off', 'bolt', 'No power');
   if (!circuitOn('saw')) return R('bad', 'No power', 'Check the switchboard', 'bolt', 'Saw has no power');
@@ -1667,7 +1693,7 @@ const suppliesFree = () => S.level <= 2;     // owner's rule (build 0.17): timbe
 const timberFree = suppliesFree;
 const pipeOp = () => staffOf('operator').find(c => c.st.mach === 'pipe');
 const millReady = () => S.lv2.mill >= 2 && !!M.mill;
-const pipeBroken = () => S.faults.some(f => f.where === 'pipe');
+const pipeBroken = () => S.faults.some(f => f.where === 'pipe' && !FAULTS[f.kind].svc);
 const pipeLeft = () => S.order && S.order.briefed ? Math.max(0, needPipes() - sitePipes()) : 0;
 const pipeCap = () => 8 + 4 * S.up.prack;
 // power factor: above the generator's rating every machine slows in proportion (the level 2 lesson)
@@ -1682,15 +1708,15 @@ function updatePipeMill(dt){
   // the operator threads a fresh coil onto the uncoiler when the last one runs out
   if (by && S.coilLeft <= 0 && S.coilFeed > 0 && (pipeLeft() > 0 || stockLeftP() > 0) && S.pipes < pipeCap()) { S.coilFeed--; S.coilLeft = COIL_PIPES; syncCoilFeed(); sfx('clank', .6); floatText('New coil', P.pmill[0] - .5, 1.6, P.pmill[1], 'info'); }
   const canRun = by && S.coilLeft > 0 && S.pipes < pipeCap() && (pipeLeft() > 0 || stockLeftP() > 0);
-  pipeOn = !!canRun; pipeBy = by;
+  pipeOn = !!canRun && l6Run('pipe'); pipeBy = by;
   const N = M.millN;
   if (canRun) {
-    pipeT += dt * (1 + .2 * S.up.pipe) * autoFeedK() * crewSpeed(by) * pf() * brokenK(pipeBroken());
+    pipeT += dt * (1 + .2 * S.up.pipe) * tierK('pipe') * autoFeedK() * crewSpeed(by) * pf() * brokenK(pipeBroken());
     const k = pipeT / PIPE_CYCLE; N.coil.rotation.z -= dt * 2.2; for (const r of N.rollers) r.rotation.z -= dt * 9;
     N.pipe.visible = true; N.pipe.position.x = N.pipeX - .55 + k * .55;
     if (Math.random() < dt * 3) spark(P.pmill[0] + rand(-.3, .3), .75, P.pmill[1] + rand(-.1, .1));
     by.st.energy = Math.max(0, by.st.energy - dt * (100 / 90));
-    if (pipeT >= PIPE_CYCLE) { pipeT = 0; S.coilLeft--; S.pipes++; S.pmade++; syncOrderCounts();
+    if (pipeT >= PIPE_CYCLE) { pipeT = 0; S.coilLeft--; S.pipes++; S.pmade++; machCycle('pipe'); syncOrderCounts();
       if (S.order && S.order.pq) { if (!S.order.p1) S.order.p1 = Math.round(S.order.time); if (!S.order.pc && S.order.pcut >= S.order.pq) S.order.pc = Math.round(S.order.time); }
       S.cond.pipe = Math.max(0, S.cond.pipe - 2.4); syncPipes(); sfx('clank'); giveXp(by.st, 10); }
   } else N.pipe.visible = false;
@@ -1708,7 +1734,7 @@ function pipeReason(){
   const oc = pipeOp(), o = S.order, st = oc ? oc.state : null;
   const R = (cls, title, sub, icon, text, stall = false) => ({ label:[cls, title, sub], op:[icon, text], stall });
   if (!millReady()) return R('warn', 'Not installed', 'Pay in at the pad', 'wait', 'Waiting for the pipe mill');
-  const fault = S.faults.find(f => f.where === 'pipe');
+  const fault = S.faults.find(f => f.where === 'pipe' && !FAULTS[f.kind].svc);
   if (pipeOn && fault) return R('warn', 'Half speed', fault.name, 'wrench', 'Working a broken mill');
   if (!powerOn()) return R('bad', 'No power', 'Generator is off', 'bolt', 'No power');
   if (!circuitOn('pipe')) return R('bad', 'No power', 'Check the switchboard', 'bolt', 'Mill has no power');
@@ -1852,7 +1878,7 @@ function finishWh(fx){
    ===================================================================== */
 const pressOp = () => staffOf('operator').find(c => c.st.mach === 'tool');
 const pressReady = () => S.lv3.press >= 2 && !!M.press;
-const toolBroken = () => S.faults.some(f => f.where === 'tool');
+const toolBroken = () => S.faults.some(f => f.where === 'tool' && !FAULTS[f.kind].svc);
 const countTools = () => { let n = 0; for (const o of carriers()) if (o.carryType === 'toolbox' && truckBound(o)) n += o.stack.length; return n; };
 const needTools = () => S.order && !S.order.ready ? Math.max(0, (S.order.tq || 0) - S.tbed) : 0;
 const siteTools = () => S.tools + countTools() + S.wh.t;
@@ -1879,17 +1905,17 @@ function updateToolPress(dt){
   // the operator threads a fresh coil when the strip runs out
   if (by && S.tcoil <= 0 && S.tfeed > 0 && toolWork() && S.tools < toolCap()) { S.tfeed--; S.tcoil = COIL_TOOLS; syncTFeed(); sfx('clank', .6); floatText('New coil', P.tpress[0] - .8, 1.6, P.tpress[1], 'info'); }
   const canRun = by && S.tcoil > 0 && S.tools < toolCap() && toolWork();
-  toolOn = !!canRun; toolBy = by;
+  toolOn = !!canRun && l6Run('tool'); toolBy = by;
   const N = M.pressN;
   if (canRun) {
-    toolT += dt * (1 + .2 * S.up.press) * autoFeedK() * crewSpeed(by) * pf() * brokenK(toolBroken());
+    toolT += dt * (1 + .2 * S.up.press) * tierK('tool') * autoFeedK() * crewSpeed(by) * pf() * brokenK(toolBroken());
     const k = toolT / TOOL_CYCLE, stroke = Math.max(0, Math.sin(Math.min(1, k * 1.6) * Math.PI));
     N.ram.position.y = N.ramY - .16 * stroke; N.fly.rotation.y += dt * 7; N.coil.rotation.z -= dt * 1.2;
     N.out.visible = k > .62; N.out.position.x = N.outX + Math.max(0, k - .62) * 1.1;
     if (stroke > .95 && !N.hit) { N.hit = true; sfx('clank', .5); for (let i = 0; i < 3; i++) spark(P.tpress[0] + .1 + rand(-.15, .15), .62, P.tpress[1] + rand(-.1, .1)); }
     if (stroke < .5) N.hit = false;
     by.st.energy = Math.max(0, by.st.energy - dt * (100 / 95));
-    if (toolT >= TOOL_CYCLE) { toolT = 0; S.tcoil--; S.tools++; S.tmade++;
+    if (toolT >= TOOL_CYCLE) { toolT = 0; S.tcoil--; S.tools++; S.tmade++; machCycle('tool');
       S.tbatchAcc = (S.tbatchAcc || 0) + [0, .2, .25, 1 / 3][Math.min(3, S.up.tbatch || 0)]; if (S.tbatchAcc >= 1 && S.tools < toolCap()) { S.tbatchAcc -= 1; S.tools++; S.tmade++; floatText('+1 tool', P.tpress[0], 1.6, P.tpress[1], 'info'); }
       syncOrderCounts();
       if (S.order && S.order.tq) { if (!S.order.k1) S.order.k1 = Math.round(S.order.time); if (!S.order.kc && S.order.tcut >= S.order.tq) S.order.kc = Math.round(S.order.time); }
@@ -1909,7 +1935,7 @@ function toolReason(){
   const oc = pressOp(), o = S.order, st = oc ? oc.state : null;
   const R = (cls, title, sub, icon, text, stall = false) => ({ label:[cls, title, sub], op:[icon, text], stall });
   if (!pressReady()) return R('warn', 'Not installed', S.lv3.press ? 'Big Tom\'s crew is installing it' : 'Pay in at the pad', 'wait', 'Waiting for the tool press');
-  const fault = S.faults.find(f => f.where === 'tool');
+  const fault = S.faults.find(f => f.where === 'tool' && !FAULTS[f.kind].svc);
   if (toolOn && fault) return R('warn', 'Half speed', fault.name, 'wrench', 'Working a jammed press');
   if (!powerOn()) return R('bad', 'No power', 'Generator is off', 'bolt', 'No power');
   if (!circuitOn('tool')) return R('bad', 'No power', 'Check the switchboard', 'bolt', 'Press has no power');
@@ -2023,7 +2049,7 @@ const INSPECT = [
   { id:'fire',    text:'Wiring and switchboard in good order', fix:'Your mechanic services the wiring at the switchboard (it must be 50% or better); fix any open power fault', at:() => P.boardSpot,
     ok:() => S.cond.wiring >= 50 && !S.faults.some(f => FAULTS[f.kind].trade === 'electrician') },
   { id:'guards',  text:'Machines in working order', fix:'No jams or worn parts open on any machine', at:() => [P.sawFix[0] - .2, P.sawFix[1] + .3],
-    ok:() => !S.faults.some(f => FAULTS[f.kind].trade === 'mechanic') },
+    ok:() => !S.faults.some(f => FAULTS[f.kind].trade === 'mechanic' && !FAULTS[f.kind].svc) },
   { id:'crew',    text:'A mechanic on the payroll', fix:'Hire one in the office (Staff)', at:() => P.mechHome, ok:() => hasRole('mechanic') },
   { id:'parts',   text:'Spare parts on the shelf', fix:'Buy spare parts (Stock)', at:() => [P.parts[0], P.parts[1] + .8], ok:() => S.parts >= 1 },
 ];
@@ -2084,6 +2110,8 @@ async function startLevel(n){
   if (n === 4) { S.lv4.e0 = S.earned; S.lv4.ot0 = S.ontime; S.lv4.forkMoved = 0; S.lv4.mixed = 0; buildLevel4(); applyUpgradeVisuals(); sfx('level', .7); toast('Level 4: Growing Enterprise. The wall to the yard is down: install the second crate machine there, and hire a forklift driver.', 'gold'); }
   if (n === 5) { Object.assign(S.l5, { e0:S.earned, ot0:S.ontime, t0:S.time, nextBill:1e12, rushAt:S.time + 900, pairs:0, d2done:0, dieselL:0, daysThisWeek:0, acc:null }); buildLevel5(); applyUpgradeVisuals(); sfx('level', .7);
     toast('Level 5: Regional Manufacturer. Snow on the yard, the new office block across Mill Road, and Eldon\'s letter: the wages are yours from Friday. Diesel now costs twice as much.', 'gold'); setTimeout(() => meet('priya'), 3500); }
+  if (n === 6) { Object.assign(S.l6, { e0:S.earned, ot0:S.l5.onTime || 0 }); buildLevel6(); applyUpgradeVisuals(); sfx('level', .7);
+    toast('Level 6: Industrial Company. Spring showers. Ada Finch\'s daughter June is at the office block about the clerk\'s job; tier 2 refits are in the Machines tab.', 'gold'); setTimeout(() => { if (!S.staff.some(x => x.role === 'clerk')) story({ kind:'june' }); }, 3500); }
   if (n === 3) { S.lv3.e0 = S.earned; S.lv3.f0 = S.fixed; buildLevel3(); applyUpgradeVisuals(); sfx('level', .7); toast(plotOwned('north') ? 'Level 3: Local Manufacturer. Install the tool press on the North field.' : 'Level 3: Local Manufacturer. Buy the North field from Abel Thorne, then install the tool press on it.', 'gold'); }
   if (n === 3) toast('Valley Timber Co. has closed the free account. From now on you buy timber in the office (Stock), and the generator burns diesel your loaders fetch from the tank.', 'gold');
   placeFolk(); story({ kind:'skip', level:n, w0, w1 }); story({ kind:'courier', level:n });
@@ -2430,9 +2458,9 @@ function updateOwner(dt){
   const handFix = ownerStill() && S.faults.find(f => near(o, WHERE[f.where].spot(), .6) && !(f.by && staffObj.has(f.by) && staffObj.get(f.by).state === 'fixing') && !f.contractor);
   if (handFix) { if (!handFix.diag) diagnose(handFix, owner);
     if (needsPart(handFix) && handFix.part === undefined) { handFix.part = S.parts > 0; if (handFix.part) { S.parts--; syncParts(); } }
-    handFix.prog += dt * .5 / FAULTS[handFix.kind].time * (needsPart(handFix) && handFix.part === false ? .35 : 1);
+    handFix.prog += dt * .5 / FAULTS[handFix.kind].time * (needsPart(handFix) && handFix.part === false ? .35 : 1); handFix.workT = T;
     if (Math.random() < dt * 2.5) sfx('clank', .4);
-    if (handFix.prog >= 1) { clearFault(handFix, owner); toast(handFix.guided ? 'Fixed by hand. A mechanic does that twice as fast: hire one in the office.' : 'Fixed it yourself.', 'good'); } }
+    if (handFix.prog >= 1 && FAULTS[handFix.kind].svc) svcDone(handFix, owner); else if (handFix.prog >= 1) { clearFault(handFix, owner); toast(handFix.guided ? 'Fixed by hand. A mechanic does that twice as fast: hire one in the office.' : 'Fixed it yourself.', 'good'); } }
   const working = owner.working && T - owner.working < .2;
   if (owner.lock > 0) {} else if (k > 0) owner.play(owner.stack.length || owner.cart ? 'carry' : 'walk', (.6 + k * .65) * (1 + .12 * S.up.boots));
   else if (working) { owner.play('work'); if (owner.workAt) owner.faceTo(owner.workAt, dt); }
@@ -2483,7 +2511,7 @@ function syncPads(){
 // fault rings on the floor where someone has to stand
 const faultRings = new Map();
 function syncFaultRings(){
-  for (const f of S.faults) if (!faultRings.has(f.id)) { const sp = WHERE[f.where].spot(); faultRings.set(f.id, M.ring('f' + f.id, sp[0], sp[1], '#d2493a', .62)); }
+  for (const f of S.faults) if (!faultRings.has(f.id)) { const sp = WHERE[f.where].spot(); faultRings.set(f.id, M.ring('f' + f.id, sp[0], sp[1], FAULTS[f.kind].svc ? '#e8ab2c' : '#d2493a', .62)); }
   for (const [id, r] of faultRings) { const f = faultById(id); if (!f) { r.g.removeFromParent(); faultRings.delete(id); delete M.rings['f' + id]; continue; }
     const k = f.diag ? f.prog : (dwell.key === 'f' + id ? dwell.t / .9 : 0); r.prog.visible = k > 0; setArc(r, k); r.m.material.color.set(f.diag ? '#e8ab2c' : '#d2493a'); }
 }
@@ -2843,8 +2871,8 @@ function serviceTarget(c){
       return opts.sort((a, b) => S.cond[a.what] - S.cond[b.what])[0]; }
     return { spot:P.boardSpot, face:[P.board[0], -1], what:'wiring' }; }
   if (c.st.role === 'mechanic') {   // the most worn first (a machine only between runs); the wiring counts too, it has no electrician
-    const due = [S.cond.saw < 75 && !sawOn && { spot:P.sawFix, face:P.saw, what:'saw' }, S.cond.engine < 75 && { spot:P.genFix, face:P.gen, what:'engine' },
-      millReady() && S.cond.pipe < 75 && !pipeOn && { spot:P.pfix, face:P.pmill, what:'pipe' }, pressReady() && S.cond.tool < 75 && !toolOn && { spot:P.tfix, face:P.tpress, what:'tool' },
+    const old = S.level < 6, due = [old && S.cond.saw < 75 && !sawOn && { spot:P.sawFix, face:P.saw, what:'saw' }, S.cond.engine < 75 && { spot:P.genFix, face:P.gen, what:'engine' },
+      old && millReady() && S.cond.pipe < 75 && !pipeOn && { spot:P.pfix, face:P.pmill, what:'pipe' }, old && pressReady() && S.cond.tool < 75 && !toolOn && { spot:P.tfix, face:P.tpress, what:'tool' },
       S.cond.wiring < 75 && { spot:P.boardSpot, face:[P.board[0], -1], what:'wiring' }].filter(Boolean);
     return due.sort((a, b) => S.cond[a.what] - S.cond[b.what])[0] || null; }
   else if (S.cond.wiring < 75) return { spot:P.boardSpot, face:[P.board[0], -1], what:'wiring' };
@@ -2856,14 +2884,14 @@ function updateSpecialist(c, dt){
   if (c.state === 'arrive') { if (walk(c, dt)) c.state = 'idle'; return; }
   const trade = c.st.role;
   if (c.job && !faultById(c.job)) { c.job = null; if (c.state === 'toJob' || c.state === 'fixing') c.state = 'idle'; }
-  if (!c.job && c.state !== 'fixing') { const f = S.faults.find(f => f.diag && myTrade(c, FAULTS[f.kind].trade) && !f.by && !f.contractor);
+  if (!c.job && c.state !== 'fixing') { const free = f => f.diag && myTrade(c, FAULTS[f.kind].trade) && !f.by && !f.contractor, f = S.faults.find(f => free(f) && !FAULTS[f.kind].svc) || S.faults.find(f => free(f) && FAULTS[f.kind].svc && (f.booked || S.up.schedule));
     if (f) { f.by = c.st.id; c.job = f.id; goTo(c, ...WHERE[f.where].spot()); c.state = 'toJob'; } }
   if (c.state === 'toJob') { if (walk(c, dt)) { c.state = 'fixing'; const f = faultById(c.job); if (f && needsPart(f) && f.part === undefined) { f.part = S.parts > 0; if (f.part) { S.parts--; syncParts(); floatText('Spare part fitted', ...WHERE[f.where].mark, 'info'); } else floatText('No spare part: making do', ...WHERE[f.where].mark, 'warn'); } } return; }
   if (c.state === 'fixing') { const f = faultById(c.job); if (!f) { c.state = 'idle'; return; }
     const sp = WHERE[f.where].spot(); c.o.position.set(sp[0], 0, sp[1]); c.faceTo(jobFace(f), dt); c.play(FAULTS[f.kind].anim, 1.1);
-    f.prog += dt * repairSpeed(c) / FAULTS[f.kind].time * (needsPart(f) && f.part === false ? .35 : 1); c.st.energy = Math.max(0, c.st.energy - dt * .6);
+    f.prog += dt * repairSpeed(c) / FAULTS[f.kind].time * (needsPart(f) && f.part === false ? .35 : 1); f.workT = T; c.st.energy = Math.max(0, c.st.energy - dt * .6);
     if (Math.random() < dt * 3) { if (FAULTS[f.kind].trade === 'electrician') spark(WHERE[f.where].mark[0], WHERE[f.where].mark[1] - .7, WHERE[f.where].mark[2] + .3); else sfx('clank', .5); }
-    if (f.prog >= 1) { clearFault(f, c); c.job = null; c.state = 'idle'; } return; }
+    if (f.prog >= 1) { if (FAULTS[f.kind].svc) svcDone(f, c); else clearFault(f, c); c.job = null; c.state = 'idle'; } return; }
   if (breakDue(c)) { startBreak(c); return; }
   if (c.state === 'toService') { if (walk(c, dt)) { c.state = 'service'; c.wait = 4.5; } return; }
   if (c.state === 'service') { c.faceTo(c.svc.face, dt); c.play(c.svc.what === 'wiring' ? 'work' : 'fix'); c.wait -= dt * repairSpeed(c); c.st.energy = Math.max(0, c.st.energy - dt * .5);
@@ -3029,6 +3057,8 @@ function updateStaff(dt){
       if (closingStep(c, dt)) { c.idleT = 0; continue; }
       if (lunchStep(c, dt)) { c.idleT = 0; continue; }
       if (payStep(c, dt)) { c.idleT = 0; continue; }
+      if (r !== 'clerk' && typeof hailShelter === 'function' && hailShelter() && !['fixing', 'arrive'].includes(c.state) && !c.stack.length) { c.play('idle'); continue; }   // hail: everyone outdoors stands in under cover for 15 s
+      if (r === 'clerk') { updateClerk(c, dt); continue; }
       if (r === 'cleaner') updateCleaner(c, dt); else if (r === 'operator') updateOperator(c, dt); else if (r === 'loader' || r === 'helper') updateLoader(c, dt); else if (r === 'supervisor') updateSupervisor(c, dt); else updateSpecialist(c, dt);
     } catch(e) { recoverChar(c, e); continue; }
     const idle = (r === 'loader' && c.state === 'waiting') || (r === 'operator' && c.state === 'work' && !opsOf(c).running(c)) || ((r === 'mechanic' || r === 'electrician') && c.state === 'home');
@@ -3038,7 +3068,7 @@ function updateStaff(dt){
 // contractors: when a diagnosed fault waits too long with nobody of that trade on staff
 function updateContractors(dt){
   // nobody of that trade on the payroll: a contractor from town after a minute (Master Design Doc), never for the guided jam
-  for (const f of S.faults) if (f.diag && !f.contractor && !f.guided && f.kind !== 'powercut' && !fixerOn(FAULTS[f.kind].trade) && f.diagT > 60) {
+  for (const f of S.faults) if (f.diag && !f.contractor && !f.guided && f.kind !== 'powercut' && !FAULTS[f.kind].svc && !fixerOn(FAULTS[f.kind].trade) && f.diagT > 60) {
     f.contractor = true; const trade = FAULTS[f.kind].trade;
     const c = makeChar('worker', ...P.frontOut, { parts:newLook(trade).parts, cols:Object.assign({ skin:pick(SKINS), hair:pick(HAIRS) }, ROLE[trade].col) });
     c.st = { id:-f.id, name:'Contractor', role:trade, lv:1, energy:100, focus:100 }; c.fault = f.id; c.state = 'toJob'; goTo(c, ...WHERE[f.where].spot()); temps.push(c);
@@ -3091,7 +3121,7 @@ function statusOf(c){
 /* =====================================================================
    HIRING, TRAINING, UPGRADES
    ===================================================================== */
-const hireCost = role => { if (S.freeHires > 0) return 0; const have = S.staff.filter(s => s.role === role).length; return ROLE[role].cost[have] ?? PG.hirePrice(role, have, S.level); };
+const hireCost = role => { if (S.freeHires > 0) return 0; const have = S.staff.filter(s => s.role === role).length; if (role === 'clerk' && !have && S.perks.freeClerk) return 0; return ROLE[role].cost[have] ?? PG.hirePrice(role, have, S.level); };
 // one operator per machine actually on site; every other cap comes from the level table
 // one operator per machine: the saw, the pipe mill from level 2, the tool press from level 3
 // build 0.19: levels 1 and 2 are a small works: one loader at level 1 (no machine helper: the owner and Gus feed the
@@ -3291,7 +3321,7 @@ function renderOffice(){
           : `<div class="up"><span class="ic">${icon('clip')}</span><div><b>${st === 4 ? 'Re-inspection' : 'Apply'}</b><span class="note">${licReady() ? 'Every line is ticked: you should pass' : `${INSPECT.filter(c => !c.ok()).length} line(s) not ready yet`}</span></div><button class="btn primary" data-licence="1" ${S.cash >= (st === 4 ? REINSPECT_PRICE : LICENCE_PRICE) ? '' : 'disabled'}>${fmt(st === 4 ? REINSPECT_PRICE : LICENCE_PRICE)}</button><p>The inspector comes about ${LICENCE_WAIT} s later and walks the site. Anything not ready on the day fails.</p></div>`}</div>`;
     } else h += `<div class="dept locked"><div class="dept-h"><span class="ic">${icon('clip')}</span><div><b>Trading licence</b><small>The council issues it from level 3 (${fmt(LICENCE_PRICE)})</small></div></div></div>`;
   }
-  if (tab === 'finance' && S.level >= 5) h += financeHtml();
+  if (tab === 'finance' && S.level >= 5) h += financeHtml() + ledgerHtml();
   if (tab === 'orders') {
     const o = S.order;
     if (S.call) { const c = S.call; h += `<div class="call"><div class="call-h">${icon('phone')}<div><b>Phone: ${c.client}${c.rush ? ' · RUSH' : ''}</b><small>${c.dock === 2 ? (c.rush ? 'Rush order for dock 2: from stock, short deadline, pays 50% more' : 'For dock 2: ships from stock (warehouse and the second mill\'s rack)') : 'New order on the line'}</small></div></div>
@@ -3356,6 +3386,8 @@ function renderOffice(){
   B.querySelectorAll('[data-water]').forEach(b => b.onclick = orderWater);
   B.querySelectorAll('[data-mains]').forEach(b => b.onclick = applyMains);
   B.querySelectorAll('[data-paybill],[data-payacc]').forEach(b => b.onclick = () => { payAccounts(); });
+  B.querySelectorAll('[data-refit]').forEach(b => b.onclick = () => orderRefit(b.dataset.refit));
+  B.querySelectorAll('[data-book]').forEach(b => b.onclick = () => bookService(b.dataset.book));
   B.querySelectorAll('[data-loan]').forEach(b => b.onclick = () => takeLoan(+b.dataset.loan));
   B.querySelectorAll('[data-repay]').forEach(b => b.onclick = repayLoan);
   B.querySelectorAll('[data-haulier]').forEach(b => b.onclick = () => rushHaulier(+b.dataset.haulier));
@@ -3489,9 +3521,13 @@ const PEOPLE = {
            look:{ parts:['hair_pony', 'clipboard'], cols:{ suit:'#4a3a52', shirt:'#efe6ea', skin:'#9b6a43', hair:'#1a1a1a' } } },
   eldon: { name:'Eldon Graves', role:'Bank manager, Valley Bank', line:'Lends to works that pay their bills on time.', skin:'#f1c9a5', hair:'#b8b2a6', shirt:'#2c2f33', stache:true, bg:'#9fb39f',
            look:{ parts:['hair_short', 'stache'], cols:{ suit:'#2c2f33', shirt:'#e8e2d4', skin:'#f1c9a5', hair:'#b8b2a6', stache:'#b8b2a6' } } },
-  ada:   { name:'Ada Finch', role:'Retired shopkeeper', line:'Wants her niece June looked after.', skin:'#e0ac85', hair:'#d6d1c6', shirt:'#2f7a4a', bg:'#a9c9a2',
+  ada:   { name:'Ada Finch', role:'Retired shopkeeper', line:'Wants her daughter June looked after.', skin:'#e0ac85', hair:'#d6d1c6', shirt:'#2f7a4a', bg:'#a9c9a2',
            look:{ parts:['hair_pony'], cols:{ suit:'#2f5a3a', shirt:'#e8dcc0', skin:'#e0ac85', hair:'#d6d1c6' } } },
   council:{ name:'Valley Council', role:'Permit office', line:'Every plan in the valley gets its stamp here.', crest:true, bg:'#2f5d8a', skin:'#e0ac85', hair:'#3a2a20', shirt:'#2f5d8a' },
+  june:  { name:'June Finch', role:'Clerk, Ada Finch\'s daughter', line:'Pays the bills, collects the takings, and never pays silently.', skin:'#f1c9a5', hair:'#6b3a20', shirt:'#556b3a', bg:'#b9c9a2',
+           look:{ parts:['hair_pony', 'clipboard'], cols:{ suit:'#556b3a', shirt:'#efe6da', skin:'#f1c9a5', hair:'#6b3a20' } } },
+  hollins:{ name:'Mr Hollins', role:'Factory inspector', line:'Guards, lanes, the service book, the wiring.', skin:'#e0ac85', hair:'#8a8378', hat:'#3c4148', shirt:'#3c4148', stache:true, bg:'#a9b2bb',
+           look:{ parts:['hat_cap', 'stache', 'hair_short', 'clipboard'], cols:{ suit:'#3c4148', hat:'#3c4148', shirt:'#e8e2d4', skin:'#e0ac85', hair:'#8a8378', stache:'#8a8378' } } },
   rusty: { name:'Rusty Pike', role:'Scrap dealer', line:'Wants to stay in business next door.', skin:'#e0ac85', hair:'#a8522a', hat:'#2c2f33', shirt:'#8a4b2a', stache:true, bg:'#b98a6a',
            look:{ parts:['hat_cap', 'stache', 'hair_short', 'toolbelt'], cols:{ suit:'#6b3f2a', hat:'#2c2f33', shirt:'#b8a58a', skin:'#e0ac85', hair:'#a8522a', stache:'#a8522a' } } },
 };
@@ -3522,7 +3558,7 @@ const SCENES = {
   abel:  ['Abel Thorne. That\'s my North field behind your dock.', 'Too much for me now. Vera Lind has the papers: keep my fence line and it\'s yours.'],
   council:['Valley Council, permit office. You\'ll be wanting the road frontage.', 'Pay at the counter, the permit follows. Fix our road and the town will remember it.'],
   priya: ['Priya Nair, accountant. A payroll this size means bills: wages and power, every six minutes.', 'The first one is on your desk. Pay it at the office desk and I\'ll show you the Finance page. Pay on time and the crew stays happy.'],
-  eldon: ['Eldon Graves, Valley Bank. A works your size should bank with us.', 'Your account is open. When cash runs short we lend: up to $15,000, repaid with your bills.'],
+  eldon: ['Eldon Graves, Valley Bank. A works your size should bank with us.', 'Your account is open. When cash runs short we lend up to 30% of what the works aims to earn this level, repaid on the next five Friday accounts.'],
   ada:   ['Ada Finch. Forty years I kept the corner shop behind your new dock.', 'My knees say it\'s time. Vera has the papers at my sign: give my niece June a job and I\'ll sleep easy.'],
   rusty: ['Rusty Pike. I run the scrapyard next door.', 'Business is slow. The yard is for sale: Vera has the papers at my sign.'],
 };
@@ -3609,6 +3645,12 @@ function nextCard(){
     B.querySelectorAll('[data-gift]').forEach(b => b.onclick = () => { giveGift(b.dataset.gift); cardQueue.unshift(c); nextCard(); });
     const bye = B.querySelector('[data-bye]'); if (bye) bye.onclick = () => { sfx('tap'); nextCard(); gusFarewellDone(); }; }
   else if (c.kind === 'licence') B.innerHTML = licenceHtml();
+  else if (c.kind === 'inspect6') B.innerHTML = inspect6Html(c);
+  else if (c.kind === 'june') { const cost = hireCost('clerk'); B.innerHTML = `<div class="who"><img alt="" src="${portrait('june')}"><div><b>June Finch</b><small>Ada Finch's daughter · bookkeeper, twelve years at the Co-op</small></div></div>
+      <div class="say">"Mum says you need someone at the clerk's window. I keep a straight ledger: takings in, bills out, every line in ink."</div><div class="say" style="animation-delay:.45s">"I'll fetch the takings from the dock, hand out the packets on Friday and pay the accounts. If the cash is short, I hold the bill and tell you. I never pay silently."</div>
+      <div class="kv"><span>Hiring fee</span><span>${cost ? fmt(cost) : 'Nothing: the promise to Ada'}</span><span>Wage</span><span>${fmt(WAGES.clerk)} a week</span></div>
+      <button class="btn primary" data-junehire type="button" style="width:100%;margin-top:10px;min-height:44px" ${S.cash >= cost ? '' : 'disabled'}>Take June on as clerk</button><button class="btn" data-next type="button" style="width:100%;margin-top:6px">Later (Staff tab)</button>`;
+    S.met.june = true; const jb = B.querySelector('[data-junehire]'); if (jb) jb.onclick = () => { hire('clerk'); nextCard(); }; }
   else if (c.kind === 'cartip') { B.innerHTML = `<div class="who"><img alt="" src="${portrait('gus')}"><div><b>Gus Mallory</b><small>Old foreman · a word about finding work</small></div></div>${CAR_TIP.map((t, i) => `<div class="say" style="animation-delay:${i * .45}s">${t}</div>`).join('')}<button class="btn primary" data-next type="button" style="width:100%;margin-top:8px;min-height:44px">Show me the car</button>`; B.classList.add('person'); }
   else if (c.kind === 'town') { B.innerHTML = townHtml(); B.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { const [kind, k] = b.dataset.go.split(':'); sfx('tap');
       if (kind === 'ad' && ADS[k].forever) { cardQueue.unshift({ kind:'advert', key:k, here:true }); nextCard(); } else { nextCard(); startTrip(kind, k); } }); }
@@ -3847,7 +3889,7 @@ function gusFarewellDone(){
 function gusVisit(g, dt){
   if (g.job === 'leave') { if (walk(g, dt)) { despawnFolk('gus'); } return; }
   if (g.job === 'visit') {
-    if (g.gs === 'in') { if (walk(g, dt)) { g.gs = 'stay'; g.wait = 18; gusSay(g, pick(['Just passing. Couldn\'t keep away.', 'Pension came through. Thank you, boss.', 'The fish aren\'t biting. Thought I\'d see the saw.']), 4); g.play('cheer'); } return; }
+    if (g.gs === 'in') { if (walk(g, dt)) { g.gs = 'stay'; g.wait = 18; gusSay(g, S.l6 && S.l6.pensionSay ? (S.l6.pensionSay = false, 'Pension came through. Thank you, boss.') : pick(['Just passing. Couldn\'t keep away.', 'Pension came through. Thank you, boss.', 'The fish aren\'t biting. Thought I\'d see the saw.']), 4); g.play('cheer'); } return; }
     if (g.gs === 'stay') { g.faceTo(P.saw, dt); if (g.wait <= 0) { g.gs = 'out'; goTo(g, ...P.frontOut); } return; }
     if (g.gs === 'out') { if (walk(g, dt)) despawnFolk('gus'); return; } }
 }
@@ -3984,21 +4026,23 @@ const ISSUE_EVERY = 180;
 let sessionT = 0;
 function scheduleIssue(dt){
   sessionT += dt;
-  for (const f of S.faults) if (!f.repHit && f.t > 120) { f.repHit = true; repChange(-1, true); }          // an issue left open over 2 minutes
+  for (const f of S.faults) if (!f.repHit && f.t > 120 && !FAULTS[f.kind].svc) { f.repHit = true; repChange(-1, true); }          // an issue left open over 2 minutes
   for (const f of [...S.faults]) if (f.kind === 'powercut' && f.t > 30) clearFault(f, null, true);           // a power cut passes in 30 s
   if (S.level < 3) return;
   const o = S.order;
   // the guided tool order: the press jams halfway, the owner fixes it by hand, then hires a mechanic
   if (o && o.guided && o.tq && !S.lv3.jam && (o.tcut || 0) >= Math.ceil(o.tq / 2) && toolOn) { S.lv3.jam = true; addFault('die', { guided:true }); return; }
-  if (sessionT < 60 || cardOpen || (o && o.guided) || S.faults.length >= staffOf('mechanic').length + 2) return;
+  if (sessionT < 60 || cardOpen || (o && o.guided) || S.faults.filter(f => !FAULTS[f.kind].svc).length >= staffOf('mechanic').length + 2) return;
   S.nextIssue ??= S.time + ISSUE_EVERY * rand(.8, 1.2);
   if (S.time < S.nextIssue) return;
   S.nextIssue = S.time + ISSUE_EVERY * rand(.8, 1.2);
   const surgeK = [1, .8, .65, .5][Math.min(3, S.up.surge)], sturdyK = [1, .85, .7, .5][Math.min(3, S.up.sturdy)];
   const running = [['saw', sawOn, 'blade', 'belt'], ['pipe', pipeOn, 'roller', 'bearing'], ['tool', toolOn, 'die', 'spring']].filter(m => m[1]);
-  if (Math.random() < Math.min(.75, .25 * surgeK * (stormOn() ? 3 : 1)) || !running.length) { if (powerOn()) addFault('powercut'); return; }
-  if (Math.random() > sturdyK) return;                                                                        // sturdier parts: this one never happened
-  const m = pick(running); addFault(Math.random() < .55 ? m[2] : m[3]);
+  if (Math.random() < Math.min(.75, .25 * surgeK * (stormOn() && !S.restored.conductor ? 3 : 1)) || !running.length) { if (powerOn()) addFault('powercut'); return; }   // the lightning conductor (L6) takes the storm's extra cuts away
+  // v2.0 13.4: a machine due for its service is three times as likely to be the one that faults
+  const wts = running.map(m => typeof svcDue === 'function' && svcDue(m[0]) ? 3 : 1); let r = Math.random() * wts.reduce((a, b) => a + b, 0), m = running[0]; for (let i = 0; i < running.length; i++) { r -= wts[i]; if (r <= 0) { m = running[i]; break; } }
+  if (Math.random() > sturdyK && !(typeof svcDue === 'function' && svcDue(m[0]))) return;                    // sturdier parts: this one never happened
+  addFault(Math.random() < .55 ? m[2] : m[3]);
 }
 
 /* =====================================================================
@@ -4061,12 +4105,12 @@ function updateSaw2(dt){
   runBuilder('saw2Builder', P.saw2, S.lv4, 'saw2T', SAW2_BUILD, finishSaw2, dt);
   if (!saw2Ready()) { saw2On = false; return; }
   const by = saw2Worker(), canRun = by && S.lv4.feed2 > 0 && S.lv4.pallet2 < PALLET2_CAP && (orderLeft() > 0 || stockLeftC() > 0);
-  saw2On = !!canRun; saw2By = by;
+  saw2On = !!canRun && l6Run('saw2'); saw2By = by;
   const blade = M.saw2.getObjectByName('blade'), plank = M.saw2.getObjectByName('plank');
   if (canRun) {
-    saw2T += dt * sawSpeedK() * autoFeedK() * crewSpeed(by) * pf(); animLine(M.saw2, saw2T / SAW_CYCLE, true, dt);
+    saw2T += dt * sawSpeedK() * tierK('saw2') * autoFeedK() * crewSpeed(by) * pf(); animLine(M.saw2, saw2T / SAW_CYCLE, true, dt);
     by.st.energy = Math.max(0, by.st.energy - dt * (100 / 90));
-    if (saw2T >= SAW_CYCLE) { saw2T = 0; S.lv4.feed2--; S.lv4.pallet2++; S.made++; S.lv4.made2 = (S.lv4.made2 || 0) + 1; syncOrderCounts(); syncFeed2(); syncPallet2(); sfxAt('saw', ...P.saw2, .6); giveXp(by.st, 10); }
+    if (saw2T >= SAW_CYCLE) { saw2T = 0; S.lv4.feed2--; S.lv4.pallet2++; S.made++; S.lv4.made2 = (S.lv4.made2 || 0) + 1; machCycle('saw2'); syncOrderCounts(); syncFeed2(); syncPallet2(); sfxAt('saw', ...P.saw2, .6); giveXp(by.st, 10); }
   } else animLine(M.saw2, 0, false, dt, true, S.lv4.feed2 > 0);
   setLamp(M.saw2.getObjectByName('status_lamp'), ...(!powerOn() ? LAMP_STOP : saw2On ? LAMP_RUN() : LAMP_IDLE));
 }
@@ -4317,7 +4361,7 @@ function buildForkLane(){
    corner shop, the plot for level 6.
    ===================================================================== */
 const BILL_EVERY = 360, BILL_DUE = 150, LATE_FEE = .1;   // the old six-minute bills (kept for old saves' fields); v2.0's weekly accounts below
-const WAGES = { helper:100, operator:160, loader:120, electrician:180, mechanic:180, supervisor:240, forklift:160, cleaner:100 };
+const WAGES = { clerk:200, helper:100, operator:160, loader:120, electrician:180, mechanic:180, supervisor:240, forklift:160, cleaner:100 };
 const POWER_RATE = 14;                       // dollars per kW of generator capacity, on every bill
 const MILL2_PRICE = 18000, MILL2_BUILD = 60, RACK2_CAP = 12, RUSH_EVERY = 300, HAULIER = 60;
 const RUSH_CLIENTS = ['County Hospital', 'Dunmore Docks', 'Valley Rail', 'Ashby Bottling'];
@@ -4500,14 +4544,14 @@ function updateMill2(dt){
   const by = handOn(pipe2Op(), P.pop2, P.mill2), room = S.l5.rack2 < RACK2_CAP;
   if (by && S.l5.coilLeft2 <= 0 && S.l5.coil2 > 0 && room) { S.l5.coil2--; S.l5.coilLeft2 = COIL_PIPES; syncCoil2(); sfx('clank', .6); floatText('New coil', P.mill2[0] - .5, 1.6, P.mill2[1], 'info'); }
   const canRun = by && S.l5.coilLeft2 > 0 && room && circuitOn('pipe');
-  mill2On = !!canRun; mill2By = by;
+  mill2On = !!canRun && l6Run('mill2'); mill2By = by;
   const N = M.mill2N;
   if (canRun) {
-    mill2T += dt * (1 + .2 * S.up.pipe) * autoFeedK() * crewSpeed(by) * pf();
+    mill2T += dt * (1 + .2 * S.up.pipe) * tierK('mill2') * autoFeedK() * crewSpeed(by) * pf();
     N.coil.rotation.z -= dt * 2.2; for (const r of N.rollers) r.rotation.z -= dt * 9; N.pipe.visible = true; N.pipe.position.x = N.pipeX - .55 + (mill2T / PIPE_CYCLE) * .55;
     if (Math.random() < dt * 3) spark(P.mill2[0] + rand(-.3, .3), .75, P.mill2[1] + rand(-.1, .1));
     by.st.energy = Math.max(0, by.st.energy - dt * (100 / 90));
-    if (mill2T >= PIPE_CYCLE) { mill2T = 0; S.l5.coilLeft2--; S.l5.rack2++; S.pmade++; S.l5.made2 = (S.l5.made2 || 0) + 1; syncRack2(); sfx('clank'); giveXp(by.st, 10); }
+    if (mill2T >= PIPE_CYCLE) { mill2T = 0; S.l5.coilLeft2--; S.l5.rack2++; S.pmade++; S.l5.made2 = (S.l5.made2 || 0) + 1; machCycle('mill2'); syncRack2(); sfx('clank'); giveXp(by.st, 10); }
   } else N.pipe.visible = false;
   N.coil.visible = S.l5.coilLeft2 > 0; const f = .5 + .5 * S.l5.coilLeft2 / COIL_PIPES; N.coil.scale.set(N.coilS.x * f, N.coilS.y * f, N.coilS.z);
   const lampState = !circuitOn('pipe') ? LAMP_STOP : mill2On ? LAMP_RUN() : LAMP_IDLE; setLamp(N.lamp, ...lampState); setLamp(N.beacon, ...lampState);
@@ -4574,7 +4618,7 @@ function takeLoan(amt){
 }
 function repayLoan(){ const L = S.l5.loan; if (!L || !L.left || S.cash < L.left) return; S.cash -= L.left; L.left = 0; L.n = 0; L.inst = 0; sfx('coin'); toast('Loan repaid in full. Eldon Graves tips his hat.', 'good'); save(); renderOffice(); }
 function accountsHtml(acc, withPay = true){ const row = (k, v) => `<span>${k}</span><span>${fmt(v)}</span>`;
-  return `<div class="kv db">${acc.wages ? `<span>Pay packets (paid at 16:30)</span><span>${fmt(acc.wages)}</span>` : ''}${row('Power' + (mainsLive() ? ' (mains, 30% less)' : ''), acc.power)}${row('Diesel', acc.diesel)}${acc.pension ? row('Gus Mallory\'s pension', acc.pension) : ''}${acc.loan ? row('Loan instalment', acc.loan) : ''}${acc.owedWages ? row('Wages owed', acc.owedWages) : ''}${acc.carry ? row('Unpaid from last week', acc.carry) : ''}
+  return `${acc.june ? `<div class="db-s" style="margin-bottom:6px">${acc.june}</div>` : ''}<div class="kv db">${acc.wages ? `<span>Pay packets (paid at 16:30)</span><span>${fmt(acc.wages)}</span>` : ''}${row('Power' + (mainsLive() ? ' (mains, 30% less)' : ''), acc.power)}${row('Diesel', acc.diesel)}${acc.pension ? row('Gus Mallory\'s pension', acc.pension) : ''}${acc.loan ? row('Loan instalment', acc.loan) : ''}${acc.owedWages ? row('Wages owed', acc.owedWages) : ''}${acc.carry ? row('Unpaid from last week', acc.carry) : ''}
     <span class="db-t">To pay</span><span class="db-t">${fmt(acc.total)}</span></div>${acc.paid ? '<div class="stamp db-st">Paid</div>' : withPay ? `<button class="btn primary" data-payacc type="button" style="width:100%;margin-top:8px;min-height:44px" ${S.cash >= acc.total ? '' : 'disabled'}>Pay the accounts · ${fmt(acc.total)}</button>${S.cash < acc.total ? '<div class="db-s">Not enough cash: one week\'s grace, or borrow from Eldon (Finance).</div>' : ''}` : ''}`; }
 function financeHtml(){
   const A = S.l5, acc = A.acc, nb = weekAccounts(), L = A.loan || { left:0, n:0, inst:0 };
@@ -4642,6 +4686,7 @@ function buildLevel5(){
   d.o.children.filter(x => x.isMesh && x.geometry.type === 'PlaneGeometry').forEach(x => x.removeFromParent()); M.truck2.add(d.o); d.o.position.set(1.42, .56, .42); d.faceNow(Math.PI / 2); d.play('sit'); parkedLamps(M.truck2);
   // --- the office block across Mill Road, its door and windows facing the yard's camera; the zebra crossing to it
   buildOfficeBlock(); buildZebra();
+  if (M.roadBoard) M.roadBoard.visible = false;   // the 'second dock' board comes down: dock 2 is built
   M.shopSign = plotSign(PLOTS.shop.sign, 'Corner plot', 'Ada Finch · Valley Estates', '#2f5a3a'); if (plotSt('shop') >= 1) M.shopSign.userData.sold.visible = true; M.ring('shop', ...PLOTS.shop.ring, '#6fa6d6', .55);
   M.ring('office', ...P.officeDoor, '#6fa6d6', .6);
   // walkers keep to the crossing: the road is no place to walk, except on the zebra
@@ -4699,6 +4744,386 @@ function updateLevel5(dt){
   // dock 2's phone line opens once the first bill is behind the owner (or two minutes in)
   if (!S.order2 && !S.call && truckB.state === 'away' && (S.l5.paid > 0 || S.time - S.l5.t0 > 120) && !cardOpen) { call2T += dt;
     if (call2T > 7) { call2T = 0; S.call = dock2Spec(); toast(`${S.call.rush ? 'A rush order on the line' : 'The office phone is ringing'}: ${S.call.client}, for dock 2.`, S.call.rush ? 'bad' : 'gold'); save(); } }
+}
+
+/* =====================================================================
+   LEVEL 6: Industrial Company (Bible v2.0 section 8, Level 6; plans/level6_plan.png). Tue 16 - Fri 19 April 1974.
+   June Finch takes the clerk's window: she walks to the dock for the takings, hands out Friday's packets and pays the
+   weekly accounts, and every payment goes in her ledger (she never pays silently: short of cash, she holds the bill and
+   says so). Tier 2 refits make a machine 25% faster: the crate machine is swapped whole by a mobile crane hired from
+   town (grandad's machine goes under a tarpaulin in the back corner); the others are refitted in place by Big Tom's
+   crew. The service book: every machine counts its cycles; at about 200 an amber tag hangs on its guard (Service due:
+   normal speed, three times the fault chance). A service takes the mechanic 8 s or the owner 16 s and one spare part.
+   Thursday: the factory inspector walks the yard (guards, lanes, the service book, the wiring). Purchases: lightning
+   conductor, works canteen, automatic changeover. Hail in the spring showers stops the crane.
+   ===================================================================== */
+const REFIT = {
+  saw:  { name:'Crate machine', price:6000, crane:true, has:() => true, at:() => P.saw, fix:() => P.sawFix },
+  saw2: { name:'Second crate machine', price:5000, has:() => S.lv4.saw2 >= 2 && !!M.saw2, at:() => P.saw2, fix:() => P.saw2Fix },
+  pipe: { name:'Pipe mill', price:7500, has:() => millReady(), at:() => P.pmill, fix:() => P.pfix },
+  mill2:{ name:'Second pipe mill', price:7500, has:() => S.l5.mill2 >= 2 && !!M.mill2, at:() => P.mill2, fix:() => P.mill2Fix },
+  tool: { name:'Tool press', price:9000, has:() => pressReady(), at:() => P.tpress, fix:() => P.tfix },
+};
+const REFIT_T = 24, SVC_AT = { saw:200, saw2:200, pipe:150, mill2:150, tool:150 }, SVC_KIND = { saw:'svcSaw', saw2:'svcSaw2', pipe:'svcPipe', mill2:'svcMill2', tool:'svcTool' };
+Object.assign(FAULTS, Object.fromEntries(Object.entries(SVC_KIND).map(([k, kind]) => [kind, { trade:'mechanic', name:'Service due', where:k, time:8, anim:'fix', part:true, svc:k }])));
+WHERE.saw2 = { name:'second crate machine', mark:[P.saw2[0], 2.4, P.saw2[1]], spot:() => P.saw2Fix, face:null };
+WHERE.mill2 = { name:'second pipe mill', mark:[P.mill2[0], 1.9, P.mill2[1]], spot:() => P.mill2Fix, face:null };
+const realFault = f => !FAULTS[f.kind].svc;
+const L6 = () => S.l6;
+const tierOf = k => (S.l6 && S.l6.tier[k]) || 1;
+const tierK = k => tierOf(k) >= 2 ? 1.25 : 1;
+const svcOn = () => S.level >= 6;
+const svcDue = k => svcOn() && (S.l6.cyc[k] || 0) >= SVC_AT[k];
+// a machine stands still while it is refitted, swapped by the crane, or opened up for its service
+const l6Run = k => !(S.l6 && S.l6.refit && S.l6.refit.k === k && S.l6.refit.st !== 'book') && !S.faults.some(f => FAULTS[f.kind].svc === k && f.workT && T - f.workT < .4);
+function machCycle(k){ if (!S.l6) return; S.l6.cyc[k] = (S.l6.cyc[k] || 0) + 1; if (svcDue(k)) svcPost(k); }
+function svcPost(k){
+  if (S.faults.some(f => FAULTS[f.kind].svc === k)) return;
+  S.faults.push({ id:++S.faultSeq, kind:SVC_KIND[k], where:k, diag:true, prog:0, by:null, supBy:null, t:0, diagT:0, contractor:false, booked:!!S.up.schedule });
+  floatText('Service due', ...WHERE[k].mark, 'warn'); sfx('tap');
+  if (!S.l6.svcTold) { S.l6.svcTold = true; toast(`Service due on the ${REFIT[k].name.toLowerCase()}: an amber tag hangs on its guard. It runs on, but three times as likely to fault. ${hasRole('mechanic') ? 'Book the mechanic in its card (Machines), or service it yourself in the amber ring (16 s).' : 'Service it yourself in the amber ring (16 s), or hire a mechanic.'}`, 'gold'); }
+  save();
+}
+function bookService(k){ const f = S.faults.find(f => FAULTS[f.kind].svc === k); if (!f || f.booked) return; f.booked = true; sfx('tap'); toast(`${hasRole('mechanic') ? staffOf('mechanic')[0].st.name : 'The mechanic'} will service the ${REFIT[k].name.toLowerCase()} when free.`, 'good'); save(); renderOffice(); }
+function svcDone(f, by){
+  const k = FAULTS[f.kind].svc; S.faults = S.faults.filter(x => x !== f); S.l6.cyc[k] = 0; S.l6.svc = (S.l6.svc || 0) + 1;
+  if (k === 'saw' || k === 'pipe' || k === 'tool') S.cond[k] = 100;
+  (S.l6.book ||= []).unshift({ d:dateOf(calDay()).split(' ').slice(0, 3).join(' '), t:clockStr(), k, by:by === owner ? 'You' : by && by.st ? by.st.name : 'Mechanic', part:f.part !== false }); S.l6.book.length = Math.min(S.l6.book.length, 30);
+  if (by && by.st && by.st.id > 0) giveXp(by.st, 15);
+  sfx('fix'); floatText('Serviced', ...WHERE[k].mark, 'info'); toast(`The ${REFIT[k].name.toLowerCase()} is serviced${f.part === false ? ' (no spare part: made do)' : ''}. Healthy again, in the service book.`, 'good'); save(); checkCharter(); renderOffice();
+}
+const clockStr = () => { const m = Math.floor(dayMin()); return `${String(7 + Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+// the amber tag and the oil can on every machine that is due
+function syncSvcTags(){
+  if (!M.svcTags) M.svcTags = {};
+  for (const k of Object.keys(REFIT)) { const want = svcDue(k) && REFIT[k].has(); let t = M.svcTags[k];
+    if (want && !t) { const g = new THREE.Group(), [x, z] = REFIT[k].at(), m = WHERE[k] ? WHERE[k].mark : [x, 2, z];
+      const tag = new THREE.Mesh(BX(.2, .26, .02), std('#e8ab2c', .5, 0, { emissive:'#a8670c', emissiveIntensity:.35 })); tag.position.set(0, -.35, 0); g.add(tag);
+      const str = new THREE.Mesh(CY(.008, .3, 4), std('#2b2a24')); str.position.set(0, -.08, 0); g.add(str);
+      const can = new THREE.Group(); const body = new THREE.Mesh(CY(.08, .16, 12), std('#b3261e', .5, .3)); body.position.y = .08; can.add(body); const spout = new THREE.Mesh(CY(.012, .2, 6), std('#7a7f83', .4, .6)); spout.position.set(.08, .18, 0); spout.rotation.z = -.9; can.add(spout);
+      can.position.set(.55, -m[1] + .02, .45); g.add(can); g.position.set(m[0] + .3, Math.min(1.5, m[1] - .2), m[2] + .55); g.userData.dyn = true; world.add(g); t = M.svcTags[k] = g; }
+    if (t) { t.visible = want; if (want) t.children[0].rotation.z = Math.sin(T * 2.3 + k.length) * .12; } }
+}
+// ---- tier 2 refits ---------------------------------------------------------------------------------------------------
+function orderRefit(k){
+  const R = REFIT[k]; if (S.level < 6 || tierOf(k) >= 2 || !R.has() || S.l6.refit || S.cash < R.price) return;
+  S.cash -= R.price; ledger(`Tier 2 refit: ${R.name}`, -R.price, 'You');
+  if (R.crane) { const m = dayMin(), at = m < 450 ? S.time + 50 : dayNo() * DAY_S + DAY_S + 70;   // the crane is hired from town: within the hour, or first thing tomorrow
+    S.l6.refit = { k, st:'book', at }; toast(`Ordered: a tier 2 crate machine from the makers, and the mobile crane from Valley Plant Hire to swap it in. ${m < 450 ? 'The crane is on its way.' : 'The crane comes first thing tomorrow.'}`, 'gold'); }
+  else { S.l6.refit = { k, st:'fit', t:0 }; startRefitFit(k); toast(`Paid. Big Tom's crew is refitting the ${R.name.toLowerCase()} to tier 2 (it stands for about ${REFIT_T} s).`, 'good'); }
+  sfx('buy'); save(); renderOffice();
+}
+function startRefitFit(k){ const [x, z] = REFIT[k].at(), [fx, fz] = REFIT[k].fix();
+  if (!M.refitScaffold) { M.refitScaffold = put(inst('l2_scaffold'), x, z, 0); M.refitScaffold.userData.dyn = true; }
+  if (!M.refitBuilder) M.refitBuilder = makeBuilder([fx, fz], -97); }
+function finishRefit(k, fx = true){
+  S.l6.tier[k] = 2; if (k === 'saw') S.l6.tarp = 1; S.l6.cyc[k] = 0; S.l6.refits = Object.values(S.l6.tier).filter(t => t >= 2).length; if (S.l6.refit && S.l6.refit.k === k) S.l6.refit = null;
+  const f = S.faults.find(f => FAULTS[f.kind].svc === k); if (f) S.faults = S.faults.filter(x => x !== f);
+  if (M.refitScaffold) { M.refitScaffold.removeFromParent(); M.refitScaffold = null; }
+  tierBadge(k);
+  if (fx) { const [x, z] = REFIT[k].at(); for (let i = 0; i < 16; i++) spark(x + rand(-.8, .8), rand(.5, 1.6), z + rand(-.5, .5)); floatText('Tier 2: +25%', x, 2.2, z, 'info'); sfx('level', .5);
+    toast(`The ${REFIT[k].name.toLowerCase()} is tier 2: 25% faster, with its own service schedule.`, 'gold'); save(); checkCharter(); renderOffice(); }
+}
+// what a tier 2 machine looks like: a new blue drive motor, a yellow guard rail and the maker's brass plate
+function tierBadge(k, host = k === 'saw' ? M.saw : null){
+  M.tier2 ||= {}; if (M.tier2[k] || !REFIT[k].has()) return; const [x, z] = REFIT[k].at(), g = new THREE.Group(); g.position.set(x, 0, z); g.userData.dyn = true;
+  const plate = board(textTex([['TIER 2', 40, 30], ['VALLEY MACHINE CO. 1974', 15, 58, 500]], 256, 80, { bg:'#c9a24a', fg:'#2b2418', border:'#7a5a22', bw:5 }), .44, .14); plate.position.set(.1, .98, .62); g.add(plate);
+  const motor = new THREE.Mesh(CY(.17, .42, 16), std('#2f5d8a', .45, .4)); motor.rotation.z = Math.PI / 2; motor.position.set(-.75, .42, -.28); motor.castShadow = true; g.add(motor);
+  const fan = new THREE.Mesh(CY(.13, .05, 12), std('#22262b', .6, .3)); fan.rotation.z = Math.PI / 2; fan.position.set(-.99, .42, -.28); g.add(fan);
+  for (const s of [-1, 1]) { const rail = new THREE.Mesh(BX(.9, .05, .05), std('#e8ab2c', .5, .2)); rail.position.set(.2, .78, s * .5); g.add(rail); }
+  if (host) { host.add(g); g.position.set(0, 0, 0); g.scale.setScalar(1 / (host.scale.x || 1)); }
+  else world.add(g);
+  M.tier2[k] = g;
+}
+// ---- the mobile crane: in through the main gate, outriggers down, three lifts, out again -----------------------------
+// It stands nose-north in the gateway (the lane canopy's roof is too low to drive under), its slewing ring just behind
+// the cab. Lift 1: the old machine off its pad onto a clear patch beside it. Lift 2: the tier 2 machine off the deck
+// onto the pad. Lift 3: grandad's machine onto the deck. Hail stops it; so does the whistle.
+const CRANE_AT = [5.0, 10.8], CRANE_SET = [7.95, 10.05], SET_ROT = Math.PI / 2, /* grandad's machine waits end-on between the lamp post and the car */ FLAT_AT = [9.5, ROAD_Z + .9], FLAT_Y = 1.18;
+// the crane comes in along the near lane and turns into the gateway, square between the open gate leaves (2.4 m clear)
+const CRANE_IN = samplePath([{ p:[[-70, ROAD_Z - .9], [-2.0, ROAD_Z - .9]] }, { bez:true, p:[[-2.0, ROAD_Z - .9], [CRANE_AT[0], ROAD_Z - .9], [CRANE_AT[0], 12.6]] }, { p:[[CRANE_AT[0], 12.6], CRANE_AT] }]);
+// out: it backs out of the gateway, its tail swinging west into the near lane, and drives off east (keep left)
+const CRANE_OUT = samplePath([{ bez:true, rev:true, p:[CRANE_AT, [CRANE_AT[0], ROAD_Z - .9], [CRANE_AT[0] - 3.6, ROAD_Z - .9]] }, { p:[[CRANE_AT[0] - 3.6, ROAD_Z - .9], [80, ROAD_Z - .9]] }]);
+// the makers' flatbed waits in the far lane of Mill Road with the new machine on its bed (the road is coned off)
+const FLAT_IN = samplePath([{ p:[[80, ROAD_Z + .9], FLAT_AT] }]), FLAT_OUT = samplePath([{ p:[FLAT_AT, [-80, ROAD_Z + .9]] }]);
+let crane = null;
+function buildCrane(){
+  const g = new THREE.Group(), yel = std('#e3a52a', .55, .2), dark = std('#2b2f33', .7, .3), steel = std('#7a8085', .45, .6), glass = std('#3d4f5c', .2, .5), red = std('#b3261e', .5, .2);
+  const box = (w, h, d, m, x, y, z, p = g) => { const b = new THREE.Mesh(BX(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; b.receiveShadow = true; p.add(b); return b; };
+  box(6.4, .32, 1.1, dark, 0, .72, 0);                                                          // the chassis rails
+  box(3.6, .14, 2.2, std('#5a5f63', .7, .3), -1.4, 1.02, 0);                                    // the deck: outrigger pads and slings
+  for (const s of [-1, 1]) box(3.6, .2, .08, yel, -1.4, 1.14, s * 1.07);
+  for (let i = 0; i < 3; i++) box(.5, .06, .5, std('#6b5a3a', .9), -2.6 + i * .6, 1.13, -.5);
+  box(1.35, 1.55, 2.2, yel, 2.5, 1.58, 0); box(.05, .7, 1.9, glass, 3.19, 1.95, 0); for (const s of [-1, 1]) box(.8, .55, .04, glass, 2.55, 1.98, s * 1.11);   // the cab and its glass
+  box(.08, .3, 2.2, dark, 3.2, .95, 0); for (const s of [-1, 1]) box(.06, .12, .2, std('#f4efe2', .3, 0, { emissive:'#ffe9a8', emissiveIntensity:.6 }), 3.23, 1.05, s * .85);
+  for (const x of [2.35, -.5, -1.8]) for (const s of [-1, 1]) { const w = new THREE.Mesh(CY(.48, .34, 16), std('#1d1f22', .9)); w.rotation.x = Math.PI / 2; w.position.set(x, .48, s * .93); w.castShadow = true; g.add(w); }
+  for (let i = 0; i < 5; i++) box(.04, .5, 2.2 / 5, std(i % 2 ? '#1d1f22' : '#e8ab2c', .6), -3.18, .9, -1.1 + 2.2 / 10 + i * 2.2 / 5);   // the striped tail board
+  const outs = []; for (const x of [1.6, -2.8]) for (const s of [-1, 1]) { const o = new THREE.Group(); o.position.set(x, .55, s * .55); g.add(o); box(.22, .18, 1.0, yel, 0, 0, s * .5, o); const leg = box(.12, .5, .12, steel, 0, -.25, s * .95, o); const pad = box(.5, .05, .5, std('#6b5a3a', .9), 0, -.52, s * .95, o); outs.push({ o, s, leg, pad }); }
+  const slew = new THREE.Group(); slew.position.set(.75, 1.25, 0); g.add(slew);
+  box(1.1, .5, 1.6, yel, 0, .25, 0, slew); box(.6, .5, .6, red, -.45, .7, .5, slew);           // the turret and the operator's box
+  const luff = new THREE.Group(); luff.position.set(.1, .75, 0); slew.add(luff);
+  box(5.0, .42, .46, yel, 2.5, 0, 0, luff); const fly = box(5.4, .3, .32, std('#d9c25a', .5, .2), 2.8, 0, 0, luff);
+  const ram = box(1.6, .14, .14, steel, .9, -.35, 0, luff); ram.rotation.z = .5;
+  const tip = new THREE.Object3D(); luff.add(tip);
+  const hook = new THREE.Group(); const hb = new THREE.Mesh(BX(.28, .34, .2), red); hb.castShadow = true; hook.add(hb); const hk = new THREE.Mesh(new THREE.TorusGeometry(.09, .025, 6, 12, Math.PI * 1.4), steel); hk.position.y = -.25; hook.add(hk); scene.add(hook);
+  const lineGeo = new THREE.BufferGeometry(); lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3 * 2 * 6), 3)); const lines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({ color:'#1b1b1b' })); lines.frustumCulled = false; scene.add(lines);
+  const beacon = box(.16, .12, .16, std('#ff9a1a', .3, 0, { emissive:'#ff7a00', emissiveIntensity:1.5 }), 2.5, 2.42, .7);
+  world.add(g); g.userData.dyn = true; g.traverse(o => { if (o.isMesh) o.userData.noSnow = true; });
+  return { g, outs, slew, luff, fly, tip, hook, lines, beacon, ext:0, ang:.18, yaw:Math.PI, hookY:2.6, out:0 };
+}
+function makeNewSaw(){ const m = A.saw_bench.scene.clone(true); m.scale.setScalar(SAW_S); m.userData.dyn = true; world.add(m); return m; }
+const bedWorld = c => new THREE.Vector3(-1.1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), c.flat.rotation.y).add(c.flat.position);
+function startCrane(){
+  const R = S.l6.refit; if (!R || crane) return;
+  crane = buildCrane(); const c = crane; c.st = 'flatIn'; c.d = 0; c.fd = 0; c.wait = 0; c.lift = 0; c.load = null; c.sway = 0;
+  c.flat = A.truck.scene.getObjectByName('truck_flatbed').clone(true); c.flat.userData.dyn = true; c.flat.add(blob(5.2, 2.4)); world.add(c.flat); for (const n of ['wheel_fl', 'wheel_fr']) { const w = findNode(c.flat, n); if (w) w.rotation.order = 'YXZ'; }
+  c.newSaw = makeNewSaw(); M.tier2 ||= {}; M.tier2.saw = null; tierBadge('saw', c.newSaw);
+  const q = pathAt(CRANE_IN, 0); c.g.position.set(q.x, 0, q.z); c.g.rotation.y = q.yaw; c.g.visible = false; c.hook.visible = false; c.lines.visible = false;
+  const f = pathAt(FLAT_IN, 0); c.flat.position.set(f.x, 0, f.z); c.flat.rotation.y = f.yaw; onBed(c, c.newSaw);
+  toast('The makers\' flatbed pulls up in Mill Road with the tier 2 crate machine on its bed; the mobile crane from Valley Plant Hire is right behind.', 'gold'); sfx('horn', .4);
+}
+function onBed(c, m){ const p = bedWorld(c); m.position.set(p.x, FLAT_Y, p.z); m.rotation.y = c.flat.rotation.y; }
+function craneTipWorld(c){ c.g.updateMatrixWorld(true); const v = new THREE.Vector3(); c.tip.getWorldPosition(v); return v; }
+// boom geometry: aim the slew at a point, telescope and luff to put the tip over it at a height
+function craneAim(c, x, z, h, dt, rate = 1){
+  const t = new THREE.Vector3(); c.slew.getWorldPosition(t); const dx = x - t.x, dz = z - t.z, r = Math.max(2.4, Math.hypot(dx, dz)), want = Math.atan2(-dz, dx) - c.g.rotation.y;
+  const dy = ((want - c.yaw + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; c.yaw += clamp(dy, -dt * .42 * rate, dt * .42 * rate);
+  const L = Math.hypot(r - .1, h - 2.0), a = Math.atan2(h - 2.0, r - .1); c.ang += clamp(a - c.ang, -dt * .35 * rate, dt * .35 * rate);
+  const e = clamp(L - 5.6, 0, 4.8); c.ext += clamp(e - c.ext, -dt * 1.1 * rate, dt * 1.1 * rate);
+  return Math.abs(dy) < .004 && Math.abs(a - c.ang) < .006 && Math.abs(e - c.ext) < .02;
+}
+function craneHookTo(c, y, dt){ const s = clamp(y - c.hookY, -dt * .9, dt * .9); c.hookY += s; return Math.abs(y - c.hookY) < .01; }
+function craneDraw(c){
+  c.slew.rotation.y = c.yaw; c.luff.rotation.z = c.ang; c.fly.position.x = 2.8 + c.ext; c.tip.position.set(5.5 + c.ext, 0, 0);
+  for (const o of c.outs) { o.o.children[0].position.z = o.s * (.5 + c.out * .6); o.leg.position.z = o.pad.position.z = o.s * (.95 + c.out * 1.1); o.leg.scale.y = .2 + c.out * .8; o.leg.position.y = -.25 * (.2 + c.out * .8); o.pad.visible = c.out > .9; }
+  c.beacon.material.emissiveIntensity = (T % .8) < .4 ? 2 : .2;
+  const tp = craneTipWorld(c), hx = tp.x + Math.sin(T * 1.7) * c.sway * .25, hz = tp.z + Math.cos(T * 1.3) * c.sway * .2; c.sway = Math.max(0, c.sway - .004);
+  const hy = Math.min(c.hookY, tp.y - .4); c.hook.position.set(hx, hy, hz); c.hook.visible = c.out > 0;
+  const a = c.lines.geometry.attributes.position.array; let i = 0; const seg = (p, q) => { a[i++] = p[0]; a[i++] = p[1]; a[i++] = p[2]; a[i++] = q[0]; a[i++] = q[1]; a[i++] = q[2]; };
+  seg([tp.x, tp.y, tp.z], [hx, hy + .17, hz]);
+  if (c.load) { const L = c.load, top = hy - .3; L.position.set(hx, top - 1.25, hz);
+    for (const [dx, dz] of [[-1.4, -.5], [1.4, -.5], [-1.4, .4], [1.4, .4]]) { const v = new THREE.Vector3(dx, 0, dz).applyAxisAngle(new THREE.Vector3(0, 1, 0), L.rotation.y); seg([hx, hy - .25, hz], [hx + v.x, top - .32, hz + v.z]); } }
+  while (i < a.length) a[i++] = 0; c.lines.geometry.attributes.position.needsUpdate = true; c.lines.visible = c.hook.visible;
+}
+let quake = 0;
+function craneThud(x, z){ quake = .6; sfxAt('thunk', x, z, 1); sfx('clank', .6); for (let i = 0; i < 18; i++) sprite(pick(['#9a8f7f', '#b3a892', '#857a6a']), x + rand(-1.6, 1.6), .1, z + rand(-.6, .6), rand(-.8, .8), rand(.3, .9), rand(-.8, .8), 1.2, .18, -.4);
+  floatText('Thud', x, 1.8, z, 'info'); }
+const craneHail = () => wxK('hail') > .25;
+function updateCrane(dt){
+  const R = S.l6 && S.l6.refit;
+  if (!crane) { if (!R || R.k !== 'saw') return; if (R.st === 'book' && S.time >= R.at && !(S.day && S.day.closing) && dayMin() < 470 && !cardOpen) { R.st = 'crane'; startCrane(); save(); } if (!crane) return; }
+  const c = crane; quake = Math.max(0, quake - dt * 1.6);
+  // hail stops the lift (and on its first lift at Level 6 the forecast hail arrives on cue)
+  if (['lift1', 'lift2', 'lift3'].includes(c.st) && !S.l6.hailCue && S.level === 6) { S.l6.hailCue = true; c.cueAt = T + 9; }
+  if (c.cueAt && T > c.cueAt) { c.cueAt = 0; wxForce = 'hail'; wxForceT = 50; }
+  if (craneHail() && c.st.startsWith('lift')) { if (!c.hailTold) { c.hailTold = true; toast('Hail! The crane driver stops the lift and waits for it to pass.', 'bad'); } craneDraw(c); return; }
+  if (c.hailTold && !craneHail()) { c.hailTold = false; toast('The hail has passed. The lift goes on.', ''); }
+  if (c.st === 'flatIn') { c.fd = Math.min(FLAT_IN.len, c.fd + dt * (c.fd > FLAT_IN.len - 10 ? 2.2 : 6) * vehSnowK()); const f = pathAt(FLAT_IN, c.fd); c.flat.position.set(f.x, 0, f.z); c.flat.rotation.y = f.yaw; onBed(c, c.newSaw);
+    if (c.fd >= FLAT_IN.len) { c.st = 'in'; c.g.visible = true; addCol([FLAT_AT[0] - 2.8, FLAT_AT[1] - 1.2, FLAT_AT[0] + 2.8, FLAT_AT[1] + 1.2], 'flatbed'); } }
+  else if (c.st === 'in') { if (!craneBlocked(c, 1)) c.d = Math.min(CRANE_IN.len, c.d + dt * (c.d > CRANE_IN.len - 8 ? 1.6 : 4.5) * vehSnowK());
+    const q = pathAt(CRANE_IN, c.d); c.g.position.set(q.x, 0, q.z); c.g.rotation.y = q.yaw;
+    if (c.d >= CRANE_IN.len) { c.st = 'rig'; addCol([CRANE_AT[0] - 1.2, CRANE_AT[1] - 3.25, CRANE_AT[0] + 1.2, CRANE_AT[1] + 3.2], 'crane'); rebuildNav(); sfx('clank', .5);
+      toast('The crane stands in the gateway, the road coned off. Outriggers down; the crate machine stops for the swap.', ''); } }
+  else if (c.st === 'rig') { c.out = Math.min(1, c.out + dt * .5); if (c.out >= 1) { c.st = 'lift1'; c.lift = 0; } }
+  else if (c.st.startsWith('lift')) craneLift(c, dt);
+  else if (c.st === 'stow') { const done = craneAim(c, CRANE_AT[0], CRANE_AT[1] + 3.0, 2.3, dt, 1.4) && craneHookTo(c, 2.4, dt); if (done) { c.out = Math.max(0, c.out - dt * .5); if (c.out <= 0) { c.st = 'out'; c.d = 0; c.fd = 0; COL.delete('crane'); COL.delete('flatbed'); rebuildNav(); } } }
+  else if (c.st === 'out') { if (!craneBlocked(c, -1)) c.d = Math.min(CRANE_OUT.len, c.d + dt * (c.d < 9 ? 1.4 : 5)); const q = pathAt(CRANE_OUT, c.d); c.g.position.set(q.x, 0, q.z); c.g.rotation.y = q.yaw;
+    c.fd = Math.min(FLAT_OUT.len, c.fd + dt * (c.fd < 8 ? 2 : 6)); const f = pathAt(FLAT_OUT, c.fd); c.flat.position.set(f.x, 0, f.z); c.flat.rotation.y = f.yaw; if (c.old) onBed(c, c.old);
+    if (c.d >= CRANE_OUT.len && c.fd >= FLAT_OUT.len) { craneGone(); return; } }
+  craneDraw(c);
+}
+// the three lifts, each: aim over the load, hook down, sling it, up clear, swing, down, thud, unhook.
+// 1: grandad's machine off its pad onto the clear patch inside the front fence; 2: the tier 2 machine off the flatbed onto
+// the pad; 3: grandad's machine onto the flatbed, which takes it round to the back gate
+function craneLift(c, dt){
+  const n = +c.st.slice(4), bed = bedWorld(c), src = n === 1 ? P.saw : n === 2 ? [bed.x, bed.z] : CRANE_SET, dst = n === 1 ? CRANE_SET : n === 2 ? P.saw : [bed.x, bed.z];
+  const [sx, sz] = src, [dx, dz] = dst, baseY = n === 2 ? FLAT_Y : 0, endY = n === 3 ? FLAT_Y : 0, clearY = 4.8;
+  if (c.lift === 0) { if (craneAim(c, sx, sz, 6.2, dt)) c.lift = 1; }
+  else if (c.lift === 1) { if (craneHookTo(c, baseY + 1.55, dt)) { c.lift = 2; c.wait = 1.4; sfx('clank', .4); } }
+  else if (c.lift === 2) { c.wait -= dt; if (c.wait <= 0) { c.load = n === 2 ? c.newSaw : n === 1 ? M.saw : c.old; c.lift = 3; if (n === 1) toast('Chains on grandad\'s crate machine. The chains tighten, and it comes up off its pad after fifty years.', 'gold'); } }
+  else if (c.lift === 3) { if (craneHookTo(c, clearY + 1.55, dt)) { c.lift = 4; c.sway = 1; } }
+  else if (c.lift === 4) { if (craneAim(c, dx, dz, 7.0, dt, .8)) c.lift = 5; }
+  else if (c.lift === 5) { if (craneHookTo(c, endY + 1.55, dt * .8)) { c.lift = 6; c.wait = 1.2; craneThud(dx, dz); c.sway = 0;
+      c.load.position.set(dx, endY, dz); c.load.rotation.y = n === 3 ? c.flat.rotation.y : n === 1 ? SET_ROT : 0;   // set down square on its spot
+      if (n === 1) { c.old = c.load; addCol([CRANE_SET[0] - 1.1, CRANE_SET[1] - 2.3, CRANE_SET[0] + 1.1, CRANE_SET[1] + 2.25], 'craneSet'); rebuildNav(); }
+      if (n === 2) { M.sawOld = M.saw; M.saw = c.newSaw; toast('Down on the pad with a thud that shakes the pallet beside it. The tier 2 crate machine is in.', 'gold'); }
+      if (n === 3) { COL.delete('craneSet'); rebuildNav(); } c.load = null; } }
+  else if (c.lift === 6) { c.wait -= dt; if (c.wait <= 0 && craneHookTo(c, clearY, dt)) { c.lift = 0; c.st = n === 3 ? 'stow' : 'lift' + (n + 1); if (n === 2) finishRefit('saw', true); } }
+  if (c.load && c.lift >= 3 && c.lift <= 5) { const want = n === 3 ? c.flat.rotation.y : n === 1 ? SET_ROT : 0, d = ((want - c.load.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI; c.load.rotation.y += clamp(d, -dt * .5, dt * .5) + Math.sin(T * .9) * .002 * c.sway; }
+}
+// anyone in front of the crane (or behind it, reversing) stops it: it never drives into people
+function craneBlocked(c, dir){ const f = new THREE.Vector3(dir * 4.2, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), c.g.rotation.y).add(c.g.position);
+  for (const o of [owner, ...staffObj.values(), ...folk.values()]) if (o && o.o.visible && Math.hypot(o.o.position.x - f.x, o.o.position.z - f.z) < 1.9) return true; return false; }
+function craneGone(){ const c = crane; if (!c) return; for (const o of [c.g, c.hook, c.lines, c.flat, c.old]) if (o) o.removeFromParent(); crane = null; M.sawOld = null; COL.delete('crane'); COL.delete('flatbed'); COL.delete('craneSet'); rebuildNav();
+  if (S.l6.refit && S.l6.refit.k === 'saw') S.l6.refit = null; buildTarp(); toast('The flatbed takes grandad\'s machine round to the back gate; the crew roll it into the corner by the warehouse and sheet it over. Kept, never scrapped.', ''); save(); }
+// grandad's crate machine under its tarpaulin in the back corner: kept, never scrapped
+const TARP = [22.9, -10.75];   // the yard's back-right corner, beside the warehouse (the plan's spot is inside the shed's racking)
+function buildTarp(){
+  if (M.tarp6 || !S.l6 || !S.l6.tarp) return; const g = new THREE.Group(); g.position.set(TARP[0], 0, TARP[1]); g.userData.dyn = true;
+  const t = tex(128, 128, (c, w, h) => { c.fillStyle = '#4f5d3a'; c.fillRect(0, 0, w, h); for (let i = 0; i < 40; i++) { c.fillStyle = `rgba(${30 + Math.random() * 30},${40 + Math.random() * 30},20,.35)`; c.fillRect(Math.random() * w, Math.random() * h, 10 + Math.random() * 30, 3); } });
+  const geo = new THREE.BoxGeometry(1.7, 1.15, 1.25, 6, 3, 4), pos = geo.attributes.position; for (let i = 0; i < pos.count; i++) { const y = pos.getY(i); if (y > 0) { pos.setX(i, pos.getX(i) * .93); pos.setZ(i, pos.getZ(i) * .9); pos.setY(i, y + Math.sin(pos.getX(i) * 5) * .03); } }
+  geo.computeVertexNormals(); const cl = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map:t, roughness:.95 })); cl.position.y = .6; cl.castShadow = true; cl.receiveShadow = true; g.add(cl);
+  for (const x of [-.55, .55]) { const r = new THREE.Mesh(BX(.03, 1.2, 1.3), std('#c9b28a', .9)); r.position.set(x, .6, 0); g.add(r); }
+  const lab = board(textTex([['GRANDAD\'S', 26, 26], ['1921', 22, 54, 500]], 128, 72, { bg:'#ece6d9', fg:'#2b2a24', border:'#55613a', bw:4 }), .36, .2); lab.position.set(.2, .7, .66); g.add(lab);
+  if (M.plotSign) M.plotSign.visible = false; world.add(g); M.tarp6 = g; addCol([TARP[0] - .9, TARP[1] - .7, TARP[0] + .9, TARP[1] + .7], 'tarp6'); rebuildNav();
+}
+// ---- the contractor refits (in place) --------------------------------------------------------------------------------
+function updateRefits(dt){
+  const R = S.l6 && S.l6.refit; if (!R || R.k === 'saw') return;
+  if (R.st === 'fit') { if (!M.refitBuilder) startRefitFit(R.k); R.t ??= 0; runBuilder('refitBuilder', REFIT[R.k].at(), R, 't', REFIT_T, () => finishRefit(R.k, true), dt); }
+}
+// ---- June Finch at the clerk's window --------------------------------------------------------------------------------
+// the clerk's kiosk: a glazed timber box against the office front, east of the porch; its door on the east side
+const BOOTH = [1.95, 24.7, 3.85, 25.95], P_JUNE = [2.9, 25.3], P_BOOTHDOOR = [4.4, 25.45];
+function buildBooth(){
+  if (M.booth) return; const [x0, z0, x1, z1] = BOOTH, g = new THREE.Group(); g.userData.dyn = true;
+  const wood = std('#55613a', .75), cream = std('#ece2c6', .7), glass = new THREE.MeshStandardMaterial({ color:'#c9dde6', roughness:.05, metalness:.1, transparent:true, opacity:.22, depthWrite:false });
+  const box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(BX(w, h, d), m); b.position.set(x, y, z); b.castShadow = m !== glass; b.receiveShadow = true; g.add(b); return b; };
+  const cx = (x0 + x1) / 2, w = x1 - x0, d = z1 - z0;
+  box(w, .9, .08, wood, cx, .45, z1 - .04); box(.08, .9, d, wood, x0 + .04, .45, (z0 + z1) / 2); box(.08, .9, .35, wood, x1 - .04, .45, z0 + .17);   // the panelled base, door gap on the east
+  box(w + .1, .07, .45, cream, cx, .94, z1 - .1);                                                                   // the counter ledge
+  box(w - .1, 1.2, .03, glass, cx, 1.6, z1 - .04); box(.03, 1.2, d - .1, glass, x0 + .04, 1.6, (z0 + z1) / 2);
+  for (const x of [x0 + .04, cx, x1 - .04]) box(.06, 1.3, .06, cream, x, 1.6, z1 - .04); box(w, .06, .06, cream, cx, 2.24, z1 - .04); box(.06, 1.3, .06, cream, x0 + .04, 1.6, z0 + .1);
+  const rf = box(w + .2, .05, .5, std('#55613a', .7, .1), cx, 2.32, z1 + .1); rf.rotation.x = .18;   // a narrow canopy over the counter only: from the yard's camera you see June at her desk
+  const sign = board(textTex([['CLERK', 40, 32], ['WAGES · ACCOUNTS', 18, 62, 500]], 256, 80, { bg:'#2f3a22', fg:'#ece2c6', border:'#c9a24a', bw:5 }), 1.0, .3); sign.position.set(cx, 2.45, z1 + .08); g.add(sign);
+  // the trophy cabinet against the office wall, its cups catching the light (Friday)
+  const cab = new THREE.Group(); cab.position.set(x0 + .3, 0, z0 + .2); g.add(cab); M.trophy = cab; cab.visible = !!(S.l6 && S.l6.trophy);
+  const cb = new THREE.Mesh(BX(.42, 1.7, .32), wood); cb.position.y = .85; cab.add(cb); const cg = new THREE.Mesh(BX(.36, 1.4, .02), glass); cg.position.set(0, 1.0, .17); cab.add(cg);
+  const gold = std('#d9b245', .25, .85); for (let i = 0; i < Math.max(1, (S.level || 6) - 1); i++) { const cup = new THREE.Mesh(new THREE.CylinderGeometry(.05, .03, .1, 10), gold); cup.position.set(-.1 + (i % 3) * .1, .5 + Math.floor(i / 3) * .4, .05); cab.add(cup); const st = new THREE.Mesh(CY(.03, .03, 8), gold); st.position.set(cup.position.x, cup.position.y - .07, .05); cab.add(st); }
+  world.add(g); M.booth = g;
+  addCol([x0 - .05, z0 + .1, x0 + .1, z1 + .05], 'boothW'); addCol([x0 - .05, z1 - .1, x1 + .05, z1 + .05], 'boothS'); addCol([x1 - .1, z0 + .1, x1 + .05, z0 + .4], 'boothE'); rebuildNav();
+}
+const clerkChar = () => [...staffObj.values()].find(c => c.st.role === 'clerk') || null;
+const clerkOn = () => !!clerkChar() && S.level >= 6;
+const clerkAtHatch = () => { const c = clerkChar(); return !!c && c.state === 'hatch' && near(c.o, PAY_AT, .7); };
+function ledger(what, amt, by){ if (!S.l6) return; (S.l6.ledger ||= []).unshift({ d:dateOf(calDay()).split(' ').slice(0, 3).join(' '), t:clockStr(), what, amt, by }); S.l6.ledger.length = Math.min(S.l6.ledger.length, 40); }
+function updateClerk(c, dt){
+  if (c.st.posted === false) c.st.posted = true;
+  const home = () => { c.path = [[P_BOOTHDOOR[0] - .55, P_BOOTHDOOR[1]], [P_JUNE[0] + .3, P_JUNE[1] + .1], P_JUNE]; c.state = 'enter'; };
+  const out = next => { if (near(c.o, P_JUNE, .8) || c.state === 'desk') { c.path = [[P_JUNE[0] + .5, P_JUNE[1] + .1], [P_BOOTHDOOR[0] - .55, P_BOOTHDOOR[1]], P_BOOTHDOOR]; c.state = 'exit'; c.next = next; } else { c.next = null; next(); } };
+  if (c.state === 'arrive' || c.state === 'idle' || !c.state) { buildBooth(); goTo(c, ...P_BOOTHDOOR); c.state = 'toBooth'; }
+  if (c.state === 'toBooth') { if (walk(c, dt)) home(); return; }
+  if (c.state === 'enter') { if (walk(c, dt)) { c.state = 'desk'; c.faceNow(0); } return; }
+  if (c.state === 'exit') { if (walk(c, dt)) { const n = c.next; c.next = null; if (n) n(); else home(); } return; }
+  if (c.state === 'desk') { c.play((T + c.st.id) % 9 < 3 ? 'work' : 'idle', .5); c.faceNow(0);
+    // Friday 16:30: she opens the wages hatch on the workshop front and hands out the packets
+    const pd = payDay(); if (isFriday() && S.restored.hatch && dayMin() >= PAY_MIN - 6 && !(S.day && S.day.closing) && !(pd && payNeeded().every(st => pd.paid[st.id] || st.id === c.st.id))) { out(() => { goTo(c, ...PAY_AT); c.state = 'toHatch'; }); return; }   // she sets off a few minutes early, to be at the hatch when it opens
+    // the dock takings: she walks over for them when there is a fair sum, or before the whistle
+    if (S.cashPile >= 400 || (S.cashPile > 0 && dayMin() > 505)) { if (!(S.day && S.day.closing)) out(() => { goTo(c, ...P.cash); c.state = 'toCash'; }); }
+    return; }
+  if (c.state === 'toHatch') { if (walk(c, dt)) { c.state = 'hatch'; c.faceNow(0); if (!S.l6.hatchTold) { S.l6.hatchTold = true; toast('June Finch opens the wages hatch and hands out the packets. Every one goes in her ledger.', 'gold'); } } return; }
+  if (c.state === 'hatch') { c.o.position.set(PAY_AT[0], 0, PAY_AT[1]); const pd = payDay(); if (!(S.day && S.day.closing) && dayMin() < PAY_MIN + 1 && !pd) { c.play('idle'); c.faceNow(0); return; }
+    if (!pd || !payTime() || payNeeded().every(st => pd.paid[st.id] || st.id === c.st.id || st.role === 'forklift')) { if (pd && !pd.paid[c.st.id]) { pd.paid[c.st.id] = true; payPacket(c.st); }
+      if (pd && !pd.ledgered) { pd.ledgered = true; ledger(`Pay packets (${Object.keys(pd.paid).length})`, -(S.l5.wagesPaid || 0), 'June Finch'); } goTo(c, ...P_BOOTHDOOR); c.state = 'toBooth'; } else c.play('idle'); return; }
+  if (c.state === 'toCash') { if (walk(c, dt)) { const amt = S.cashPile; if (amt > 0) { S.cashPile = 0; S.cash += amt; S.earned += amt; syncPile(); ledger('Dock takings collected', amt, 'June Finch'); floatText(`+${fmt(amt)}`, c.o.position.x, 1.9, c.o.position.z, 'info'); sfx('coin'); c.say = { text:pick(['Into the ledger it goes.', 'Counted twice, boss.', 'Takings to the office.']), until:T + 2.2 }; checkCharter(); }
+      goTo(c, ...P_BOOTHDOOR); c.state = 'toBooth'; } return; }
+  if (c.path) walk(c, dt); else c.state = 'idle';
+}
+// Friday after the whistle: June pays the accounts if the cash covers them, or holds them and says so (never silently)
+function juneSettle(acc){
+  if (!clerkOn() || !acc || acc.paid) return; const short = acc.total - S.cash;
+  if (short <= 0) { payAccounts(); acc.by = 'June Finch'; ledger('The week\'s accounts', -acc.total, 'June Finch'); acc.june = `June Finch paid them from the cash at 17:00 and entered every line in her ledger.`; }
+  else { acc.held = true; acc.june = `June Finch held the accounts: ${fmt(short)} short. Pay them in the office (Finance) when the cash comes in, or borrow from Eldon.`; ledger(`Accounts held: ${fmt(short)} short`, 0, 'June Finch'); toast(`June Finch held the week's accounts: the cash is ${fmt(short)} short. She will not pay what the works cannot cover.`, 'bad'); }
+}
+// Thursday with the ledger alerts: she warns a day ahead if Friday's bill will be more than the cash
+function juneAlerts(){
+  if (!clerkOn() || !S.up.ledger || !S.l5 || S.l6.alertDay === dayNo() || dayMin() < 420) return; const wd = calDay() % 5; if (wd !== 3) return;
+  S.l6.alertDay = dayNo(); const a = weekAccounts(), need = a.total + a.wages; if (need > S.cash) toast(`June Finch's ledger alert: Friday's packets and accounts come to about ${fmt(need)}; the cash is ${fmt(S.cash)}.`, 'bad'); else toast(`June Finch's ledger: Friday is covered (${fmt(need)} of ${fmt(S.cash)}).`, 'good');
+}
+// ---- the factory inspector (Thursday) --------------------------------------------------------------------------------
+const INSPECT6 = [
+  { id:'guards', text:'Machine guards on; nothing broken', fix:'Clear every open jam and worn part', at:() => [P.sawFix[0] - .3, P.sawFix[1] + .4], ok:() => !S.faults.some(f => realFault(f) && FAULTS[f.kind].trade === 'mechanic') },
+  { id:'lanes', text:'Lanes and gangways clear', fix:'No pallet or rack overflowing onto the lanes', at:() => [6.2, 4.6], ok:() => S.pallet < palletCap() && S.pipes < pipeCap() },
+  { id:'service', text:'Service book kept', fix:'No machine long overdue for its service', at:() => [P_BOOTHDOOR[0] + .4, P_BOOTHDOOR[1] + .3], ok:() => Object.keys(REFIT).filter(k => REFIT[k].has()).every(k => (S.l6.cyc[k] || 0) < SVC_AT[k] * 1.5) },
+  { id:'wiring', text:'Wiring and switchboard sound', fix:'Wiring 50% or better; no open power fault', at:() => [P.boardSpot[0] + .5, P.boardSpot[1] + .4], ok:() => S.cond.wiring >= 50 && !S.faults.some(f => realFault(f) && FAULTS[f.kind].trade === 'electrician') },
+];
+let insp6 = null;
+function updateInspector6(dt){
+  const L = S.l6; if (!L || S.level < 6) return;
+  if (L.insp === 0 && calDay() % 5 === 3 && dayMin() >= 180 && dayMin() < 420 && !cardOpen && !(S.day && S.day.closing)) { L.insp = 1; L.inspStep = 0; L.inspRes = {}; toast('The factory inspector, Mr Hollins, is at the gate with his clipboard: guards, lanes, the service book and the wiring.', 'gold'); }
+  if (L.insp === 4 && dayMin() >= 120 && dayMin() < 420 && L.inspDay !== dayNo() && !cardOpen) { L.insp = 1; L.inspStep = 0; L.inspRes = {}; toast('Mr Hollins is back for his re-inspection.', ''); }
+  if (L.insp !== 1) { if (insp6 && insp6.state === 'leave') { if (walk(insp6, dt)) { insp6.o.removeFromParent(); mixers.splice(mixers.indexOf(insp6.mixer), 1); insp6 = null; } else insp6.play('walk'); } return; }
+  if (!insp6) { insp6 = makeChar('worker', ...P.frontOut, { parts:['clipboard', 'hat_cap', 'stache', 'hair_short'], cols:{ suit:'#3c4148', shirt:'#e8e2d4', skin:'#e0ac85', hair:'#8a8378', hat:'#3c4148', stache:'#8a8378' } });
+    insp6.st = { id:-2100, name:'Mr Hollins', role:'inspector', lv:1, energy:100, focus:100 }; insp6.state = 'walk'; goTo(insp6, ...INSPECT6[L.inspStep].at()); }
+  const c = insp6, chk = INSPECT6[L.inspStep];
+  if (c.state === 'walk') { c.play('walk'); if (walk(c, dt)) { c.state = 'look'; c.wait = 3.2; } return; }
+  if (c.state === 'look') { c.play('inspect'); c.wait -= dt; if (c.wait > 0) return; const ok = chk.ok(); L.inspRes[chk.id] = ok; floatText(ok ? `✓ ${chk.text}` : `✗ ${chk.text}`, c.o.position.x, 2.1, c.o.position.z, ok ? 'info' : 'warn'); sfx(ok ? 'tick' : 'tap');
+    L.inspStep++; if (L.inspStep < INSPECT6.length) { c.state = 'walk'; goTo(c, ...INSPECT6[L.inspStep].at()); return; }
+    const pass = INSPECT6.every(k => L.inspRes[k.id]); L.insp = pass ? 3 : 4; L.inspDay = dayNo(); if (pass) repChange(2); c.state = 'leave'; goTo(c, ...P.frontOut);
+    story({ kind:'inspect6', pass, res:{ ...L.inspRes } }); save(); checkCharter(); }
+}
+function inspect6Html(c){ return `<div class="who"><img alt="" src="${portrait('hollins')}"><div><b>Mr Hollins</b><small>Factory inspector · the county's Factories Act office</small></div></div>
+  <div class="say">${c.pass ? '"A well-kept works. Guards on, lanes clear, a service book I can read. I\'ll say so in my report."' : '"Not today, I\'m afraid. I\'ll be back tomorrow morning: put these right."'}</div>
+  <div class="kv">${INSPECT6.map(k => `<span>${k.text}</span><span class="${c.res[k.id] ? 'ok' : 'badt'}">${c.res[k.id] ? 'Passed' : k.fix}</span>`).join('')}</div>
+  ${c.pass ? '<div class="stamp">Passed · reputation +2</div>' : ''}<button class="btn primary" data-next type="button" style="width:100%;margin-top:10px;min-height:44px">${c.pass ? 'Thank you, Mr Hollins' : 'We\'ll have it right'}</button>`; }
+// ---- the works canteen, the lightning conductor ---------------------------------------------------------------------
+const CANTEEN = [-12.0, 19.2, -6.0, 24.4];
+function buildCanteen(){
+  if (M.canteen) return; const [x0, z0, x1, z1] = CANTEEN, g = new THREE.Group(), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, W = x1 - x0, D = z1 - z0; g.userData.dyn = true;
+  const brick = std('#8a5a3e', .9), cream = std('#ece2c6', .8), roof = std('#6f747a', .75, .15), glass = new THREE.MeshStandardMaterial({ color:'#ffe0a0', emissive:'#ffc060', emissiveIntensity:.25, roughness:.3 });
+  const box = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(BX(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; b.receiveShadow = true; g.add(b); return b; };
+  box(W - .4, 2.9, D - .6, brick, cx, 1.45, cz); box(W, .12, D, roof, cx, 3.0, cz); box(W - .2, .25, .12, cream, cx, 3.12, z1 - .05); box(W - .2, .25, .12, cream, cx, 3.12, z0 + .05); box(W - .2, .5, .1, cream, cx, 2.55, z1 - .29);
+  for (let i = 0; i < 4; i++) { const x = x0 + .9 + i * (W - 1.8) / 3; if (Math.abs(x - cx) < .6) continue; box(.9, .9, .05, glass, x, 1.5, z1 - .3); box(1.0, .08, .14, cream, x, 1.0, z1 - .26); }
+  box(1.1, 2.1, .08, std('#2f5a3a', .7), cx, 1.05, z1 - .28); box(1.6, .1, .8, cream, cx, 2.3, z1 + .05);
+  const ch = box(.5, 1.2, .5, brick, x0 + 1.0, 3.6, z0 + 1.0); M.canteenSmoke = [ch.position.x, 4.3, ch.position.z];
+  const sign = board(textTex([['WORKS CANTEEN', 46, 40], ['HOT DINNERS 12 TILL HALF PAST', 18, 72, 500]], 512, 96, { bg:'#2f3a22', fg:'#ece2c6', border:'#c9a24a', bw:6 }), 3.6, .68); sign.position.set(cx, 2.56, z1 - .23); g.add(sign);
+  for (const s of [-1, 1]) { const t = new THREE.Group(); t.position.set(cx + s * 2.1, 0, z1 + .9); g.add(t); const top = new THREE.Mesh(BX(1.2, .05, .6), std('#8a6a44', .8)); top.position.y = .74; t.add(top); for (const dx of [-.5, .5]) { const l = new THREE.Mesh(BX(.05, .74, .5), std('#3a3d41', .6)); l.position.set(dx, .37, 0); t.add(l); } }
+  world.add(g); M.canteen = g; addCol([x0 + .15, z0 + .25, x1 - .15, z1 - .25], 'canteen'); for (const s of [-1, 1]) addCol([cx + s * 2.1 - .65, z1 + .55, cx + s * 2.1 + .65, z1 + 1.25], 'canteenT' + s); rebuildNav();
+}
+const canteenK = () => S.restored.canteen && dayMin() >= 330 ? 1.03 : 1;    // crew +3% for the afternoon
+function buildConductor(){
+  if (M.conductor) return; const g = new THREE.Group(), cu = std('#b8733a', .35, .85), x = P.workshop[0] - 4.6, z = P.workshop[1] - 3.15; g.userData.dyn = true;
+  const rod = new THREE.Mesh(CY(.025, 1.3, 6), cu); rod.position.set(x, 9.3, z); g.add(rod); const tip = new THREE.Mesh(new THREE.ConeGeometry(.05, .14, 6), cu); tip.position.set(x, 10.0, z); g.add(tip);
+  const strip = new THREE.Mesh(BX(.04, 8.7, .02), cu); strip.position.set(x + .46, 4.35, z - .02); g.add(strip); const earth = new THREE.Mesh(BX(.25, .05, .25), std('#3a3d41', .7)); earth.position.set(x + .46, .03, z - .1); g.add(earth);
+  world.add(g); M.conductor = g;
+}
+// ---- hail (spring, Level 6+): white pellets bounce and settle for a minute; everyone outdoors shelters for 15 s ------
+const HAIL_N = 700; let hailFx = null, hailVel = null;
+function updateHail(dt){
+  const k = wxK('hail'), W = S.wx ||= {};
+  W.hailLying = clamp((W.hailLying || 0) + (k > .3 ? dt * k / 25 : -dt / 60), 0, .55);
+  if (k > .3 && !W.hailNow) { W.hailNow = true; W.shelterUntil = T + 15; for (const c of staffObj.values()) if (!c.stack.length) c.say = { text:pick(['Hail! Get under cover!', 'Ow! Hailstones!', 'In the doorway, quick!']), until:T + 2.4 }; }
+  if (k < .1) W.hailNow = false;
+  if (k > .3 && Math.random() < dt * 9) noiseS(.09, 3800 + Math.random() * 2400, .012 * k, 'highpass');   // the clatter on roofs and the car
+  if (k > .02 && !hailFx) { const g = new THREE.BufferGeometry(), pos = new Float32Array(HAIL_N * 3); hailVel = new Float32Array(HAIL_N); for (let i = 0; i < HAIL_N; i++) { pos[i * 3] = camPos.x + rand(-14, 14); pos[i * 3 + 1] = rand(0, 10); pos[i * 3 + 2] = camPos.z + rand(-18, 10); hailVel[i] = -rand(7, 10); }
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); hailFx = new THREE.Points(g, new THREE.PointsMaterial({ map:TX.dot, color:'#f4f8fb', size:3, sizeAttenuation:false, transparent:true, opacity:0, depthWrite:false })); hailFx.frustumCulled = false; hailFx.renderOrder = 6; hailFx.userData.noSnow = true; scene.add(hailFx); }
+  if (hailFx) { hailFx.visible = k > .02; hailFx.material.opacity = Math.min(.95, k * 1.2); if (hailFx.visible) { const a = hailFx.geometry.attributes.position.array;
+    for (let i = 0; i < HAIL_N; i++) { hailVel[i] -= dt * 14; a[i * 3 + 1] += hailVel[i] * dt; if (a[i * 3 + 1] < 0) { if (hailVel[i] < -3) { a[i * 3 + 1] = 0; hailVel[i] = -hailVel[i] * .28; } else { a[i * 3] = camPos.x + rand(-14, 14); a[i * 3 + 1] = rand(8, 11); a[i * 3 + 2] = camPos.z + rand(-18, 10); hailVel[i] = -rand(7, 10); } } }
+    hailFx.geometry.attributes.position.needsUpdate = true; } }
+}
+const hailShelter = () => !!(S.wx && S.wx.shelterUntil && T < S.wx.shelterUntil && wxK('hail') > .2);
+// ---- Level 6 build, the day's events and the per-frame update -------------------------------------------------------
+function buildLevel6(){
+  if (M.l6Built) return; M.l6Built = true; buildBooth(); if (S.restored.canteen) buildCanteen(); if (S.restored.conductor) buildConductor(); if (!crane) buildTarp();
+  for (const k of Object.keys(REFIT)) if (tierOf(k) >= 2) tierBadge(k);
+  if (S.l6.refit && S.l6.refit.k !== 'saw' && S.l6.refit.st === 'fit') startRefitFit(S.l6.refit.k);
+  if (S.l6.refit && S.l6.refit.k === 'saw' && S.l6.refit.st !== 'book') { S.l6.refit.st = 'book'; S.l6.refit.at = S.time + 5; delete S.l6.refit.phase; }   // a reload mid-lift: the crane comes back and starts again
+}
+function updateLevel6(dt){
+  if (S.level < 6 || !M.l6Built) return;
+  updateCrane(dt); updateRefits(dt); syncSvcTags(); updateInspector6(dt); juneAlerts(); updateHail(dt);
+  if (M.canteen && M.canteenSmoke && lunchTime() && Math.random() < dt * 3) sprite('#e8e6e2', ...M.canteenSmoke, rand(-.1, .1), rand(.4, .7), rand(-.1, .1), 3, .35, -.02);
+  // Friday: Gus calls in about his pension; the trophy cabinet goes up in the office
+  if (isFriday() && !S.l6.gusPension && dayMin() > 120 && dayMin() < 300 && S.gus.retired && !cardOpen && !folk.has('gus')) { S.l6.gusPension = true; S.l6.pensionSay = true; S.gus.visitAt = S.time; }
+  if (isFriday() && !S.l6.trophy && dayMin() > 60) { S.l6.trophy = true; if (M.trophy) M.trophy.visible = true; toast('The trophy cabinet is up in the clerk\'s window: a cup for every level the works has passed.', 'gold'); save(); }
+}
+// the Machines tab: tier 2 refits and the service book
+function refitHtml(){
+  if (S.level < 6) return ''; const R = S.l6.refit;
+  let h = `<div class="dept"><div class="dept-h"><span class="ic">${icon('gear')}</span><div><b>Tier 2 refits</b><small>+25% each · which three first is your choice · one job at a time</small></div><span class="cap">${S.l6.refits || 0} refitted</span></div>`;
+  for (const [k, r] of Object.entries(REFIT)) { if (!r.has()) continue; const t2 = tierOf(k) >= 2, busy = R && R.k === k;
+    h += `<div class="up"><span class="ic">${icon(k.startsWith('saw') ? 'saw' : 'gear')}</span><div><b>${r.name}</b><span class="note">${t2 ? 'Tier 2: 25% faster' : busy ? (r.crane ? (R.st === 'book' ? 'The crane is booked' : 'The crane is lifting') : 'Big Tom\'s crew is fitting it') : r.crane ? 'Swapped whole by a mobile crane; grandad\'s machine is kept' : 'Refitted in place by Big Tom\'s crew'}</span></div>
+      ${t2 ? '<span class="note">Done</span>' : busy ? '<span class="note">Under way</span>' : `<button class="btn primary" data-refit="${k}" type="button" ${S.cash >= r.price && !R ? '' : 'disabled'}>${fmt(r.price)}</button>`}</div>`; }
+  h += `</div><div class="dept"><div class="dept-h"><span class="ic">${icon('wrench')}</span><div><b>Service book</b><small>About 200 cycles between services · the mechanic 8 s, you 16 s, one spare part · ${S.up.schedule ? 'the mechanic books them himself' : 'book each one, or buy the service schedule (Upgrades)'}</small></div><span class="cap">${S.l6.svc || 0} services</span></div><div class="kv">`;
+  for (const [k, r] of Object.entries(REFIT)) { if (!r.has()) continue; const n = S.l6.cyc[k] || 0, due = svcDue(k), f = S.faults.find(f => FAULTS[f.kind].svc === k);
+    h += `<span>${r.name} ${bar(Math.min(100, n / SVC_AT[k] * 100), due ? 'low' : '')}</span><span class="${due ? 'badt' : 'ok'}">${due ? (f && (f.booked || S.up.schedule) ? 'Service booked' : `Service due · <button class="btn" data-book="${k}" type="button" ${hasRole('mechanic') ? '' : 'disabled'}>Book</button>`) : `Healthy · ${n}/${SVC_AT[k]}`}</span>`; }
+  h += `</div>${(S.l6.book || []).length ? `<div class="kv">${S.l6.book.slice(0, 6).map(b => `<span>${b.d} ${b.t} · ${REFIT[b.k].name}</span><span>${b.by}${b.part ? '' : ' · no part'}</span>`).join('')}</div>` : ''}</div>`;
+  return h;
+}
+function ledgerHtml(){
+  if (S.level < 6) return ''; const L = (S.l6.ledger || []).slice(0, 14);
+  return `<div class="dept"><div class="dept-h"><span class="ic">${icon('clip')}</span><div><b>June Finch's ledger</b><small>${clerkOn() ? 'Every payment in and out, by whom: nothing paid silently' : 'Hire June as the clerk (Staff): she collects the takings and pays the bills'}</small></div></div>
+    ${L.length ? `<div class="kv">${L.map(e => `<span>${e.d} ${e.t} · ${e.what}</span><span class="${e.amt < 0 ? 'badt' : e.amt > 0 ? 'ok' : ''}">${e.amt ? (e.amt > 0 ? '+' : '−') + fmt(Math.abs(e.amt)) : 'held'} · ${e.by}</span>`).join('')}</div>` : '<p class="note">Nothing in the ledger yet.</p>'}</div>`;
 }
 
 /* =====================================================================
@@ -4775,6 +5200,14 @@ function objective(){
   if (slack && !hasRole('supervisor')) return { t:`${slack.st.name} is slacking. Go and check on them`, at:[slack.o.position.x, slack.o.position.z], alert:true };
   if (S.levelUp) return S.level < MAX_LEVEL ? { t:`Charter complete! Tap the level card to open level ${S.level + 1}`, at:null, alert:true } : { t:`Level ${S.level + 1} opens in the next build. Keep the orders moving.`, at:null };
   // level 5 beats (Bible v2.0 8): Ada's corner plot, the second pipe mill, dock 2 and the white lorry, the Friday accounts
+  if (S.level >= 6 && M.l6Built) { const L = S.l6, R = L.refit;
+    if (!S.staff.some(x => x.role === 'clerk') && capOf('clerk') > 0) return { t:`Take June Finch on as your clerk (Staff${hireCost('clerk') ? ', ' + fmt(hireCost('clerk')) : ', no fee'})`, at:P.deskRing, alert:S.cash >= hireCost('clerk') };
+    if (R && R.k === 'saw' && crane) return { t:crane.st === 'in' ? 'The mobile crane is turning in at the main gate' : craneHail() ? 'Hail: the crane waits for it to pass' : 'The crane is swapping in the tier 2 crate machine', at:CRANE_AT };
+    if (R && R.k === 'saw' && R.st === 'book') return { t:'The crane is booked from Valley Plant Hire', at:null };
+    if (R && R.st === 'fit') return { t:`Big Tom's crew is refitting the ${REFIT[R.k].name.toLowerCase()}: ${Math.floor((R.t || 0) / REFIT_T * 100)}%`, at:REFIT[R.k].at() };
+    const due = Object.keys(REFIT).find(k => REFIT[k].has() && svcDue(k)); if (due && !hasRole('mechanic')) return { t:`Service due on the ${REFIT[due].name.toLowerCase()}: stand in its amber ring (16 s, one spare part)`, at:REFIT[due].fix() };
+    if ((L.refits || 0) < 3 && !R) { const k = Object.keys(REFIT).find(k => REFIT[k].has() && tierOf(k) < 2); if (k && S.cash >= REFIT[k].price) return { t:'Choose a machine for its tier 2 refit (office, Machines)', at:P.deskRing, alert:true }; }
+    if (L.insp === 1) return { t:'Mr Hollins, the factory inspector, is walking the yard', at:insp6 ? [insp6.o.position.x, insp6.o.position.z] : null }; }
   if (S.level >= 5 && M.l5Built) { const o2 = S.order2, A = S.l5;
     if (A.acc && !A.acc.paid && S.cash >= A.acc.total) return { t:`Pay the week's accounts (${fmt(A.acc.total)}) at the office block`, at:P.officeDoor, alert:!!A.acc.missed };
     if (o2 && o2.ready && truckB.state === 'docked' && !hasRole('supervisor')) return { t:'Dock 2 is loaded: sign the note on its deck', at:P.drop2 };
@@ -4826,7 +5259,7 @@ function objective(){
     if (!S.up.gen2 && overloaded()) return { t:`The generator is overloaded (${load().toFixed(1)} / ${genKW()} kW). Buy Generator Mk II in the office`, at:P.gen, alert:true };
     const pn = plotBeat('north'); if (pn) return pn;
   }
-  if (S.cashPile > 0) return { t:`Collect ${fmt(S.cashPile)} by the dock`, at:P.cash };
+  if (S.cashPile > 0 && !(typeof clerkOn === 'function' && clerkOn())) return { t:`Collect ${fmt(S.cashPile)} by the dock`, at:P.cash };
   if (S.tutDone && !S.order && !S.call && !(S.book && S.book.length) && S.level <= 2 && M.car) return { t:sales().trips ? 'No work on the books: drive into town and find some (stand by grandad\'s car)' : 'Nobody knows the works is open: take grandad\'s car into town and find work (stand by the car)', at:P.carDoor, alert:!sales().trips };
   if (WELFARE && S.tutDone && S.water === 0 && S.cooler <= 5) return { t:'The water is running out: buy bottles in the office (Stock)', at:P.deskRing, alert:true };
   if (WELFARE && S.tutDone && S.wcClean < 30 && !hasRole('cleaner') && S.cash >= hireCost('cleaner')) return { t:`The washroom is filthy. Hire a cleaner in the office (${fmt(hireCost('cleaner'))})`, at:P.deskRing, alert:true };
@@ -5243,7 +5676,7 @@ function endOfDay(i){
     i, made:S.made - a.made, pmade:S.pmade - a.pmade, tmade:S.tmade - (a.tmade ?? S.tmade), shipped:S.shipped - a.shipped, pshipped:S.pshipped - a.pshipped, tshipped:S.tshipped - (a.tshipped ?? S.tshipped),
     lorries:S.delivered - a.delivered, late:(S.delivered - a.delivered) - (S.ontime - a.ontime), takings:Math.round(S.earned - a.earned),
     ws:S.walk.served - (a.ws || 0), wl:S.walk.lost - (a.wl || 0), wc:Math.round(S.walk.cash - (a.wc || 0)), rep0:Math.round(a.rep), rep1:Math.round(S.rep) };
-  d.date = dayDate(i); d.wd = calDay(i); d.fri = isFriday(i); if (accountsOn()) S.l5.daysThisWeek = (S.l5.daysThisWeek || 0) + 1; if (d.fri && accountsOn()) d.acc = !!closeWeek(); const pd = payDay(); if (pd) d.pay = { n:Object.keys(pd.paid).length, sum:pd.sum, estate:pd.est, gate:pd.gate || 0 }; if (d.fri) d.week = weekTotals(d);
+  d.date = dayDate(i); d.wd = calDay(i); d.fri = isFriday(i); if (accountsOn()) S.l5.daysThisWeek = (S.l5.daysThisWeek || 0) + 1; if (d.fri && accountsOn()) { d.acc = !!closeWeek(); if (S.level >= 6) juneSettle(S.l5.acc); } const pd = payDay(); if (pd) d.pay = { n:Object.keys(pd.paid).length, sum:pd.sum, estate:pd.est, gate:pd.gate || 0 }; if (d.fri) d.week = weekTotals(d);
   const best = S.day.best; d.first = !best; d.record = !!(best && d.takings > best.takings); d.prev = best ? Object.assign({}, best) : null;
   if (d.first || d.record) S.day.best = { takings:d.takings, made:d.made + d.pmade, i, date:d.date };
   const t = S.day.target; d.tgt = !chalkOn() && t ? { txt:TARGETS[t.kind].txt(t.need), done:t.done, bonus:t.bonus } : null;
@@ -5502,7 +5935,7 @@ function updateBolt(dt){
    packet: envelope over, cap tipped, back to work. On Levels 1-4 grandad's estate pays the wages, so the packets cost
    the owner nothing. Anybody not paid by the knocking-off whistle gets his packet at the gate on the way out.
    ===================================================================== */
-const PAY_AT = [-2.6, -1.85], PAY_Q = [[-1.8, -1.8], [-1.0, -1.8], [-0.2, -1.8]];
+const PAY_AT = [-2.6, -1.85], PAY_Q = [[-1.8, -1.8], [-1.0, -1.8], [-0.2, -1.8], [0.6, -1.8], [1.4, -1.8]];   // a longer line for a bigger crew
 const payTime = () => !!(S.tutDone && S.day && !S.day.closing && isFriday() && dayMin() >= PAY_MIN && !(S.gus && S.gus.party));
 const payDay = () => S.day && S.day.pay && S.day.pay.n === dayNo() ? S.day.pay : null;
 const estatePays = () => S.level <= 4;   // v2.0 18.2: the weekly accounts start at Level 5
@@ -5539,7 +5972,7 @@ function updatePay(dt){
 // one worker's part in pay day; true while he is busy with it
 function payStep(c, dt){
   const pd = payDay(), st = c.st;
-  if (!pd || !S.restored.hatch || !payTime() || pd.paid[st.id] || st.role === 'forklift') { if (c.pay) { c.pay = null; c.state = 'idle'; c.path = null; c.task = null; } return false; }
+  if (!pd || !S.restored.hatch || !payTime() || pd.paid[st.id] || st.role === 'forklift' || st.role === 'clerk') { if (c.pay) { c.pay = null; c.state = 'idle'; c.path = null; c.task = null; } return false; }
   if (!c.pay) { if (c.stack.length || c.trolley || (c.tplanks && c.tplanks.length) || c.lunch || ['fixing', 'arrive', 'pour', 'fill', 'servicing'].includes(c.state)) return false;
     if ([...staffObj.values()].filter(o => o.pay).length >= PAY_Q.length) return false;
     releaseCart(c); c.state = 'pay'; if (cartHome(c, dt)) return true;
@@ -5548,17 +5981,18 @@ function payStep(c, dt){
   if (c.pay.slot !== k) { c.pay.slot = k; goTo(c, ...spot); c.state = 'pay'; }
   if (c.path && c.path.length) { walk(c, dt); return true; }
   c.play('idle'); c.faceTo(k === 0 ? PAY_AT : line[k - 1] ? [line[k - 1].o.position.x, line[k - 1].o.position.z] : PAY_AT, dt);
-  if (k === 0 && ownerAtHatch()) { c.pay.t += dt; owner.faceTo([c.o.position.x, c.o.position.z], dt);
-    if (c.pay.t > .7 && !c.pay.given) { c.pay.given = true; owner.play('point'); owner.lock = .5; const e = new THREE.Mesh(new THREE.BoxGeometry(.13, .02, .08), new THREE.MeshStandardMaterial({ color:'#c9ab72' })); e.position.set(PAY_AT[0] + .2, 1.1, -2.4); scene.add(e);
+  const giver = ownerAtHatch() ? owner : clerkAtHatch() ? clerkChar() : null;
+  if (k === 0 && giver) { c.pay.t += dt; giver.faceTo([c.o.position.x, c.o.position.z], dt);
+    if (c.pay.t > .7 && !c.pay.given) { c.pay.given = true; giver.play('point'); giver.lock = .5; const e = new THREE.Mesh(new THREE.BoxGeometry(.13, .02, .08), new THREE.MeshStandardMaterial({ color:'#c9ab72' })); e.position.set(PAY_AT[0] + .2, 1.1, -2.4); scene.add(e);
       fly(e, c.o, new THREE.Vector3(0, 1.05, .25), .35, () => e.removeFromParent(), .3); sfx('pick'); }
     if (c.pay.t > 1.25) { pd.paid[st.id] = true; payPacket(st); c.pay = null; c.state = 'idle'; c.path = null; c.task = null; c.play('cheer'); c.say = { text:pick(['Thanks, boss!', 'Ta very much.', 'Cheers, boss. See you Monday.', 'That\'s the rent paid.']), until:T + 2.2 };
       floatText('Paid', c.o.position.x, 1.9, c.o.position.z, 'info'); sfx('coin');
-      if (payNeeded().every(x => pd.paid[x.id] || x.role === 'forklift')) { for (const x of payNeeded()) if (!pd.paid[x.id]) { pd.paid[x.id] = true; payPacket(x); } pd.byHand = true; toast('Every packet handed out. Caps tipped all round.', 'good'); sfx('buy'); save(); } } }
+      if (payNeeded().every(x => pd.paid[x.id] || x.role === 'forklift' || x.role === 'clerk')) { for (const x of payNeeded()) if (!pd.paid[x.id]) { pd.paid[x.id] = true; payPacket(x); } pd.byHand = true; toast('Every packet handed out. Caps tipped all round.', 'good'); sfx('buy'); save(); } } }
   return true;
 }
 // 17:00: whoever was not paid at the hatch gets his packet at the gate
 function payAtGate(){ const pd = payDay(); if (!pd) return; const left = payNeeded().filter(st => !pd.paid[st.id]); if (!left.length) return;
-  for (const st of left) { pd.paid[st.id] = true; payPacket(st); } pd.gate = left.length; toast(`${left.length} pay packet${left.length > 1 ? 's' : ''} handed out at the gate on the way home.`, ''); }
+  for (const st of left) { pd.paid[st.id] = true; payPacket(st); } pd.gate = left.length; if (typeof clerkOn === 'function' && clerkOn() && !pd.ledgered) { pd.ledgered = true; ledger(`Pay packets (${Object.keys(pd.paid).length}, ${left.length} at the gate)`, -(S.l5.wagesPaid || 0), 'June Finch'); } toast(`${left.length} pay packet${left.length > 1 ? 's' : ''} handed out at the gate on the way home.`, ''); }
 
 // The crew at lunch: operators and loaders put down what they are doing (a loader finishes his carry first) and
 // sit on the bench by the workshop; the ones who find no seat stand with them. The fitters stay on call.
@@ -6020,6 +6454,7 @@ const WX = {
   snow:    { name:'Light snow',   say:'Light snow',                   hemi:.94,  sun:.45,  exp:1.02, rain:0,   fog:.2,  tint:'#eef2f6', bar:.3, snow:.55 },
   heavysnow:{ name:'Heavy snow',  say:'Heavy snow',                   hemi:.9,   sun:.3,   exp:1.03, rain:0,   fog:.45, tint:'#e9eef4', bar:.15, snow:1, big:true },
   frost:   { name:'Frost',        say:'A hard frost, clearing later', hemi:1.0,  sun:.85,  exp:1.0,  rain:0,   fog:.1,  tint:'#f2f6fb', bar:.7, ice:1 },
+  hail:    { name:'Hail',         say:'Showers, with hail',           hemi:.72,  sun:.3,   exp:.95,  rain:.55, fog:.15, tint:'#dfe5ec', bar:.18, hail:1 },
   storm:   { name:'Thunderstorm', say:'Thunderstorms',                hemi:.6,   sun:.18,  exp:.92,  rain:1.2, fog:.25, tint:'#d8dde6', bar:.08, big:true },
 };
 const wxRng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -6030,6 +6465,7 @@ function wxPlan(wd = calDay()){
     2:[[[0, 'clear', 'blossom']], [[0, 'overcast'], [372, 'shower'], [418, 'clear', 'rainbow']], [[0, 'clear', 'blossom'], [300, 'overcast']]],
     3:[[[0, 'clear']], [[0, 'fog'], [180, 'clear']], [[0, 'overcast'], [240, 'clear']], [[0, 'clear']]],
     4:[[[0, 'clear']], [[0, 'clear'], [300, 'overcast']], [[0, 'heat', 'icecream']], [[0, 'heat'], [360, 'storm'], [405, 'overcast']]],
+    6:[[[0, 'overcast'], [150, 'shower'], [190, 'clear', 'blossom']], [[0, 'clear', 'blossom'], [300, 'overcast'], [380, 'hail'], [430, 'overcast'], [470, 'clear', 'rainbow']], [[0, 'clear', 'blossom'], [330, 'overcast']], [[0, 'overcast'], [140, 'shower'], [185, 'clear', 'rainbow']]],
     5:[[[0, 'heavysnow'], [240, 'snow']], [[0, 'frost'], [200, 'overcast']], [[0, 'frost'], [180, 'clear']], [[0, 'overcast'], [330, 'snow']], [[0, 'overcast'], [520, 'snow']]],
   }[lv];
   if (set && d >= 0 && d < set.length) return set[d];
@@ -6045,7 +6481,10 @@ function wxPlan(wd = calDay()){
 const wxAt = (wd, m) => { const p = wxPlan(wd); let k = p[0]; for (const q of p) if (q[0] <= m) k = q; return k; };
 // the day's headline weather for the wireless and the day book: the biggest spell of the day
 function wxSummary(wd){ const p = wxPlan(wd), ks = p.map(q => q[1]), big = ks.find(k => WX[k].big), wet = ks.includes('shower') ? 'shower' : ks.includes('drizzle') ? 'drizzle' : null;
-  return big ? (big === 'storm' ? 'Hot, with thunderstorms in the afternoon' : 'Hot all day: a heat wave') : ks[0] === 'fog' ? 'Fog in the valley first thing, lifting by ten' : wet ? `${WX[ks[0]].say}, with ${wet === 'shower' ? 'a shower' : 'drizzle'} ${p.find(q => q[1] === wet)[0] < 300 ? 'in the morning' : 'in the afternoon'}` : WX[ks[0]].say; }
+  const hail = p.find(q => q[1] === 'hail');
+  if (hail) return `${WX[ks[0]].say}, with hail ${hail[0] < 300 ? 'in the morning' : 'in the afternoon'}`;
+  if (wet && ks[0] === wet) return ks.length === 1 ? WX[wet].say : `${WX[wet].say}, clearing ${p[1][0] < 300 ? 'by midday' : 'in the afternoon'}`;
+  return big ? (big === 'storm' ? 'Hot, with thunderstorms in the afternoon' : big === 'heat' ? 'Hot all day: a heat wave' : `${WX[big].say}${p.find(q => q[1] === big)[0] < 300 ? ' in the morning' : ' later'}`) : ks[0] === 'fog' ? 'Fog in the valley first thing, lifting by ten' : wet ? `${WX[ks[0]].say}, with ${wet === 'shower' ? 'a shower' : 'drizzle'} ${p.find(q => q[1] === wet)[0] < 300 ? 'in the morning' : 'in the afternoon'}` : WX[ks[0]].say; }
 var wx = { kind:'overcast', from:'overcast', k:1, dur:30, extra:null, flashT:0, flash:0, thunder:[], rainbow:0, petal:0, said:'' };
 let wxInit = false;
 function updateWeather(dt){
@@ -6060,7 +6499,7 @@ function updateWeather(dt){
   wx.k = Math.min(1, wx.k + dt / wx.dur);
   if (wx.extra === 'rainbow' && wx.k > .4 && !wx.rbDone) { wx.rbDone = true; wx.rainbow = 1; const g = gusChar(); if (g && !S.gus.retired) gusSay(g, 'Look at that, boss. A rainbow over the hills.'); for (const c of staffObj.values()) if (!c.stack.length && c.state !== 'fixing') c.say = { text:pick(['Look at that!', 'A rainbow!', 'Pot of gold up the valley.']), until:T + 2.4 }; }
   if (wx.extra === 'icecream' && wx.k > .6 && !wx.icDone && !closing && dayMin() > 120 && dayMin() < 420) { wx.icDone = true; iceCreamVan(); }
-  applyWeather(dt); updateIce(dt); updateYardLamps(dt); updateSnow(dt);
+  applyWeather(dt); updateIce(dt); updateYardLamps(dt); updateSnow(dt); if (S.wx && S.wx.hailLying) SNOW_U.value = Math.max(SNOW_U.value, S.wx.hailLying * .8);
 }
 let wxForce = null;
 function wxNews(kind, extra){
@@ -6071,6 +6510,7 @@ function wxNews(kind, extra){
   else if (kind === 'heat') { toast(`A heat wave. Old Faithful loses 10% in the heat${mainsUp() ? ' (the mains does not care)' : ''}.`, 'gold'); gus('Hot enough to fry an egg on the dock plate.'); }
   else if (kind === 'fog') toast('Fog lies on the valley floor. Lorries feel their way in: about 15 minutes late.', '');
   else if (kind === 'heavysnow') { toast(`Heavy snow. The crew shovels the lanes; ${S.restored.chains ? 'with chains on, the lorries and the forklift keep their speed' : 'lorries and the forklift crawl at 70% on the uncleared lanes'}.`, 'gold'); gus('Get the shovels out, lads. Your grandad cleared this yard himself in \'47.'); }
+  else if (kind === 'hail') { toast(`Hail! White pellets bounce off the yard; everybody outdoors takes cover for a few seconds.${crane ? ' The crane stops its lift.' : ''}`, 'bad'); gus('Hailstones the size of peas!'); }
   else if (kind === 'snow') toast('Snow is falling. Everybody walks a little slower on it.', '');
   else if (kind === 'frost') toast(`A hard frost. ${S.restored.grit ? 'The lanes were gritted at seven.' : 'The forklift goes 15% slower on the ice until ten.'}`, '');
   else if ((wx.from === 'shower' || wx.from === 'storm' || wx.from === 'drizzle') && !wx.rain) toast('The rain has passed.', '');
@@ -6091,7 +6531,7 @@ const icy = () => wxK('ice') > .5 && dayMin() < 180 && !(S.restored.grit && S.wx
 const walkSnowK = () => snowFall() > .3 || snowLying() > .5 ? .9 : 1;   // walking 10% slower in snow (grip)
 const vehSnowK = () => (wx.kind === 'heavysnow' && wx.k > .4 || snowLying() > .7) && !S.restored.chains ? .7 : icy() ? .85 : 1;   // uncleared lanes: lorries and the forklift 30% slower, 15% on ice
 const wxLorryLate = () => wxFog() > .6 ? 15 : 0;                     // drivers need to see: 15 game minutes late
-const noWalkIns = () => showerOn() || (drizzleOn() && !S.restored.awning);
+const noWalkIns = () => showerOn() || (drizzleOn() && !S.restored.awning) || !!(S.l6 && S.l6.refit && S.l6.refit.st === 'crane');   // nobody walks in past a crane in the gateway
 function applyWeather(dt){
   const tint = new THREE.Color(WX[wx.from].tint).lerp(new THREE.Color(WX[wx.kind].tint), wx.k);
   wx.light = { hemi:wxK('hemi'), sun:wxK('sun'), exp:wxK('exp'), tint };
@@ -6296,7 +6736,8 @@ function placeCam(dt){
   const D = viewH / Math.sin(CAM_EL), span = (lo, hi, v, half) => { const a = lo + half, b = hi - half; return a > b ? (a + b) / 2 : clamp(v, a, b); };
   const tx = span(M.scrapOpen ? -27 : SITE.x0 - 1.5, SITE.x1 + 3, S.gus.party >= 2 ? partySpot()[0] : owner.o.position.x, viewW / 2), tz = span((S.lv3.field ? -22.5 : SITE.z0 - 2.5) - placeCam.hud[0] * D, ROAD_Z + 2.6 + placeCam.hud[1] * D, (S.gus.party >= 2 ? partySpot()[1] : owner.o.position.z) - (aspect < 1 ? 1.1 : .6), D / 2);   // the farewell party holds the camera   // the North field extends the site northwards
   if (camLock) { camPos.x = camLock[0]; camPos.z = camLock[1]; } else { camPos.x += (tx - camPos.x) * Math.min(1, dt * 5); camPos.z += (tz - camPos.z) * Math.min(1, dt * 5); }
-  cam.position.set(camPos.x, Math.sin(CAM_EL) * CAM_DIST, camPos.z + Math.cos(CAM_EL) * CAM_DIST); cam.lookAt(camPos.x, 0, camPos.z);
+  const qk = typeof quake === 'number' && quake > 0 && !REDUCED ? quake : 0, qx = qk ? Math.sin(T * 47) * qk * .05 : 0, qz = qk ? Math.cos(T * 53) * qk * .04 : 0;   // the crane's thud shakes the view a little
+  cam.position.set(camPos.x + qx, Math.sin(CAM_EL) * CAM_DIST, camPos.z + qz + Math.cos(CAM_EL) * CAM_DIST); cam.lookAt(camPos.x + qx, 0, camPos.z + qz);
   const tgt = snapShadow(camPos.x, camPos.z);
   sun.target.position.copy(tgt); sun.position.copy(tgt).add(SUN_OFF);
 }
@@ -6346,7 +6787,7 @@ function step(dt){
   T += dt; S.time += dt;
   for (const m of mixers) m.update(dt);
   if (!officeOpen && !trip) { updateOwner(dt); updateCarDoor(); } else target = null;
-  healthCheck(dt); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateTruck(dt); updateTrip(dt); carTip(); updateDay(dt); updateTarget(); updateEvents(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateBolt(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); syncCarry(); updateTutorial(dt); updateFx(dt);
+  healthCheck(dt); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateLevel6(dt); updateTruck(dt); updateTrip(dt); carTip(); updateDay(dt); updateTarget(); updateEvents(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateBolt(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); syncCarry(); updateTutorial(dt); updateFx(dt);
   saveT += dt; if (saveT > 8) { saveT = 0; save(); }
 }
 const MAX_DPR = Math.min(2, devicePixelRatio || 1); let dpr = MAX_DPR, perfT = 0, perfN = 0, perfGood = 0, perfBad = 0, lastDpr = 0, dprSettled = false, needResize = false;
@@ -6374,6 +6815,7 @@ async function boot(){
   if (S.level >= 3) buildLevel3();
   if (S.level >= 4) buildLevel4();
   if (S.level >= 5) buildLevel5();
+  if (S.level >= 6) buildLevel6();
   for (const id of Object.keys(S.restored)) if (S.restored[id]) applyRestore(id, false);
   for (const id of Object.keys(PLOTS)) if (plotOwned(id)) finishPlot(id, false);
   owner = makeChar('owner', S.owner[0], S.owner[1], { parts:['clipboard'] }); owner.play('idle'); owner.faceNow(Math.PI * .85); owner.st = OWNER_ST;
@@ -6405,7 +6847,7 @@ async function boot(){
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
   else { awayEnvelope(); loginCalendar(); }
-  window.__iv = { acceptCall2, finishPlot, rainK, noWalkIns, wxLorryLate, stormOn, helperOf, walkPatience, PAY_Q, ICE_AT, BOLT_NAP, BOLT_SHADE, setWx:k => { wxForce = k; wxForceT = 1e9; wx.from = wx.kind = k; wx.k = 1; }, wxFlash:() => { wx.flash = 1; }, rainbowNow:() => { wx.rainbow = .7; }, get wx(){ return wx; }, bolt, chalkProg, CHALK, awayEnvelope, loginCalendar, wxPlan, wxSummary, migrate, DAY_S, PAY_MIN, PAY_AT, LV_START, calDay, weekday, isFriday, dateOf, dueAt, seasonOf, payTime, payDay, payStep, ownerAtHatch, payNeeded, knockOff, get M_hatch(){ return M.hatch; }, get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payAccounts, closeWeek, weekAccounts, takeLoan, repayLoan, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  window.__iv = { REFIT, orderRefit, finishRefit, bookService, svcDue, svcPost, tierOf, get crane(){ return crane; }, craneGone, INSPECT6, get insp6(){ return insp6; }, clerkChar, clerkOn, juneSettle, ledger, buildCanteen, hailShelter, updateCrane, cutDark, buildLevel6, acceptCall2, finishPlot, rainK, noWalkIns, wxLorryLate, stormOn, helperOf, walkPatience, PAY_Q, ICE_AT, BOLT_NAP, BOLT_SHADE, setWx:k => { wxForce = k; wxForceT = 1e9; wx.from = wx.kind = k; wx.k = 1; }, wxFlash:() => { wx.flash = 1; }, rainbowNow:() => { wx.rainbow = .7; }, get wx(){ return wx; }, bolt, chalkProg, CHALK, awayEnvelope, loginCalendar, wxPlan, wxSummary, migrate, DAY_S, PAY_MIN, PAY_AT, LV_START, calDay, weekday, isFriday, dateOf, dueAt, seasonOf, payTime, payDay, payStep, ownerAtHatch, payNeeded, knockOff, get M_hatch(){ return M.hatch; }, get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payAccounts, closeWeek, weekAccounts, takeLoan, repayLoan, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });

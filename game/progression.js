@@ -109,6 +109,10 @@ export const UPGRADES = [
   { id:'tariff', lv:5, group:'Power',    kind:'bill',      name:'Bulk diesel contract', per:'the power part of each bill 5% lower', cost:[1000, 2000, 4000], growth:1.9, icon:'bolt', tiers:[[5, 3], [10, 2]] },
   { id:'multi',  lv:5, group:'Crew',     kind:'speed',     name:'Multi-skilled crew', per:'loaders and the forklift pick up and set down 25% faster', cost:[1000, 2000, 4000], growth:1.9, icon:'people', tiers:[[5, 3], [9, 1]] },
   { id:'dock',   lv:5, group:'Site',     kind:'speed',     name:'Dock crew',         per:'trucks turn round 15%, 30%, then 50% faster', cost:[1000, 2000, 4000], growth:1.9, icon:'truck', tiers:[[5, 3], [12, 1]] },
+  // level 6 (Bible v2.0 18.3): the service schedule and the clerk's ledger alerts (tier 2 refits are in the Machines tab,
+  // the automatic changeover is a purchase at the generator)
+  { id:'schedule', lv:6, group:'Crew',  kind:'repair',    name:'Service schedule',  per:'the mechanic books each due service himself', cost:[3000], growth:1.9, icon:'wrench', tiers:[[6, 1]] },
+  { id:'ledger',   lv:6, group:'Site',  kind:'bill',      name:'Clerk\'s ledger alerts', per:'June warns on Thursday if Friday\'s packets and accounts will be more than the cash', cost:[2000], growth:1.9, icon:'clip', tiers:[[6, 1]] },
   { id:'parts', lv:3, group:'Site',      kind:'capacity',  name:'Spare-parts shelf', per:'the parts shelf holds 3 more',        cost:[200, 450, 900], growth:1.8, icon:'boxes', tiers:[[3, 3], [6, 2], [10, 2]], need:'field' },
   { id:'wc',    lv:1, group:'Facilities',kind:'facility',  name:'Washroom stalls',   per:'one more toilet stall',               cost:[180, 420], growth:1.8, icon:'people',      tiers:[[1, 2], [3, 2], [6, 2], [9, 2], [13, 2]] },
   { id:'cooler',lv:1, group:'Facilities',kind:'facility',  name:'Bigger water bottles', per:'10 more cups a bottle',            cost:[50, 130], growth:1.8, icon:'drop',         tiers:[[1, 2], [4, 1], [8, 1], [11, 1]] },
@@ -116,7 +120,6 @@ export const UPGRADES = [
   // planned: rows from the strategy doc's "Upgrades by level" table for levels 3 to 16. Each opens with the
   // machine or building it belongs to; the builds for those levels give them their effect code.
   ...[
-    [6, 'Power', 'power', 'Backup generator', 'no full blackouts', 'bolt'], [6, 'Crew', 'focus', 'Morale', 'idle time down 15%', 'star'], [6, 'Site', 'bill', 'Filing system', 'bills fall due later', 'clip'],
     [7, 'Machines', 'speed', 'Quick-change tooling', 'switch product instantly', 'gear'], [7, 'Crew', 'zone', 'Supervisor bonus', 'zone bonus 15% to 20%', 'clip'], [7, 'Site', 'capacity', 'Order board slot', 'one more order to choose from', 'clip'],
     [8, 'Machines', 'speed', 'Furnace heat', 'beams 20% faster', 'gear'], [8, 'Power', 'power', 'Grid connection', 'the generator becomes the backup', 'bolt'], [8, 'Crew', 'speed', 'Foreman', 'idle workers are given jobs', 'people'], [8, 'Site', 'capacity', 'Longer rail siding', 'more raw material per train', 'truck'],
     [9, 'Machines', 'speed', 'Assembly bench speed', 'valves 20% faster', 'gear'], [9, 'Power', 'power', 'Load balancer', 'no slowdown at peak', 'bolt'], [9, 'Crew', 'speed', 'Assembler skill', 'recipes 20% faster', 'hand'], [9, 'Site', 'speed', 'Conveyor', 'parts move between machines', 'boxes'],
