@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (24 Nov 2026, build 0.24, Bible v2.0, Levels 5-6 done)
+# Handover: where Iron Valley stands (24 Nov 2026, build 0.25, Bible v2.0, Levels 5-7 done)
 
 Read this first when continuing in a new session.
 
@@ -89,6 +89,30 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
+## Done in build 0.25 (Level 7: Major Manufacturer, Bible v2.0, plans/level7_plan.png)
+- Opens Monday 7 October 1974 (5 days). Charter (`CHARTER7`): $600K earned, 12 orders off the board, Hollis Reed a
+  regular, two supervisor zones (`zonesLive`), 15 on time, the siding approved, reputation 74%.
+- The order board (`S.l7.board`, `makeCard`, `refillBoard`, `takeCard`, `boardHtml`, `buildBoard`, `boardTex`): from
+  Level 7 the phone stops ringing for either dock; three cards (four with Bigger order board) on the office block's front
+  wall, west of the porch, with their own ring (`BOARD_RING`, opens Orders). Each card: client, goods, dock, pay,
+  deadline, estimated profit (materials, wages, power: `cardCost`, says "estimate"), machine hours (`cardHours`, real
+  rates incl. tier 2), whether it fits this week (`cardFits`). Taking one snaps it off; a new one is pinned ~4 s later;
+  cards unclaimed for 900 s are withdrawn. Dock 2's pipe work and Hollis's wholesale work each keep a place.
+  `l7Delivered` (in `signOrder` / `signOrder2`) counts board orders and Hollis's run of on-time orders (3 = regular,
+  +20% on his cards). Friday: the big Hollis order. Sales representative upgrade: a fresh contact card every ~480 s.
+- People: Hollis Reed (Tuesday, pins his own card), Tommy Pryce (Monday card; one operator a machine, so he starts when an
+  operator's post opens, e.g. a promotion: `S.l7.tommyWait`), Cyrus Bell (Thursday).
+- Second supervisor zone: supervisors carry their own post (`st.post`; the first still mirrors `S.lv4.post`),
+  `zoneCentres()` drives focus, a second ring is drawn; promote up to the level cap; Move post per supervisor.
+- Siding survey (`updateSiding`): Thursday from 09:30 Cyrus waits at the North field's back fence (`SURVEY_RING`); with
+  the owner there he walks the strip behind it pegging six pegs (`PEGS`, z -22.2, x 6 to -34); the application goes in;
+  approval (`siding` 3, +2 rep) the next day at 11:00. The gale (WX `gale`) blows on Thursday.
+- Clock tower $12,000 on the office roof (`buildClockTower`, hands show the game time, +0.1 phone interest). Upgrades:
+  Bigger order board, Sales representative, Loading lamps (`buildDockLamps`: no fog delay for lorries), Zone reach (+1.5 m).
+- Autumn: leaf piles and blowing leaves (`updateLeaves`); Bolt dives into a pile.
+- Every story card with a person on it now gets the speech-bubble style (Gus's farewell cards at L5 were plain before).
+- Tests: `tools/level7.mjs`, `tools/layout_lint.mjs <url> l7`.
 
 ## Done in build 0.24 (Level 6: Industrial Company, Bible v2.0, plans/level6_plan.png)
 - Opens Tuesday 16 April 1974 (4 days). Charter (`CHARTER6`): $250K earned, clerk hired, 3 machines tier 2, 5 preventive
