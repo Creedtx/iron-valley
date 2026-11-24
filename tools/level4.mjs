@@ -15,7 +15,7 @@ p.on('request', r => { const u = r.url(), pre = 'https://cdn.jsdelivr.net/npm/th
   if (u.startsWith(pre)) return r.respond({ status:200, contentType:'text/javascript', headers:{ 'access-control-allow-origin':'*' }, body:fs.readFileSync(path.join(import.meta.dirname, 'node_modules/three', u.slice(pre.length))) });
   if (u.includes('fonts.g') || u.endsWith('favicon.ico')) return r.abort(); r.continue(); });
 const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push(m.text()); });
-await p.evaluateOnNewDocument(() => { try { localStorage.clear(); } catch(e){} });
+await p.evaluateOnNewDocument(() => { try { localStorage.clear(); } catch(e){} window.__noLL = true; });
 await p.goto(url, { waitUntil:'domcontentloaded' });
 await p.waitForFunction('window.__iv && window.__iv.owner && window.__iv.frames > 20', { timeout:300000 });
 const ev = (f, a) => p.evaluate(f, a);
@@ -59,7 +59,7 @@ check(trace.length > 20 && offLane.length < trace.length * .05, 'in the main yar
 await ev(() => { const v = window.__iv; v.camLock = [12, 1]; v.camZoom = 2.0; }); await new Promise(r => setTimeout(r, 2500)); await p.screenshot({ path:path.join(out, 'l4_lane.png') });
 await ev(() => { const v = window.__iv; v.camLock = [-18, 5]; v.camZoom = 1.6; }); await new Promise(r => setTimeout(r, 2500)); await p.screenshot({ path:path.join(out, 'l4_forkyard.png') }); await ev(() => { window.__iv.camLock = null; window.__each = null; });
 // 4. the supervisor: promoted from the crew, led to a post; operators inside the ring work 15% faster
-const sp = await ev(() => { const v = window.__iv, S = v.S, l = S.staff.find(s => s.role === 'loader'); S.cash += 1000; v.promote(l.id); v.closeOffice(); while (v.cardOpen) v.nextCard(); const sup = v.supervisor();
+const sp = await ev(() => { const v = window.__iv, S = v.S, l = S.staff.find(s => s.role === 'operator' && (s.mach || 'saw') === 'saw'); l.lv = 5; S.cash += 1000; v.promote(l.id); v.hire('operator'); v.closeOffice(); while (v.cardOpen) v.nextCard(); const sup = v.supervisor();
   v.owner.o.position.set(...v.zoneHint().map((n, i) => n)); v.owner.o.position.y = 0; v.owner.o.position.z = v.zoneHint()[1]; v.owner.o.position.x = v.zoneHint()[0]; sup.o.position.set(v.zoneHint()[0] + .8, 0, v.zoneHint()[1] + .4); return !!sup; });
 check(sp, 'a loader is promoted to supervisor');
 check(await run(20, '!!S.lv4.post') < 20, 'standing still, the owner sets the supervisor\'s post');

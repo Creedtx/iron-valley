@@ -20,7 +20,7 @@ p.on('request', r => { const u = r.url(), pre = 'https://cdn.jsdelivr.net/npm/th
   if (u.startsWith(pre)) return r.respond({ status:200, contentType:'text/javascript', headers:{ 'access-control-allow-origin':'*' }, body:fs.readFileSync(path.join(import.meta.dirname, 'node_modules/three', u.slice(pre.length))) });
   if (u.includes('fonts.g') || u.endsWith('favicon.ico')) return r.abort(); r.continue(); });
 const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push(m.text()); });
-await p.evaluateOnNewDocument(() => { try { localStorage.clear(); } catch(e){} });
+await p.evaluateOnNewDocument(() => { try { localStorage.clear(); } catch(e){} window.__noLL = true; });
 await p.goto(url, { waitUntil:'domcontentloaded' });
 await p.waitForFunction('window.__iv && window.__iv.owner && window.__iv.frames > 20', { timeout:300000 });
 const ev = (f, a) => p.evaluate(f, a);
@@ -124,7 +124,7 @@ await ev(async () => { const v = window.__iv; window.__aud.settle = 60; v.S.plot
 await play(DAYL * LO, { trips:true }); await report('level 3');
 await ev(async () => { const v = window.__iv, S = v.S; window.__aud.settle = 60; S.plots.scrap = { st:3 }; v.openScrapyard(false); S.levelUp = true; await v.startLevel(4); v.closeOffice(); while (v.cardOpen) v.nextCard();
   v.startSaw2Build(false); v.finishSaw2(false); for (const r of ['operator', 'forklift', 'loader']) v.hire(r); v.closeOffice(); for (const st of S.staff) st.posted = true;
-  const l = S.staff.find(s => s.role === 'loader'); if (l) { v.promote(l.id); v.closeOffice(); const sup = v.supervisor(); S.lv4.post = v.zoneHint(); if (sup) { sup.state = 'toPatrol'; sup.path = null; } }
+  const l = S.staff.find(s => s.role === 'operator' && (s.mach || 'saw') === 'saw'); if (l) { l.lv = 5; v.promote(l.id); v.hire('operator'); v.closeOffice(); const sup = v.supervisor(); S.lv4.post = v.zoneHint(); if (sup) { sup.state = 'toPatrol'; sup.path = null; } }
   S.cash += 5000; window.__aud.q0 = null; });
 await play(DAYL * DAYS, { trips:true, timber:true }); await report('level 4');
 console.log(errs.length ? 'page errors:\n' + [...new Set(errs)].slice(0, 20).join('\n') : 'no page errors');
