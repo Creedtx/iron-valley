@@ -45,6 +45,11 @@ await ev(() => { const v = window.__iv; v.owner.o.position.set(2, 0, 6); v.camLo
 await ev(() => { const v = window.__iv; v.camLock = null; v.S.time = v.dayNo() * 600 + 302; }); await run(26);
 check(await ev(() => !!window.__iv.M.snowman && window.__iv.M.snowman.scale.x > .9), 'the crew build a snowman at lunch');
 await ev(() => { const v = window.__iv; v.camLock = [-7, 5]; v.camZoom = 1.0; v.hold = false; }); await wait(2500); await p.screenshot({ path:path.join(out, 'gap_snowman.png') }); await ev(() => { window.__iv.camLock = null; });
+// snow chains on the lorry's tyres once bought; wipers sweep while it snows
+await ev(() => { const v = window.__iv; v.S.restored.chains = true; v.M.truck.visible = true; }); await run(1);
+check(await ev(() => { const t = window.__iv.M.truck, ch = t.userData.chains, w = t.userData.wipers; return !!(ch && ch.length === 4 && ch.every(r => r.visible) && w && w.visible); }), 'snow: chains on the lorry\'s four tyres, wipers sweeping (v2.0 vehicles)');
+await ev(() => { const v = window.__iv, t = v.M.truck; v.camLock = [t.position.x, t.position.z]; v.camZoom = 2.2; v.hold = false; }); await wait(2500); await p.screenshot({ path:path.join(out, 'gap_chains.png') }); await ev(() => { window.__iv.camLock = null; window.__iv.setWx('clear'); window.__iv.S.wx.lying = 0; }); await run(1);
+check(await ev(() => { const t = window.__iv.M.truck; return !t.userData.chains.some(r => r.visible) && !t.userData.wipers.visible; }), 'clear and thawed: chains off, wipers parked');
 // frost: icicles; the crew dress for the cold
 await ev(() => { const v = window.__iv; v.setWx('frost'); v.S.time = v.dayNo() * 600 + 40; }); await run(3);
 check(await ev(() => !!window.__iv.M.icicles && window.__iv.M.icicles.visible), 'icicles on the workshop gutter on a frosty morning');

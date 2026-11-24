@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (24 Nov 2026, build 0.27, Bible v2.0, Act II done, gap audit for 1-8 done)
+# Handover: where Iron Valley stands (24 Nov 2026, build 0.28, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
 
 Read this first when continuing in a new session.
 
@@ -89,6 +89,40 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
+## Done in build 0.28 (second Bible v2.0 audit: the pacing simulator, Bible 23 / QA-04)
+- `tools/sim.mjs <url> <out> [from] [to]` plays each level with an average bot and times its charter against the
+  Bible's minutes (±20%). The bot plays like a player: phone calls (bulk on alternate calls when the stock allows), gate
+  customers served from stock, the plank feed at Levels 1-2, supplies by the biggest lot that fits (steel first when
+  the bay runs low), spare parts, service-book bookings, upgrades (power first when short; the raw store at L8),
+  training, hiring to the caps, each level's own actions. `SIMDBG=1` prints a state line per game minute.
+  Run one level alone with `from = to` (earlier levels are skipped with their leftovers: lanes, Mk II, mains, licence,
+  a full stock room) or the whole chain with 1 8. Two sims can share the machine on ports 8765 and 8766.
+- Real game bugs the simulator found and fixed:
+  - Buying Tool press speed, Sturdier parts, Warehouse racking or the Spare-parts shelf threw (no spark position).
+  - The trolley claim (`trolleyBy`) was only released at the end of a restock trip: lunch, knock-off, pay day or
+    training left it held for good and the crate machine starved with a full stock room (`trolleyWatch`).
+  - Goods-in could never drain once returned planks filled the stock room, and the one delivery slot blocked steel for
+    the rest of the game (a softlock at L7): after a minute the last goods are stacked in the aisle; the wrong-timber
+    re-delivery waits for room.
+  - Level 8's clean day compared the train day with the next morning (knock-off runs after the roll-over): it could
+    never count. Level 2's orders leaned to pipes only until 20 were shipped, not the charter's 100.
+  - Knock-off could hold the day for ever: the crew walking out round a lorry coming in through the gateway waited on
+    each other ("never shut on somebody walking out" had no limit). After a minute they leave by the wicket door; after
+    two the gates shut whatever is still moving. The simulator stops with FROZEN if the clock ever stands for 2 minutes.
+- Economy tuning (Bible VERIFY values, set by the simulator; each one is commented where it lives):
+  - Order sizes grow with the works (`econ().qty` 1.25, 2.2, 2.6 at L3-5, held at 2.6 after: timber and steel come one
+    supplier lorry at a time); steel goods (pipes, tools) grow half as fast as crates. Level 2 pipe orders 4-12.
+  - Prices: Act I unchanged (1.1 a level); Act II pays industrial prices, 3.0 / 3.0 / 4.5 at Levels 6 / 7 / 8.
+  - Goals changed from the Bible: L3 $30,000 (Bible $24,000), L4 forklift 120 crates (200), L6 900 crates shipped in
+    all (2,000). Services are due after 80 cycles (crate machines) or 60 (Bible "about 200, VERIFY"); the L6 inspector
+    fails a machine at twice its interval.
+  - From Level 4 the forklift brings warehouse crates to the lorry by the pallet (loaders no longer carry them).
+- Measured (two full L1-8 chains, game minutes against the Bible's targets): see the latest run in the commit message.
+  The Bible asks for a median and 10th-90th percentile over many seeded runs (23.3) and the efficient, inefficient and
+  exploit bots (23.1): only the average bot exists so far.
+- Also: wiper blades on the lorries' windscreens in rain and snow, chains on the tyres once bought and the snow lies;
+  canonical state words on the machine tags; the office's Plant tab.
 
 ## Done in build 0.27 (Bible v2.0 gap audit for Levels 1-8: plans/gap_audit_v2.md)
 - A line-by-line audit of the whole Bible against the code found 62 gaps, most of them in the cross-cutting chapters

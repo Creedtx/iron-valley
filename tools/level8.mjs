@@ -80,6 +80,8 @@ check(await ev(() => window.__iv.S.l8.lateTold && window.__iv.S.l8.doloresAsked)
 await ev(() => { const v = window.__iv; while (v.cardOpen) v.nextCard(); });
 // pictures
 for (const [n, x, z, k] of [['l8_siding', -14, -19, 1.6], ['l8_store', -9, -14, 1.0], ['l8_plinth', -26, -12, 1.0]]) { await ev(([x, z, k]) => { const v = window.__iv; v.camLock = [x, z]; v.camZoom = k; }, [x, z, k]); await wait(2500); await p.screenshot({ path:path.join(out, n + '.png') }); }
+// the clean day is judged on the day that ended (knock-off runs after the clock has rolled over to the next morning)
+check(await ev(() => { const v = window.__iv, L = v.S.l8; if (!L.lit) return 'not lit'; const c0 = L.cleanDays || 0; L.trainDay = v.S.day.n; L.dayStock = false; L.dayOver = false; v.S.time = (v.S.day.n + 1) * v.DAY_S + 1; v.l8DayEnd(); const ok = (L.cleanDays || 0) === c0 + 1; L.dayOver = true; L.trainDay = v.S.day.n; v.l8DayEnd(); return ok && (L.cleanDays || 0) === c0 + 1; }), 'L8: a day with the train in and no stockout or overflow counts as clean; an overflow day does not');
 check(!errs.length, 'no page errors' + (errs.length ? ': ' + errs.slice(0, 3).join(' | ') : ''));
 console.log(fail.length ? `\n${fail.length} FAILED` : '\nLEVEL 8 CLEAN');
 await b.close(); process.exit(fail.length ? 1 : 0);

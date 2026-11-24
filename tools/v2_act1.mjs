@@ -52,7 +52,7 @@ check(await ev(() => { const v = window.__iv, b = v.bolt.o.position, o = v.owner
 // ---- Level 3
 await ev(async () => { const v = window.__iv, S = v.S; v.setWx('clear'); v.startWhBuild(false); v.finishWh(false); S.levelUp = true; await v.startLevel(3); while (v.cardOpen) v.nextCard(); });
 check(await ev(() => window.__iv.dateOf(window.__iv.calDay()) === 'Tuesday 5 June 1973'), 'Level 3 opens on Tuesday 5 June 1973');
-check(await ev(() => { const c = window.__iv.charter(); return c.length === 9 && c[0].need === 24000 && ['tools', 'field', 'press', 'fixed', 'mains', 'licence', 'scrap'].every(id => c.some(x => x.id === id)); }), 'Level 3 charter: $24K, 62%, 50 tools, North field, press, 5 fixes, mains, licence, scrapyard');
+check(await ev(() => { const c = window.__iv.charter(); return c.length === 9 && c[0].need === 30000 && ['tools', 'field', 'press', 'fixed', 'mains', 'licence', 'scrap'].every(id => c.some(x => x.id === id)); }), 'Level 3 charter: $24K, 62%, 50 tools, North field, press, 5 fixes, mains, licence, scrapyard');
 check(await ev(() => { const v = window.__iv; return v.S.plots.north.st === 0 && v.PLOTS.north.price >= 2400 && v.PLOTS.north.price <= 4800; }), 'the North field is for sale now, at 10-20% of the level goal');
 await ev(() => { const v = window.__iv, S = v.S; S.plots.north = { st:3 }; v.buyField(false); v.startPressBuild(false); v.finishPress(false); v.hire('operator'); v.hire('mechanic'); v.hire('helper'); v.closeOffice(); for (const st of S.staff) st.posted = true; });
 check(await ev(() => window.__iv.S.staff.some(x => x.name === 'Stan' && x.sur === 'Kowalczyk')), 'the mechanic is Stan Kowalczyk');
@@ -77,7 +77,7 @@ check(await ev(() => window.__iv.walkPatience() === 160 && !!window.__iv.M.bell)
 // ---- Level 4
 await ev(async () => { const v = window.__iv, S = v.S; S.plots.scrap = { st:3 }; v.openScrapyard(false); S.levelUp = true; await v.startLevel(4); while (v.cardOpen) v.nextCard(); });
 check(await ev(() => window.__iv.dateOf(window.__iv.calDay()) === 'Tuesday 7 August 1973'), 'Level 4 opens on Tuesday 7 August 1973');
-check(await ev(() => { const c = window.__iv.charter(); return c.length === 8 && c[0].need === 55000 && ['sup', 'fork', 'saw2', 'mixed', 'road', 'ontime', 'rep'].every(id => c.some(x => x.id === id)) && c.find(x => x.id === 'fork').need === 200 && c.find(x => x.id === 'mixed').need === 3; }), 'Level 4 charter: $55K, supervisor, forklift moves 200, second crate machine, 3 mixed, road permit, 10 on time, 66%');
+check(await ev(() => { const c = window.__iv.charter(); return c.length === 8 && c[0].need === 55000 && ['sup', 'fork', 'saw2', 'mixed', 'road', 'ontime', 'rep'].every(id => c.some(x => x.id === id)) && c.find(x => x.id === 'fork').need === 120 && c.find(x => x.id === 'mixed').need === 3; }), 'Level 4 charter: $55K, supervisor, forklift moves 120 (simulator-tuned from 200), second crate machine, 3 mixed, road permit, 10 on time, 66%');
 check(await ev(() => { const v = window.__iv, p3 = v.wxPlan(v.LV_START[4] + 2), p4 = v.wxPlan(v.LV_START[4] + 3); return p3[0][1] === 'heat' && p3[0][2] === 'icecream' && p4.some(q => q[1] === 'storm'); }), 'Level 4: Thursday\'s heat wave with the ice-cream van, then the storm that breaks it');
 const gk = await ev(() => { const v = window.__iv, a = v.genKW(); v.setWx('heat'); return a; }); await run(.3);
 check(await ev(a => Math.abs(window.__iv.genKW() - a * .9) < .2, gk), 'a heat wave takes 10% off the generator');

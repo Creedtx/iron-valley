@@ -10,7 +10,7 @@ export const LEVEL_TABLE = [
   // Bible v2.0 6.1 and 6.2: dates, target minutes and cash goals (VERIFY in the simulator, within 20%)
   { n:1,  act:'I',   title:'Inherited Workshop',      system:'Assign a worker; the first order',        product:'Wooden crates',            goal:4000,      minutes:30, days:3 },
   { n:2,  act:'I',   title:'Reopened Factory',        system:'Loaders, the lorry, the power limit',     product:'Steel pipes',              goal:10000,     minutes:30, days:3 },
-  { n:3,  act:'I',   title:'Local Manufacturer',      system:'Issues and repairs; supplies; mains',     product:'Basic tools',              goal:24000,     minutes:40, days:4 },
+  { n:3,  act:'I',   title:'Local Manufacturer',      system:'Issues and repairs; supplies; mains',     product:'Basic tools',              goal:30000,     minutes:40, days:4 },
   { n:4,  act:'I',   title:'Growing Enterprise',      system:'Supervisor zone; forklift',               product:'Second crate line',        goal:55000,     minutes:40, days:4 },
   { n:5,  act:'II',  title:'Regional Manufacturer',   system:'Pay day, weekly accounts, loans',         product:'Second pipe mill, dock 2', goal:120000,    minutes:50, days:5 },
   { n:6,  act:'II',  title:'Industrial Company',      system:'The clerk; tier 2; machine service',      product:'Tier 2 refits',            goal:250000,    minutes:40, days:4 },
@@ -154,7 +154,10 @@ export const roman = n => ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII',
 
 // ---------------------------------------------------------------- orders: size and price grow with the level
 // about 2.5x the money goal per level (doc); orders grow ~20% and pay ~10% more per level from level 3
-export const econ = level => ({ qty:level <= 2 ? 1 : 1 + .2 * (level - 2), price:level <= 2 ? 1 : Math.pow(1.1, level - 2) });
+// order size and price by level. Sizes grow with the works (more lines, docks and a reputation that wins bigger
+// accounts): v2.0 23 simulator, the average bot left the lines idle most of the day on Act I sizes at Levels 3-8.
+// From Level 5 a lorry load stops growing (timber and steel arrive one supplier lorry at a time); money grows by price
+export const econ = level => ({ qty:level <= 2 ? 1 : level === 3 ? 1.25 : Math.min(2.6, 1 + .4 * (level - 1)), price:level <= 2 ? 1 : level <= 5 ? Math.pow(1.1, level - 2) : level <= 8 ? [3.0, 3.0, 4.5][level - 6] : 4.5 * Math.pow(1.1, level - 8) });   // Act II pays industrial prices: 3.0, 3.0, 4.5 at Levels 6-8 (simulator)
 
 // ---------------------------------------------------------------- facilities: what the crew needs
 // one stall per four people, one cooler per eight; the washroom card warns when the crew outgrows them
