@@ -64,6 +64,32 @@ those three files. The preview runs levels 1-4 on the "wide yard" (PREVIEW = tru
 The user's PDF `uploads/bible_v2.0.pdf` (106 pages, "Master Gameplay Bible v2.0") replaces v1.4, v1.5 and v1.6. Follow it
 alone; keep what is built; add what v2.0 asks of Levels 1-4 (Act I). Levels 5+ wait for the user's go-ahead (show a map first).
 
+## Act II build plan (Levels 5-8), maps APPROVED by the user 24 Nov 2026 (plans/level5..8_plan.png)
+Build one level at a time to Bible v2.0 section 8, each tested (calendar, v2_act1, audit, a new levelN test) before the next.
+Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound, south lane 17.1 = westbound):
+- L5: office block across Mill Road opposite the main gate, x -4..5, z 18.8..25.4, door facing the camera (south), a path
+  round its east end from the zebra crossing (x 4.2..5.8 over the road, Belisha beacons; NAVOUT keeps walkers to it).
+  Ada's corner plot x 13.5..28, fence moved south to z ~26 for the lorry. Dock 2 = the dock-1 model (raised side dock with
+  ramp) at Dk2 [24.0, 22.0]: deck x 23..25 z 19.5..24.5, ramp x 18.5..23 z 20..21.6 (groundY must take a list of docks);
+  lorry 2 parks at ~[26.25, 22.05] cab north, arriving westbound on the south lane and reversing south through the plot's
+  road gate (x 24.6..27.6). Mill 2 pad ~[16.0, 21.0]; pipe rack 2 ~[17.6, 23.2] by the ramp foot; coil rack 2 ~[14.2, 23];
+  dock-2 orders are pipe orders loaded by hand/trolley from rack 2 (Wilf Dunn, dock crew chief); coils for mill 2 come
+  across the zebra from the coil bay. No bank building (Eldon is on the town map/Finance tab).
+  v2.0 money at L5: Friday 16:30 packets paid from cash at the hatch; the weekly accounts card after the whistle (power
+  30% lower on mains, diesel burnt, Gus's pension $35, loan instalment); one week's grace then -2 rep a week; never closes
+  the works. Loans up to 30% of the goal, 110% over the next 5 Fridays, one at a time (Eldon, Thursday). Replace the old
+  6-minute BILL_EVERY bills. Weather: heavy snow Monday (crew shovel; owner can grab a shovel), frost mornings, snow at
+  Gus's goodbye. Gus asks ~40 s in Monday; party Friday 17:00. Charter: $120K, mill 2 running, dock 2 + lorry 2 used,
+  two orders delivered the same day x5, first weekly accounts paid, farewell held, rep 68%.
+- L6: June's clerk's window (office block), mobile crane through the main gate (stands x 1..5, z 5.6..9.4) swaps the
+  crate machine for tier 2; grandad's machine under a tarpaulin at x 15.8..17.6, z -11.4..-9.8; canteen x -12..-6,
+  z 19.2..24.4; lightning conductor on the workshop chimney; auto changeover; trophy cabinet; service tags; inspector.
+- L7: order board on the office block; clock tower on it; second supervisor ring; siding survey pegs along z -21.
+- L8: siding along z -21.3 from the west (x -34) to a buffer at x 6; raw-store bays x -11..4, z -18.4..-14.6; furnace
+  house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
+  store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
+  yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
 ## Done in build 0.22 (Bible v2.0, Act I re-fit)
 - One clock (v2.0 3): a working day is 600 s (one game minute a second), lunch 12:00-12:30 (30 s). The calendar counts
   working days from Monday 2 April 1973 (`CAL0`, `wdOf`, `calDay`, `dateOf`, `weekday`, `isFriday`); `S.cal.off` maps play
