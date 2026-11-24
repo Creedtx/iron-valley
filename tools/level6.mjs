@@ -66,7 +66,7 @@ check(await ev(() => window.__iv.S.l6.svc > window.__s0 && window.__iv.S.l6.book
 await ev(() => { const v = window.__iv, S = v.S; S.l6.cyc.pipe = 150; v.svcPost('pipe'); const f = S.faults.find(f => f.kind === 'svcPipe'); f.by = -5; window.__s1 = S.l6.svc; v.owner.o.position.set(v.P.pfix[0], 0, v.P.pfix[1]); });
 const t16 = await run(30, 'S.l6.svc > ' + await ev(() => window.__s1)); check(t16 > 14 && t16 < 19 && await ev(() => window.__iv.S.l6.svc > window.__s1), `the owner services the pipe mill by hand in about 16 s (${t16.toFixed(1)} s)`);
 // automatic changeover
-check(await ev(() => { const v = window.__iv, S = v.S; S.mains.st = 3; S.faults.push({ id:++S.faultSeq, kind:'powercut', where:'gen', diag:true, prog:0, t:5, diagT:0 }); const a = v.cutDark(); v.applyRestore('changeover', false); const b = v.cutDark(); S.faults = S.faults.filter(f => f.kind !== 'powercut'); return a && !b; }), 'in a mains cut the works waits 20 s for the generator, 3 s with the automatic changeover');
+check(await ev(() => { const v = window.__iv, S = v.S; S.mains.st = 3; S.faults.push({ id:++S.faultSeq, kind:'powercut', where:'gen', diag:true, prog:0, t:5, diagT:0 }); const a = v.cutDark(); S.up.changeover = 1; const b = v.cutDark(); S.faults = S.faults.filter(f => f.kind !== 'powercut'); return a && !b; }), 'in a mains cut the works waits 20 s for the generator, 3 s with the automatic changeover');
 // purchases
 check(await ev(() => { const v = window.__iv; v.applyRestore('canteen', false); v.applyRestore('conductor', false); return !!v.M.canteen && !!v.M.conductor; }), 'the works canteen across Mill Road and the lightning conductor on the chimney');
 // hail: everyone outdoors shelters
