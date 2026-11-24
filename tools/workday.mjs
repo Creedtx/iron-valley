@@ -121,7 +121,7 @@ check(/Gate trade\s+2 served, 1 walked off/.test(card), 'day book counts the gat
 check(/to beat/.test(card), 'first day sets the mark to beat');
 await ev(() => document.querySelector('#storyBody .btn.primary').click()); await wait(800);
 check(await until(() => !window.__iv.cardOpen && !window.__iv.S.day.closing, 10), 'the next morning starts');
-{ await until(() => /Tue · 07:/.test(document.getElementById('clock').textContent), 10); const ck = await ev(() => document.getElementById('clock').textContent); check(/Tue · 07:[0-5]/.test(ck), `clock reads Tuesday morning (${ck})`); }
+{ await until(() => /Tue [0-9]+ [A-Z][a-z]+ · 07:/.test(document.getElementById('clock').textContent), 10); const ck = await ev(() => document.getElementById('clock').textContent); check(/^Tue [0-9]+ [A-Z][a-z]+ · 07:[0-5]/.test(ck), `clock reads Tuesday morning (${ck})`); }
 check(await ev(() => [...window.__iv.staffObj.values()].every(c => !c.gone && c.o.visible)), 'the crew clocks in through the gate');
 check(await until(() => { const r = window.__iv.gateRot; return !window.__iv.gateShut() && Math.abs(r[0] + 1.2) < .05 && Math.abs(r[1] - Math.PI - 1.2) < .05; }, 20), 'the gates swing open in the morning');
 await ev(() => { const v = window.__iv; v.camLock = [v.P.frontIn[0], v.P.frontIn[1] - 1]; }); await wait(2500); await p.screenshot({ path:path.join(out, 'w7_clock_in.png') }); await ev(() => { window.__iv.camLock = null; });
