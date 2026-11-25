@@ -97,10 +97,7 @@ await ev(() => { const v = window.__iv; v.hire('forklift'); v.closeOffice(); });
 check(await ev(() => window.__iv.S.staff.some(x => x.name === 'Reggie' && x.sur === 'Platt')), 'the forklift driver is Reggie Platt');
 check(await ev(() => window.__iv.capOf('helper') === 3 && window.__iv.capOf('loader') === 3), 'Level 4 posts: three helpers, three loaders');
 // ---- the away envelope and the login calendar
-const env = await ev(() => { const v = window.__iv, S = v.S; S.day.book = [{ takings:3000, wd:1 }, { takings:3600, wd:2 }]; S.seenAt = Date.now() - 3 * 3600e3; const c0 = S.cash; v.awayEnvelope(); while (v.cardOpen) v.nextCard(); return [c0, S.cash, S.away]; });
-check(env[1] > env[0] && env[2] && env[2].h === 2, 'while you were away: an envelope of overtime, capped at 2 hours');
-const env2 = await ev(() => { const v = window.__iv, S = v.S; S.seenAt = Date.now() + 3600e3; const c0 = S.cash; v.awayEnvelope(); return [c0, S.cash]; });
-check(env2[0] === env2[1], 'a clock moved backwards pays nothing');
+check(await ev(() => { const v = window.__iv, S = v.S, c0 = S.cash; S.seenAt = Date.now() - 3 * 3600e3; v.story({ kind:'away' }); const open = v.cardOpen; while (v.cardOpen) v.nextCard(); return v.awayEnvelope === undefined && S.cash === c0 && !open; }), 'no offline earnings: no envelope on return, and an old queued one is dropped');
 const lg = await ev(() => { const v = window.__iv, S = v.S; S.login = { day:2, last:'a day long ago' }; const c0 = S.cash; v.loginCalendar(); while (v.cardOpen) v.nextCard(); const once = S.cash; v.loginCalendar(); return [c0, once, S.cash, S.login.day]; });
 check(lg[1] > lg[0] && lg[2] === lg[1] && lg[3] === 3, 'the login calendar moves on one day for a new real day, once a day');
 check(await ev(() => /EST\. 1921/.test(document.body.innerHTML) || true), 'the sign reads Iron Valley Workshop, Est. 1921');

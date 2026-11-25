@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (25 Nov 2026, build 0.29, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
+# Handover: where Iron Valley stands (25 Nov 2026, build 0.30, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
 
 Read this first when continuing in a new session.
 
@@ -89,6 +89,12 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
+## Done in build 0.30 (the user's call: no work while the game is closed)
+- Removed the "While you were away" envelope (offline overtime pay) completely: `awayEnvelope`, its card, the
+  "Long nights" owner skill (it only lengthened the envelope; points already spent are refunded on load) and the
+  planned Level 10 "Offline earnings cap" upgrade. A save with an envelope still queued simply drops it. Do not add
+  offline earnings back: the works does nothing while the game is closed. The login calendar stays.
 
 ## Done in build 0.29 (from the user's phone play at Level 2; `tools/fixes029.mjs` checks every item)
 - Office hours for the phone (`officeHours`): calls ring 07:00-16:40 only; not after the knocking-off whistle, not in
@@ -283,7 +289,7 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   heat wave ($10, crew +5% for the day).
 - Chalkboard (18.6, D-04) from Level 3 replaces the daily target: three jobs a day on the workshop wall (`CHALK`), a bonus
   each, +2 rep for all three. Wrong timber (L3 Thursday + rare): send back a day or run at 80%. Blunt blade on L3 Thursday.
-- Returns: "While you were away" envelope from L2 (50% of normal takings x staffed share, 2 h cap, `S.seenAt`); login
+- Returns (removed in 0.30, the user does not want it): "While you were away" envelope from L2 (50% of normal takings x staffed share, 2 h cap, `S.seenAt`); login
   calendar from L3 (7 real days). Each level names its strategic choice (`CHOICE`). Letter: v2.0 words, Walter Ashford.
   Signs: "Iron Valley Workshop · Est. 1921" (`signName`).
 - Works Board HUD (20, D-01): olive painted plates with cream pinstripe and brass rivets, Roboto Slab / Alfa Slab One /

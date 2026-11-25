@@ -3,7 +3,7 @@
 - [x] 3.1 Saturday card: the quiet yard and the week's totals (check)
 - [x] 3.2 hurry the clock only while every line is staffed
 - [x] 3.4 skip: before/after view of the yard (check)
-- [x] 3.6 away envelope: Gus until farewell, then Alf Pryce (senior supervisor), Joe from L8; 50% / 75% with foreman (check)
+- [-] 3.6 away envelope REMOVED in 0.30 at the user's request (no offline earnings): Gus until farewell, then Alf Pryce (senior supervisor), Joe from L8; 50% / 75% with foreman (check)
 - [x] 4.4 rule 1: the beam forklift (fork8) and the crane/flatbed stop and toot for people
 - [x] 5.1 order terms (regular/rush/bulk) on every phone call, not only L1-4 (dock-1 calls at L5-6)
 - [x] 5.1 finished goods go to the active order with the earliest deadline first (dock 1 vs dock 2) (check)
@@ -50,7 +50,7 @@
 - [x] 18.2 leases line on the weekly accounts from L8 (siding)
 - [x] 18.3 every L1-15 upgrade has three steps at ~2/4/8% of its level's goal: fix L6-8 (schedule, ledger, board4, salesrep, docklamps, reach, heat, rawstore, sidingx) with step effects
 - [x] 18.3 automatic changeover is an L6 UPGRADE (not a yard pad); fixed-price supply is an L8 upgrade (Dolores's contract)
-- [x] 18.5 owner skills: a skill point at each level-up, chosen on the level-up card/office; Brisk walk (+10/20/30%), Strong arms, Sharp deals, Good name, Long nights (+1/2/3 h offline)
+- [x] 18.5 owner skills: a skill point at each level-up, chosen on the level-up card/office; Brisk walk (+10/20/30%), Strong arms, Sharp deals, Good name, Long nights (removed in 0.30 with the away envelope) (+1/2/3 h offline)
 - [x] 18.6 trophies: lifetime totals shown in the office cabinet (L6+)
 - [x] 19.1 owner walking speed by load: two crates 95%, pipes 92%, loaded trolley 90%, snow/mud a further -10% (check)
 - [x] 19.1 footsteps change with the ground (concrete, gravel, wet, snow, steel dock deck)
