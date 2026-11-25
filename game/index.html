@@ -238,8 +238,8 @@ button{font:inherit;color:inherit}
 #officeBtn .dot{position:absolute;top:4px;right:4px;width:12px;height:12px;border-radius:50%;background:var(--cash);border:2px solid var(--ink)}
 #joy{position:absolute;left:0;top:0;width:112px;height:112px;margin:-56px 0 0 -56px;border-radius:50%;border:2px solid rgba(236,230,217,.35);background:rgba(15,17,19,.22);pointer-events:none}
 #joy i{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;background:rgba(232,171,44,.9);box-shadow:0 2px 8px rgba(0,0,0,.5)}
-#toasts{position:absolute;left:50%;top:44%;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;width:max-content;max-width:calc(100% - 32px)}
-.toast{background:rgba(15,17,19,.88);border:1px solid var(--steel-400);border-radius:6px;padding:6px 12px;font-weight:600;font-size:13px;max-width:340px;text-align:center;animation:tin .25s ease-out;transition:opacity .4s}
+#toasts{position:absolute;z-index:6;left:max(12px,env(safe-area-inset-left,0px));top:132px;display:flex;flex-direction:column;gap:6px;align-items:flex-start;pointer-events:none;width:max-content;max-width:min(calc(100% - 196px),420px)}   /* under the objective banner, top left: never over the yard's middle */
+.toast{background:rgba(15,17,19,.88);border:1px solid var(--steel-400);border-radius:6px;padding:6px 12px;font-weight:600;font-size:13px;max-width:100%;box-sizing:border-box;text-align:left;animation:tin .25s ease-out;transition:opacity .4s}
 .toast.good{border-color:var(--cash)} .toast.bad{border-color:var(--red)} .toast.gold{border-color:var(--yellow)}
 @keyframes tin{from{transform:translateY(8px);opacity:0}}
 /* Office sheet */
@@ -513,7 +513,7 @@ button{font:inherit;color:inherit}
 #ticket .q,#ticket2 .q{font:700 15px/1.15 var(--f-slab)!important}
 #ticket .pay,#ticket2 .pay{font:400 18px/1.1 var(--f-num)!important;color:#2f5a1c}
 /* the phone: a red-oxide disc with a light ring when it rings, and a small PHONE plate */
-#callc{background:linear-gradient(180deg,#f1e8cf,#ddd0aa)!important;color:#2a2416!important;border:2px solid #3a3320!important;border-radius:8px!important;background-image:none!important}
+#callc{background:#ece2c4 linear-gradient(180deg,#f3ead2,#ddd0aa)!important;color:#2a2416!important;border:2px solid #3a3320!important;border-radius:8px!important;opacity:1!important;box-shadow:0 3px 0 #8f7f57,0 10px 22px rgba(0,0,0,.55)!important}   /* a solid paper slip: the old background-image:none wiped the gradient and left it see-through */
 #callc .ch svg{width:22px;height:22px;padding:8px;border-radius:50%;background:var(--wb-oxide);color:#f4efe0!important;stroke:#f4efe0!important;box-sizing:content-box}
 #callc .k{display:inline-block;background:#2a2416;color:#ece2c6!important;font:700 10px/1 var(--f-slab)!important;letter-spacing:.16em!important;padding:3px 6px;border-radius:2px}
 #callc b{font:700 15px/1.15 var(--f-slab)!important}

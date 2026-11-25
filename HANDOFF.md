@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (25 Nov 2026, build 0.30, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
+# Handover: where Iron Valley stands (25 Nov 2026, build 0.31, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
 
 Read this first when continuing in a new session.
 
@@ -89,6 +89,14 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
+## Done in build 0.31 (from the user's phone screenshots)
+- Messages (toasts) stack top left directly under the objective banner (`placeToasts`), sized to stay clear of the
+  cards down the right (the incoming call, the order slips) and above the round phone button; never mid-screen.
+- The incoming-call slip was see-through (a later rule's `background-image:none` wiped its gradient): now a solid
+  paper slip with a shadow.
+- The lorry drive's gravel now runs from pillar to pillar of the widened two-dock gateway (the right pillar stood
+  on grass).
 
 ## Done in build 0.30 (the user's call: no work while the game is closed)
 - Removed the "While you were away" envelope (offline overtime pay) completely: `awayEnvelope`, its card, the
