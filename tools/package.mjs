@@ -78,6 +78,19 @@ console.log(`[package] three ${version} bundled -> ${path.relative(ROOT, OUT)}, 
 // 6. the phone copy (Termux / any local web server): the same bundle without the YouTube Playables SDK line, so it
 //    opens instantly and runs fully offline. Serve dist/phone/ and open http://localhost:8080 on the phone.
 const PHONE = path.join(ROOT, 'dist', 'phone'); fs.rmSync(PHONE, { recursive:true, force:true }); fs.cpSync(OUT, PHONE, { recursive:true });
+// the phone copy is not a Playable: it gets its own game.js built with __PLAYABLES__ false, so it keeps the Page
+// Visibility pause (another app or the screen off: the game and every machine sound stop). Copying the Playables bundle
+// stripped that code and the phone kept sounding in the background (build 0.32)
+await build({
+  entryPoints:[path.join(GAME, 'game.js')], bundle:true, minify:true, format:'esm', target:['es2020'], outfile:path.join(PHONE, 'game.js'),
+  legalComments:'none', logLevel:'warning', define:{ __PLAYABLES__:'false' }, allowOverwrite:true,
+  plugins:[{ name:'three-map', setup(b){
+    b.onResolve({ filter:/^three$/ }, () => ({ path:'./three.js', external:true }));
+    b.onResolve({ filter:/^three\/addons\// }, a => ({ path:addonPath(a.path) }));
+  } }],
+});
+if (!fs.readFileSync(path.join(PHONE, 'game.js'), 'utf8').includes('visibilitychange')) throw new Error('phone copy: the background pause is missing');
+if (fs.readFileSync(path.join(OUT, 'game.js'), 'utf8').includes('visibilitychange')) throw new Error('Playables bundle: the Page Visibility API must not be in it');
 // the game script is asked for under a name that changes with every build (game.js?v=<hash>), so Chrome on the phone
 // never keeps running an older cached copy after a git pull
 const ver = (await import('node:crypto')).createHash('sha1').update(fs.readFileSync(path.join(PHONE, 'game.js'))).digest('hex').slice(0, 10);

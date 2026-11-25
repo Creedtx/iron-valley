@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (25 Nov 2026, build 0.31, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
+# Handover: where Iron Valley stands (25 Nov 2026, build 0.32, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
 
 Read this first when continuing in a new session.
 
@@ -89,6 +89,16 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
+## Done in build 0.32 (`tools/fixes032.mjs`)
+- The phone copy never paused in the background: `tools/package.mjs` copied the Playables bundle (built with
+  `__PLAYABLES__` true, which strips the Page Visibility code) to `dist/phone`. The phone copy now gets its own
+  game.js built with `__PLAYABLES__` false, and the build fails if the phone copy lacks the pause or the Playables
+  bundle contains the Page Visibility API. In another app or with the screen off (`pageHidden`) the frame loop stands
+  still, the clock does not count the time away, and `audioAllowed()` is false so no sound effect can wake the
+  suspended audio (they used to resume it).
+- The guide arrow and its pulsing ring hide while the owner stands on the spot doing the job (`guideHere`, within
+  0.6 m; they come back past 0.95 m, so the ring's edge does not flicker).
 
 ## Done in build 0.31 (from the user's phone screenshots)
 - Messages (toasts) stack top left directly under the objective banner (`placeToasts`), sized to stay clear of the
