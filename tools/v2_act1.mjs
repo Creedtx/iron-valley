@@ -45,8 +45,14 @@ const dz = await ev(() => { const v = window.__iv, a = v.noWalkIns(); v.applyRes
 check(dz[0] === true && dz[1] === false, 'drizzle stops the walk-in trade, unless the gate awning is up');
 // Bolt: comes in at lunch on Thursday and stays
 await ev(() => { const v = window.__iv, S = v.S, d = v.dayNo(); v.setWx('overcast'); S.cal.off = v.LV_START[2] + 1 - d; S.time = d * 600 + 302; S.day.lunch = d; });
-await run(25, 'S.bolt && S.bolt.joined');
-check(await ev(() => window.__iv.S.bolt && window.__iv.S.bolt.joined && window.__iv.bolt.o.visible), 'Bolt wanders in at Thursday lunch and stays');
+await run(25, "v.bolt.mode === 'stray'");
+check(await ev(() => { const v = window.__iv, b = v.bolt.o.position; return !v.S.bolt.joined && Math.hypot(b.x - v.STRAY_AT[0], b.z - v.STRAY_AT[1]) < .3 && v.M.rings.stray.g.visible; }), 'Thursday lunch: a stray sits in the open gateway, a ring just inside');
+await run(4); check(await ev(() => !window.__iv.S.bolt.joined), 'he waits there: the owner has to go to the gate');
+await ev(() => { const v = window.__iv; v.owner.o.position.set(v.STRAY_RING[0], 0, v.STRAY_RING[1]); });
+await run(60, "v.cardOpen && /sandwich/i.test(document.getElementById('storyBody').innerText)"); check(await ev(() => /share your sandwich/i.test(document.getElementById('storyBody').innerText)), 'the stray card: share your sandwich');
+await run(0.2); check(await ev(() => window.__iv.bolt.mode === 'eat' && !!window.__iv.bolt.sandwich), 'half the sandwich goes on the ground and he eats');
+await run(8, 'S.bolt && S.bolt.joined');
+check(await ev(() => window.__iv.S.bolt && window.__iv.S.bolt.joined && window.__iv.bolt.o.visible && !window.__iv.bolt.sandwich && !!window.__iv.M.kennel && window.__iv.COLKEYS().includes('kennel')), 'fed, he stays for good (Bolt), and Gus builds his kennel by Old Faithful');
 await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * 600 + 340; window.__wk = 0; window.__each = v => { window.__wk += .05; v.owner.o.position.set(-2 + Math.min(8, window.__wk * 1.2), 0, 6.0); v.S.moved = true; }; }); await run(9); await ev(() => { window.__each = null; });
 check(await ev(() => { const v = window.__iv, b = v.bolt.o.position, o = v.owner.o.position; return Math.hypot(b.x - o.x, b.z - o.z) < 3.2; }), 'Bolt trots after the owner');
 // ---- Level 3

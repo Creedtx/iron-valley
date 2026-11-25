@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (24 Nov 2026, build 0.28, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
+# Handover: where Iron Valley stands (25 Nov 2026, build 0.29, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
 
 Read this first when continuing in a new session.
 
@@ -89,6 +89,27 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
+## Done in build 0.29 (from the user's phone play at Level 2; `tools/fixes029.mjs` checks every item)
+- Office hours for the phone (`officeHours`): calls ring 07:00-16:40 only; not after the knocking-off whistle, not in
+  the last twenty minutes (no lorry could come), not during Gus's farewell. A caller still on the line then hangs up
+  and rings back in the morning. Dock 2's line follows the same rule.
+- Vera Lind no longer stands at the roadside all Level 2 waiting to be found (`updateVeraVisit`): she walks up the
+  verge, pins up her land board left of the gate (Bible 2.1), comes in through the gate to the owner wherever they
+  are, introduces herself (land opens at Level 3), and walks back out. Her board stays by the road.
+- Abel Thorne now leans on his side of the back fence (`P.abelL2`): before, his "!" badge could never be reached.
+- Trolleys: the bay's four spaces are shared (`slotFree`, `parkSlotNear`, `cartBack`/`cartArrive`): the owner and the
+  loaders park a trolley in any empty space, not only the one it came from.
+- Bolt: a new model (capsule body, white chest and socks, darker saddle, muzzle and nose, one ear up and one flopped,
+  red collar, two-part legs, a curled white-tipped tail, panting tongue). He follows the owner's own footsteps
+  (`boltTrail`/`boltFollow`: a trail of points 30 cm apart; round obstacles by the path finder when the line is
+  blocked). His place: a kennel by Old Faithful (`KENNEL`, name board, tartan blanket, water bowl, collider), where
+  he naps. The story: at Thursday lunch a thin stray comes along the kerb and sits in the open gateway (`STRAY_AT`;
+  he ducks inside by the west post while a vehicle comes through); the owner goes to the ring just inside the gate
+  (`STRAY_RING`), the card "A stray at the gate", half a sandwich on the ground, he eats, he is Bolt, and Gus builds
+  the kennel.
+- Machine tags: "Stopped: no operator" reads Idle (it said Broken); a full warehouse reads Blocked. The coil-bay
+  label shows aisle overflow as "6/6 +4 in the aisle".
 
 ## Done in build 0.28 (second Bible v2.0 audit: the pacing simulator, Bible 23 / QA-04)
 - `tools/sim.mjs <url> <out> [from] [to]` plays each level with an average bot and times its charter against the
