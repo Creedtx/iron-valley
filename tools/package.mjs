@@ -35,11 +35,14 @@ const all = await import(path.join(three, 'build', 'three.module.js')); const us
 fs.mkdirSync(path.join(ROOT, 'build'), { recursive:true }); fs.writeFileSync(path.join(ROOT, 'build', 'three-entry.js'), `export { ${used.join(', ')} } from 'three';\n`);
 await build({ entryPoints:[path.join(ROOT, 'build', 'three-entry.js')], bundle:true, minify:true, format:'esm', target:['es2020'], outfile:path.join(OUT, 'three.js'), legalComments:'none', logLevel:'warning',
   plugins:[{ name:'three', setup(b){ b.onResolve({ filter:/^three$/ }, () => ({ path:path.join(three, 'build', 'three.module.js') })); } }] });
+// the engine file is asked for under a name that changes with its contents (three.js?v=<hash>): a phone that kept an older
+// three.js in its cache would load a new game.js against it and stop at the loading screen (build 0.33: a missing export)
+const threeV = (await import('node:crypto')).createHash('sha1').update(fs.readFileSync(path.join(OUT, 'three.js'))).digest('hex').slice(0, 10);
 await build({
   entryPoints:[path.join(GAME, 'game.js')], bundle:true, minify:true, format:'esm', target:['es2020'], outfile:path.join(OUT, 'game.js'),
   legalComments:'none', logLevel:'warning', define:{ __PLAYABLES__:'true' },
   plugins:[{ name:'three-map', setup(b){
-    b.onResolve({ filter:/^three$/ }, () => ({ path:'./three.js', external:true }));
+    b.onResolve({ filter:/^three$/ }, () => ({ path:'./three.js?v=' + threeV, external:true }));
     b.onResolve({ filter:/^three\/addons\// }, a => ({ path:addonPath(a.path) }));
   } }],
 });
@@ -85,7 +88,7 @@ await build({
   entryPoints:[path.join(GAME, 'game.js')], bundle:true, minify:true, format:'esm', target:['es2020'], outfile:path.join(PHONE, 'game.js'),
   legalComments:'none', logLevel:'warning', define:{ __PLAYABLES__:'false' }, allowOverwrite:true,
   plugins:[{ name:'three-map', setup(b){
-    b.onResolve({ filter:/^three$/ }, () => ({ path:'./three.js', external:true }));
+    b.onResolve({ filter:/^three$/ }, () => ({ path:'./three.js?v=' + threeV, external:true }));
     b.onResolve({ filter:/^three\/addons\// }, a => ({ path:addonPath(a.path) }));
   } }],
 });

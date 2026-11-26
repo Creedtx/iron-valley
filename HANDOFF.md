@@ -90,6 +90,12 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
 
+## Fix after 0.33: the phone copy stuck at 29% on loading
+- `three.js` was loaded under a fixed name while `game.js` was version-stamped: Chrome on the phone kept its cached
+  three.js, and the new game.js (which uses THREE.Vector4, CapsuleGeometry, TorusGeometry) failed to link, so the
+  loading bar stopped where its creep ends (29%). `tools/package.mjs` now imports `three.js?v=<hash of its contents>`
+  in both bundles, so a new engine file is always fetched.
+
 ## Done in build 0.33 (the user's phone play, Levels 1-5; tests `reach.mjs`, `fixes033.mjs`, `night.mjs`)
 - Bought land in view: the camera's limits come from `siteBounds()` (Ada's corner plot across Mill Road was walkable
   but off camera). `tools/reach.mjs` checks every ring, pad, plot sign, person and build zone at Levels 1-8 is inside
