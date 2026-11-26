@@ -115,12 +115,12 @@ const PADS = [
   { id:'hatch',   label:'Wages hatch', price:150, at:[-2.6, -1.85], icon:'window', after:s => s.level >= 2, note:'Hand out the pay packets yourself on Fridays at 16:30', lv:2 },
   { id:'awning',  label:'Gate awning', price:200, at:[-.75, 9.65], icon:'window', after:s => s.level >= 2 && s.lv2.mill >= 2, note:'Walk-ins keep coming in light rain', lv:2 },
   { id:'lamps',   label:'Yard lamps', price:480, at:[-4.6, 8.4], icon:'bulb', after:s => s.level >= 3, note:'Work on into dusk: the gate trade runs to 16:50, a lit yard at the whistle', lv:3 },
-  { id:'bell',    label:'Counter bell (trade counter, step 2)', price:250, at:[-.75, 8.25], icon:'box', after:s => s.level >= 3 && s.restored.counter, note:'You hear a walk-in from anywhere; they wait 160 s', lv:3 },
+  { id:'bell',    label:'Counter bell (trade counter, step 2)', price:250, at:[1.15, 8.75], icon:'box', after:s => s.level >= 3 && s.restored.counter, note:'You hear a walk-in from anywhere; they wait 160 s', lv:3 },
   { id:'window',  label:'Shop window (trade counter, step 3)', price:500, at:[-2.0, 9.65], icon:'window', after:s => s.level >= 4 && s.restored.bell, note:'Walk-ins every 45 to 90 s', lv:4 },
   // level 6 (v2.0 18.4): the lightning conductor, the works canteen across Mill Road, the generator's automatic changeover
   { id:'conductor', label:'Lightning conductor', price:5000, at:[-6.2, .4], icon:'bolt', after:s => s.level >= 6, note:'Storm power cuts back to normal', lv:6 },
   { id:'canteen', label:'Works canteen', price:5000, at:[-9.0, 18.9], icon:'cup', after:s => s.level >= 6, note:'Crew +3% for the afternoon', lv:6 },
-  { id:'clock', label:'Works clock tower', price:12000, at:[1.9, 26.7], icon:'star', after:s => s.level >= 7, note:'A landmark on the office block: +0.1 phone interest', lv:7 },
+  { id:'clock', label:'Works clock tower', price:12000, at:[1.9, 25.8], icon:'star', after:s => s.level >= 7, note:'A landmark on the office block: +0.1 phone interest', lv:7 },
   { id:'hd', label:'Heavy-duty supply (11 kV)', price:25000, at:[-25.0, -3.0], icon:'bolt', after:s => s.level >= 8, note:'A second transformer on the plinth: +40 kW for the furnace', lv:8 },
   { id:'furnace', label:'Light the furnace', price:2000, at:[-19.0, -2.9], icon:'gear', after:s => s.level >= 8 && s.l8 && s.l8.hd, note:'Coke and a match: beams every 12 s with two operators', lv:8 },
   { id:'bus', label:'Bus shelter at the gate', price:30000, at:[0.9, 11.1], icon:'people', after:s => s.level >= 8, note:'The crew arrive on time in bad weather', lv:8 },
@@ -632,7 +632,7 @@ function buildNav(){
 }
 // where anyone may walk: inside the fence, plus the land bought next door
 function siteBounds(){ const l5 = S.level >= 5 && M.l5Built;
-  return [M.scrapOpen ? -25.6 : SITE.x0 + .35, l5 ? CORNER[2] - .3 : SITE.x1 - .35, S.lv3.field ? -20.6 : SITE.z0 + .35, l5 ? CORNER[3] - .3 : SITE.z1 - .35]; }
+  return [S.l8 && S.l8.pad === 'C' ? -33.2 : M.scrapOpen ? -25.6 : SITE.x0 + .35, l5 ? CORNER[2] - .3 : SITE.x1 - .35, S.lv3.field ? -20.6 : SITE.z0 + .35, l5 ? CORNER[3] - .3 : SITE.z1 - .35]; }
 const rebuildNav = () => buildNav();
 function nearestVisible(x, z){ let best = -1, bd = 1e9; NAV.forEach((n, i) => { const d = Math.hypot(n.x - x, n.z - z); if (d < bd && !segBlocked(x, z, n.x, n.z, 0.12)) { bd = d; best = i; } });
   if (best < 0) NAV.forEach((n, i) => { const d = Math.hypot(n.x - x, n.z - z); if (d < bd) { bd = d; best = i; } }); return best; }
@@ -1422,15 +1422,17 @@ const cartSpot = i => [BAY[i][0], BAY[i][1] - .85];   // where a hand stands to 
 function buildCartBay(){
   const pm = paintMat('#e3b23c'); dashRect(-2.7, 6.3, .45, 7.2, pm, .4, .25, .08); groundLabel('TROLLEYS', -1.125, 7.45, 1.6);
   BAY.forEach((b, i) => { const o = makeCart(); o.position.set(b[0], 0, b[1] - .65); world.add(o); carts.push({ o, slot:i, by:null }); });
-  addCol([-2.65, 6.35, .4, 7.15], 'cartBay');
+  syncCartCols();
 }
 const freeCart = () => carts.find(k => !k.by);
-function takeCart(ch, k){ k.by = ch; ch.cart = k.o; ch.cartRec = k; ch.o.add(k.o); k.o.position.set(0, 0, 0); k.o.rotation.set(0, 0, 0); layoutCarry(ch); sfxAt('drop', ch.o.position.x, ch.o.position.z, .4); }
+// each trolley space blocks the way only while a trolley stands in it: an empty space can be walked through
+function syncCartCols(){ COL.delete('cartBay'); BAY.forEach((b, i) => { const id = 'cartBay' + i, full = carts.some(k => k.slot === i && cartParked(k)); if (full && !COL.has(id)) addCol([b[0] - .36, 6.35, b[0] + .36, 7.15], id); else if (!full && COL.has(id)) COL.delete(id); }); }
+function takeCart(ch, k){ k.by = ch; ch.cart = k.o; ch.cartRec = k; ch.o.add(k.o); k.o.position.set(0, 0, 0); k.o.rotation.set(0, 0, 0); layoutCarry(ch); syncCartCols(); sfxAt('drop', ch.o.position.x, ch.o.position.z, .4); }
 // the bay's four spaces are shared: a trolley goes back into whichever space is empty, not only the one it came out of
 const cartParked = k => !(k.by && k.by.cart === k.o);   // standing in its space (a reservation does not move it)
 const slotFree = (i, mine) => !carts.some(k => k !== mine && ((k.slot === i && cartParked(k)) || k.parkTo === i));
 function parkSlotNear(ch){ const p = ch.o.position; let best = -1, bd = 1e9; BAY.forEach((b, i) => { if (!slotFree(i, ch.cartRec)) return; const s = cartSpot(i), d = Math.hypot(s[0] - p.x, s[1] - p.z); if (d < bd) { bd = d; best = i; } }); return best; }
-function parkCart(ch, slot){ const k = ch.cartRec; if (!k) return; if (slot != null && slot >= 0) k.slot = slot; k.parkTo = null; world.add(k.o); k.o.position.set(BAY[k.slot][0], 0, BAY[k.slot][1] - .65); k.o.rotation.set(0, 0, 0); k.by = null; ch.cart = null; ch.cartRec = null; ch.cartFor = null; layoutCarry(ch); sfxAt('drop', ch.o.position.x, ch.o.position.z, .4); }
+function parkCart(ch, slot){ const k = ch.cartRec; if (!k) return; if (slot != null && slot >= 0) k.slot = slot; k.parkTo = null; world.add(k.o); k.o.position.set(BAY[k.slot][0], 0, BAY[k.slot][1] - .65); k.o.rotation.set(0, 0, 0); k.by = null; ch.cart = null; ch.cartRec = null; ch.cartFor = null; layoutCarry(ch); syncCartCols(); sfxAt('drop', ch.o.position.x, ch.o.position.z, .4); }
 function releaseCart(ch){ if (ch.cartFor && !ch.cart) { ch.cartFor.by = null; ch.cartFor = null; } }   // a reservation dropped on the way to the bay
 // a worker taking an empty trolley home to the bay first (lunch, knocking-off): true while still walking it back
 function cartBack(c){ const i = parkSlotNear(c), k = c.cartRec; k.parkTo = i >= 0 ? i : k.slot; goTo(c, ...cartSpot(k.parkTo)); }
@@ -1925,7 +1927,7 @@ function finishWh(fx){
   S.lv2.wh = 2; if (M.plotSign) M.plotSign.visible = false;
   if (M.whScaffold) { M.whScaffold.removeFromParent(); M.whScaffold = null; }
   if (!M.wh) {
-    M.wh = put(inst('l2_warehouse'), ...P.wh, 0); M.wh.userData.dyn = true;
+    M.wh = put(inst('l2_warehouse'), ...P.wh, 0); M.wh.userData.dyn = true; M.wh.userData.roof = [5.3, 3.3, 2.95];   /* cutaway model (roof rim only): its roof keeps the snow off the floor */
     const sign = tex(512, 72, (g, w, h) => { g.fillStyle = '#ece6d9'; g.fillRect(0, 0, w, h); g.fillStyle = '#2f5d8a'; g.font = '700 50px Oswald, Arial'; g.textAlign = 'center'; g.fillText('WAREHOUSE', w / 2, 54); });
     const sm = new THREE.Mesh(new THREE.PlaneGeometry(2.1, .29), new THREE.MeshBasicMaterial({ map:sign })); sm.position.set(0, 2.86, 1.75); M.wh.add(sm);
     addCol([P.wh[0] - 2.72, P.wh[1] - 1.72, P.wh[0] + 2.72, P.wh[1] + 1.72], 'wh');
@@ -3337,6 +3339,7 @@ function renderOffice(){
   baroDraw();
   const tabKey = tab + '|' + S.level + '|' + S.staff.some(xpReady); const tabsChanged = tabKey !== renderOffice.tabKey; renderOffice.tabKey = tabKey;
   if (tabsChanged) $('tabs').innerHTML = TABS.filter(([k]) => k !== 'finance' || S.level >= 5).map(([k, n]) => `<button class="tab" role="tab" type="button" data-tab="${k}" aria-selected="${tab === k}">${icon(TAB_IC[k] || 'box')}<span>${n}</span>${k === 'staff' && S.staff.some(xpReady) ? '<i class="dot"></i>' : k === 'plant' && S.faults.length ? '<i class="dot bad"></i>' : k === 'orders' && S.call ? '<i class="dot bad"></i>' : k === 'finance' && S.level >= 5 && S.l5.bill ? '<i class="dot bad"></i>' : k === 'stock' && timberLow() ? '<i class="dot"></i>' : ''}</button>`).join('');
+  if (tabsChanged) $('tabs').classList.toggle('nine', $('tabs').children.length > 8);   // nine tabs from Level 5: two rows of five, not a lone third row
   if (tabsChanged) $('tabs').querySelectorAll('.tab').forEach(b => b.onclick = () => { if (tab === b.dataset.tab) return; tab = b.dataset.tab; pageTurn(); renderOffice(); sfx('tap', .5); });
   const B = $('offBody'); let h = '';
   if (tab === 'staff') {
@@ -3485,7 +3488,8 @@ function renderOffice(){
         <p>${wroom >= WATER_LOT[0] ? 'Delivered straight to the rack. A cleaner (or a loader) swaps the bottle when the cooler runs low.' : 'The rack is full.'}</p></div></div>`;
     }
   }
-  B.innerHTML = needsYouHtml() + h;
+  B.innerHTML = needsYouHtml(tab !== 'orders') + h;   // in full on the Orders page; one line on the others
+  B.querySelectorAll('.dept-h .cap').forEach(c => { if (c.textContent.trim().length > 9) c.classList.add('below'); });
   B.querySelectorAll('[data-showme]').forEach(b => b.onclick = () => closeOffice());
   B.querySelectorAll('[data-reorder]').forEach(b => b.onclick = () => { S.reorderT = clamp((S.reorderT ?? 12) + +b.dataset.reorder, 0, 96); save(); renderOffice(); });
   B.querySelectorAll('[data-set]').forEach(b => b.oninput = () => { S[b.dataset.set] = +b.value / 100; save(); });
@@ -5889,12 +5893,12 @@ function updatePolish(dt){ syncFaultTags(); updateBeats(); if (S.reduced !== und
 }
 
 // ---- office: the "Needs you" card, the Plant tab's line table, the Stock tab's cover and tied-up cash, settings --------
-function needsYouHtml(){ const ob = objective(); if (!ob || !ob.t || !ob.alert) return ''; return `<div class="call needs"><div class="call-h">${icon('alert')}<div><b>Needs you</b><small>${ob.t}</small></div></div>${ob.at ? '<div class="call-b"><button class="btn primary" data-showme type="button">Show me</button></div>' : ''}</div>`; }
+function needsYouHtml(mini){ const ob = objective(); if (!ob || !ob.t || !ob.alert) return ''; if (mini) return `<div class="needsmini"><span class="t"><b>Needs you:</b> ${ob.t}</span>${ob.at ? '<button class="btn primary" data-showme type="button">Show me</button>' : ''}</div>`; return `<div class="call needs"><div class="call-h">${icon('alert')}<div><b>Needs you</b><small>${ob.t}</small></div></div>${ob.at ? '<div class="call-b"><button class="btn primary" data-showme type="button">Show me</button></div>' : ''}</div>`; }
 function linesHtml(){ const lines = [['Crate machine', SAW_CYCLE, () => (1 + .2 * S.up.saw) * tierK('saw'), () => sawOn, () => sawReason()], ...(millReady() ? [['Pipe mill', PIPE_CYCLE, () => (1 + .2 * S.up.pipe) * tierK('pipe'), () => pipeOn, () => pipeReason()]] : []), ...(pressReady() ? [['Tool press', TOOL_CYCLE, () => (1 + .2 * S.up.press) * tierK('tool'), () => toolOn, () => toolReason()]] : []), ...(saw2Ready() ? [['Second crate machine', SAW_CYCLE, () => sawSpeedK() * tierK('saw2'), () => saw2On, () => saw2Reason()]] : []), ...(mill2Ready() ? [['Second pipe mill', PIPE_CYCLE, () => (1 + .2 * S.up.pipe) * tierK('mill2'), () => mill2On, () => mill2Reason()]] : []), ...(S.l8 && S.l8.lit ? [['Furnace', 12, () => furnK(), () => furnOn, () => ({ label:['', furnOn ? 'Running' : rawLeft() === 0 ? 'Starved' : furnOps().length < 2 ? 'Idle' : 'Blocked', furnOn ? 'beams' : rawLeft() === 0 ? 'no scrap or ore' : furnOps().length < 2 ? 'needs two operators' : 'cooling bed full'] })]] : [])];
   return `<div class="dept"><div class="dept-h"><span class="ic">${icon('gear')}</span><div><b>Lines</b><small>Rate now, best rate and the cause</small></div></div><div class="kv">${lines.map(([n, cyc, k, on, why]) => { const best = 60 / (cyc / k()), now = on() ? best * pf() : 0, r = why(); return `<span>${n}</span><span class="${on() ? 'ok' : 'badt'}">${now.toFixed(0)} / ${best.toFixed(0)} a min · ${on() ? 'running' : `${r.label[1]}: ${r.label[2]}`}</span>`; }).join('')}</div></div>`; }
 function coverHtml(){ if (S.level < 3) return ''; const use = 60, stockVal = S.store * 11 + S.timber * 11 + S.coils * 65 + S.pallet * 10 + S.pipes * 16 + (S.tools || 0) * 11, kept = S.order ? Math.min(S.pallet, S.order.qty || 0) + Math.min(S.pipes, S.order.pq || 0) : 0;
   return `<div class="dept"><div class="dept-h"><span class="ic">${icon('boxes')}</span><div><b>Stock at a glance</b><small>On hand, kept for orders, on the way, days of cover, cash tied up</small></div></div><div class="kv"><span>Timber on hand</span><span>${S.store + S.timber} planks · ${((S.store + S.timber) / use).toFixed(1)} days</span><span>Coils on hand</span><span>${S.coils}</span><span>Goods kept for the order</span><span>${kept}</span><span>On the way</span><span>${S.delivery ? `${S.delivery.left ?? ''} ${S.delivery.kind === 'steel' ? 'coils' : 'planks'} on the flatbed` : 'Nothing'}</span><span>Cash tied up in stock</span><span>${fmt(stockVal)}</span>
-    <span>Reorder warning below</span><span><button class="btn" data-reorder="-6" type="button">−</button> ${S.reorderT ?? 12} planks <button class="btn" data-reorder="6" type="button">+</button>${S.l8 && S.l8.contract ? ' · Dolores reorders by herself' : ''}</span></div></div>`; }
+    <span>Reorder warning below (planks)</span><span class="stepper"><button class="btn" data-reorder="-6" type="button" aria-label="Six planks fewer">−</button><b>${S.reorderT ?? 12}</b><button class="btn" data-reorder="6" type="button" aria-label="Six planks more">+</button></span>${S.l8 && S.l8.contract ? '<span>Scrap and ore</span><span class="note">Dolores reorders by herself</span>' : ''}</div></div>`; }
 function updateReorder(){ if (S.level < 3 || timberFree()) return; const t = S.reorderT ?? 12, have = S.store + S.timber; if (have >= t) { S.reorderWarned = false; return; }
   if (S.l8 && S.l8.contract && !S.delivery) { orderTimber(24); toast('Dolores Marsh\'s contract: 24 planks reordered at the fixed price.', ''); return; }
   if (!S.reorderWarned) { S.reorderWarned = true; toast(`Timber is below your reorder line (${t} planks). Order more in the office (Stock).`, 'bad'); } }
@@ -6685,24 +6689,43 @@ function buildKennel(){ if (M.kennel) return M.kennel; const g = new THREE.Group
 const boltHere = () => !!(S.bolt && S.bolt.joined);
 function boltGo(x, z){ const p = bolt.o.position; bolt.path = findPath(p.x, p.z, x, z); bolt.goal = [x, z]; }
 // one step along his path; false while still going
+// a point a dog's body fits at: clear of every collider by his radius, inside the bounds unless he is still a stray outside
+function boltFree(x, z, inside = true){ for (const [k, [x0, z0, x1, z1]] of COL) { if (k === 'truck' || k === 'supply') continue; if (x > x0 - RAD && x < x1 + RAD && z > z0 - RAD && z < z1 + RAD) return false; }
+  if (inside) { const b = siteBounds(); if (x < b[0] || x > b[1] || z < b[2] || z > b[3]) return false; } return true; }
+// the dog moves like an animal: he speeds up and slows down (no instant full speed), turns at a natural rate and slows for
+// a sharp turn; when something holds him back (a pillar, the car, a fence corner) he first plans a new way, and if that is
+// blocked too he steps aside into open ground and tries again, so he never stands pressing against an obstacle
 function boltStep(dt, sp){
-  if (!bolt.path || !bolt.path.length) return true;
-  const p = bolt.o.position, [tx, tz] = bolt.path[0], dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz);
-  if (d < Math.max(.08, sp * dt * 1.5)) { p.x = tx; p.z = tz; collide(p, !['arrive', 'stray', 'meet', 'eat'].includes(bolt.mode)); if (bolt.trail && bolt.trail[0] && bolt.trail[0][0] === tx && bolt.trail[0][1] === tz && bolt.trail.length > 1) bolt.trail.shift(); bolt.path.shift(); return !bolt.path.length; }   // onto the point (one step at a trot is longer than the arrival radius), and past that footprint
-  const st = Math.min(d, sp * dt), nx = p.x + dx / d * st, nz = p.z + dz / d * st;
-  if (vehInWay(bolt, nx, nz)) { bolt.sp = 0; bolt.blocked = (bolt.blocked || 0) + dt; if (bolt.blocked > 1.5) { bolt.blocked = 0; bolt.path = null; } return false; }   // a vehicle in the way: he waits, then thinks again
-  bolt.blocked = 0;
-  p.x = nx; p.z = nz; collide(p, !['arrive', 'stray', 'meet', 'eat'].includes(bolt.mode)); bolt.sp = sp; const a = Math.atan2(-dz, dx); let da = a - bolt.o.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); bolt.o.rotation.y += da * Math.min(1, dt * 10); return false;
+  if (!bolt.path || !bolt.path.length) { bolt.v = Math.max(0, (bolt.v || 0) - dt * 9); bolt.sp = bolt.v; return true; }
+  const outside = ['arrive', 'stray', 'meet', 'eat'].includes(bolt.mode), p = bolt.o.position, [tx, tz] = bolt.path[0], dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz);
+  const want = Math.atan2(-dz, dx); let da = want - bolt.o.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da));
+  bolt.o.rotation.y += Math.sign(da) * Math.min(Math.abs(da), dt * 7.5);   // at most about 430 degrees a second
+  const turnK = Math.max(.25, Math.cos(Math.min(Math.abs(da), 1.5)));     // a sharp turn: he slows into it
+  const last = bolt.path.length === 1, brake = last ? Math.min(1, d / .9) : 1;   // eases in on the last point
+  const target = sp * turnK * Math.max(.35, brake); bolt.v = bolt.v || 0; bolt.v += Math.max(-dt * 9, Math.min(dt * 6.5, target - bolt.v));
+  if (d < Math.max(.08, bolt.v * dt * 1.5)) { const ox = p.x, oz = p.z; p.x = tx; p.z = tz; collide(p, !outside); if (Math.hypot(p.x - tx, p.z - tz) > .2) { p.x = ox; p.z = oz; }   // onto the point, unless that is inside something
+    if (bolt.trail && bolt.trail[0] && bolt.trail[0][0] === tx && bolt.trail[0][1] === tz && bolt.trail.length > 1) bolt.trail.shift(); bolt.path.shift(); bolt.stuckT = 0; return !bolt.path.length; }
+  const st = Math.min(d, bolt.v * dt), mx = dx / d, mz = dz / d, nx = p.x + mx * st, nz = p.z + mz * st;
+  if (vehInWay(bolt, nx, nz)) { bolt.v = 0; bolt.sp = 0; bolt.blocked = (bolt.blocked || 0) + dt; if (bolt.blocked > 1.5) { bolt.blocked = 0; bolt.path = null; } return false; }   // a vehicle in the way: he waits, then thinks again
+  bolt.blocked = 0; const ox = p.x, oz = p.z; p.x = nx; p.z = nz; collide(p, !outside); bolt.sp = bolt.v;
+  // progress check: less than a third of the step made good, for 0.6 s together, means he is held up
+  const made = (p.x - ox) * mx + (p.z - oz) * mz; if (st > .002 && made < st * .33) bolt.stuckT = (bolt.stuckT || 0) + dt; else bolt.stuckT = Math.max(0, (bolt.stuckT || 0) - dt * 2);
+  if (bolt.stuckT > .6) { bolt.stuckT = 0; bolt.stuckN = (T - (bolt.stuckAt || -9) < 4 ? (bolt.stuckN || 0) : 0) + 1; bolt.stuckAt = T; const goal = bolt.path[bolt.path.length - 1];
+    if (bolt.stuckN === 1) { const np = findPath(p.x, p.z, goal[0], goal[1]); bolt.path = np.length ? np : [goal]; }   // a new way round
+    else { let best = null, bs = -1e9; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; for (const r of [.7, 1.2]) { const qx = p.x + Math.cos(a) * r, qz = p.z + Math.sin(a) * r;
+        if (!boltFree(qx, qz, !outside) || segBlocked(p.x, p.z, qx, qz, RAD * .8)) continue; const sc = -Math.hypot(goal[0] - qx, goal[1] - qz) + r * .3; if (sc > bs) { bs = sc; best = [qx, qz]; } } }
+      if (best) { const np = findPath(best[0], best[1], goal[0], goal[1]); bolt.path = [best, ...(np.length ? np : [goal])]; } bolt.stuckN = 0; } }   // step aside into the open, then on
+  return false;
 }
 function boltAnim(dt){
   const run = bolt.sp > .2, k = run ? bolt.sp / 3 : 0; bolt.anim += dt * (run ? 13 * Math.min(1.4, .6 + k) : 0);
-  const sit = ['sit', 'beg', 'stray', 'meet'].includes(bolt.mode), lie = bolt.mode === 'nap' || bolt.mode === 'shade', eat = bolt.mode === 'eat';
+  const sit = ['sit', 'beg', 'stray', 'meet'].includes(bolt.mode), lie = ['nap', 'shade', 'down'].includes(bolt.mode), eat = bolt.mode === 'eat', sniff = bolt.mode === 'sniff' || bolt.mode === 'sniffing';
   bolt.legs.forEach((L, i) => { const tgt = lie ? (i < 2 ? -1.35 : 1.35) : sit && i >= 2 ? .9 : run ? Math.sin(bolt.anim + (i === 0 || i === 3 ? 0 : Math.PI)) * .55 : 0; L.rotation.z += (tgt - L.rotation.z) * Math.min(1, dt * 12); });
   const by = lie ? .16 : sit ? .33 : .36 + (run ? Math.abs(Math.sin(bolt.anim)) * .03 : 0), br = sit ? .42 : lie ? 0 : 0;
   bolt.body.position.y += (by - bolt.body.position.y) * Math.min(1, dt * 10); bolt.body.rotation.z += (br - bolt.body.rotation.z) * Math.min(1, dt * 10);
   bolt.tail.rotation.y = Math.sin(T * (bolt.mode === 'beg' || eat || run ? 16 : bolt.mode === 'stray' ? 3 : 5)) * (lie ? .1 : bolt.mode === 'stray' ? .25 : .6);
   bolt.tail.rotation.z = bolt.mode === 'stray' ? -.7 : 0;   // a stray's tail low and tucked, a happy dog's up
-  bolt.head.rotation.z = bolt.bark > 0 ? Math.sin(bolt.bark * 30) * .25 : eat ? -.75 + Math.abs(Math.sin(T * 9)) * .2 : lie ? -.25 : 0; bolt.bark = Math.max(0, bolt.bark - dt);
+  bolt.head.rotation.z = bolt.bark > 0 ? Math.sin(bolt.bark * 30) * .25 : eat ? -.75 + Math.abs(Math.sin(T * 9)) * .2 : sniff ? -.62 + Math.sin(T * 11) * .05 : lie ? -.25 : 0; bolt.bark = Math.max(0, bolt.bark - dt);
   if (bolt.tongue) bolt.tongue.visible = (run && bolt.sp > 2.4) || (heatOn() && !lie);   // panting
   if (bolt.shake > 0) { bolt.shake -= dt; bolt.body.rotation.x = Math.sin(bolt.shake * 40) * .35; if (Math.random() < dt * 30) sprite('#cfe0ee', bolt.o.position.x + rand(-.3, .3), .45, bolt.o.position.z + rand(-.3, .3), rand(-1.5, 1.5), rand(.5, 1.5), rand(-1.5, 1.5), .5, .05, -6); } else bolt.body.rotation.x = 0;
 }
@@ -6731,10 +6754,25 @@ function boltFollow(dt, dO, flee){
   if (t.length) ahead += Math.hypot(o.x - t[t.length - 1][0], o.z - t[t.length - 1][1]);
   if (ahead < 1.5 && dO < 2 && !flee) return false;   // close behind the owner: stop
   // the next footprint straight ahead if nothing stands between; otherwise (or far behind) he finds his way round to it
-  if (!t.length || Math.hypot(t[0][0] - b.x, t[0][1] - b.z) > 2.5 || segBlocked(b.x, b.z, t[0][0], t[0][1], .12)) { if (T - (bolt.rp || 0) > .6 || !bolt.path || !bolt.path.length) { bolt.rp = T; boltGo(t.length ? t[0][0] : o.x, t.length ? t[0][1] : o.z);
+  if (!t.length || Math.hypot(t[0][0] - b.x, t[0][1] - b.z) > 2.5 || segBlocked(b.x, b.z, t[0][0], t[0][1], RAD)) { if (T - (bolt.rp || 0) > .6 || !bolt.path || !bolt.path.length) { bolt.rp = T; boltGo(t.length ? t[0][0] : o.x, t.length ? t[0][1] : o.z);
       if (!bolt.path || !bolt.path.length) { if (t.length > 1) t.shift(); bolt.path = [t.length ? t[0] : [o.x, o.z]]; } } }   // no way found from right beside an obstacle: straight on, and past that footprint
   else bolt.path = [t[0]];
   boltStep(dt, Math.min(4.4, 1.3 + ahead * .8)); return true;
+}
+// beside an owner who is standing still: he sits, then has a sniff round (a couple of metres, nose down, never out of
+// sight), comes back, and after a while lies down at the owner's feet; the owner moving off ends it all at once
+function boltIdle(dt, o, b, dO, idle){
+  const face = (x, z, k = 6) => { let da = Math.atan2(-(z - b.z), x - b.x) - bolt.o.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); bolt.o.rotation.y += da * Math.min(1, dt * k); };
+  if (idle < 1.2) { bolt.mode = 'follow'; bolt.path = null; boltStep(dt, 0); face(o.x, o.z); return; }
+  if (bolt.mode === 'sniff') { if (dO > 4.5) { bolt.mode = 'follow'; bolt.path = null; return; } if (boltStep(dt, 1.0)) { bolt.mode = 'sniffing'; bolt.t = 1.5 + Math.random() * 1.6; } return; }
+  if (bolt.mode === 'sniffing') { bolt.t -= dt; bolt.v = 0; bolt.sp = 0; bolt.o.rotation.y += Math.sin(T * 2.3) * dt * .8; if (bolt.t <= 0) { bolt.mode = 'sit'; bolt.sitT = T; } return; }
+  boltStep(dt, 0); bolt.path = null;
+  if ((idle > 20 && (bolt.sniffs || 0) >= 2) || idle > 28) { bolt.mode = 'down'; face(o.x, o.z, 2); return; }   // lies down by the owner
+  bolt.mode = 'sit'; face(o.x, o.z);
+  if (idle > 6 && (bolt.sniffs || 0) < 2 && T - (bolt.sitT || 0) > 3 + Math.random() * 3) {   // off for a sniff somewhere close and open
+    for (let i = 0; i < 10; i++) { const a = Math.random() * Math.PI * 2, r = 1.3 + Math.random() * 1.4, qx = o.x + Math.cos(a) * r, qz = o.z + Math.sin(a) * r;
+      if (!boltFree(qx, qz) || segBlocked(b.x, b.z, qx, qz, RAD)) continue; bolt.path = [[qx, qz]]; bolt.mode = 'sniff'; bolt.sniffs = (bolt.sniffs || 0) + 1; return; }
+    bolt.sitT = T; }
 }
 // the shared sandwich: half of it on the ground in front of him, the owner crouched beside him
 function boltFeed(){ bolt.mode = 'eat'; bolt.t = 0; const b = bolt.o.position, f = bolt.o.rotation.y, x = b.x + Math.cos(f) * .32, z = b.z - Math.sin(f) * .32;
@@ -6790,8 +6828,8 @@ function updateBolt(dt){
   let want = trip_ || closing ? 'nap' : heatOn() && ownerIdle > 6 ? 'shade' : lunchTime() && dO > 3 && ownerIdle > 4 ? 'nap' : ownerIdle > 28 && dO > 5 ? 'nap' : 'follow';
   if (flee) want = 'follow';
   if (want === 'follow') { if (bolt.mode === 'nap' && dO > 4 && ownerIdle > 2 && !flee) want = 'nap';   // asleep: he stays asleep unless the owner comes by or moves off
-    else if (boltFollow(dt, dO, flee)) bolt.mode = 'follow';
-    else { bolt.sp = 0; bolt.path = null; bolt.mode = ownerIdle > 1.2 ? 'sit' : 'follow'; const a = Math.atan2(-(o.z - b.z), o.x - b.x); let da = a - bolt.o.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); bolt.o.rotation.y += da * Math.min(1, dt * 6); } }
+    else if (!['sniff', 'sniffing'].includes(bolt.mode) && boltFollow(dt, dO, flee)) { bolt.mode = 'follow'; bolt.sniffs = 0; }
+    else boltIdle(dt, o, b, dO, ownerIdle); }
   if (want !== 'follow') bolt.trail = [];   // asleep or away: the trail starts again from where the owner is when he wakes
   if (want === 'nap' || want === 'shade') { const at = want === 'shade' ? BOLT_SHADE : BOLT_NAP;
     if (Math.hypot(b.x - at[0], b.z - at[1]) > .3) { if (!bolt.path || !bolt.goal || bolt.goal[0] !== at[0]) boltGo(...at); if (boltStep(dt, 1.8)) bolt.sp = 0; bolt.mode = 'go'; }
@@ -7453,14 +7491,48 @@ function applyWeather(dt){
 // Snow (v2.0 17.2, 17.6): it lies white on every upward face (roofs, the yard, the fields) through one shader value, not
 // new models; the yard itself is shovelled clear by the crew each snowy morning; flakes fall in the 3D scene round the view.
 const SNOW_U = { value:0 }, SNOW_YARD = { value:0 };
+// roofs keep the snow off what is under them: every roof in the scene (an elevated, flat-ish slab at least a metre each
+// way: the workshop, the warehouse, the sheds and canopies, the office block, the canteen, the furnace house...) is a
+// rectangle with its eave height; a surface under one, below the eave, stays clear. Trees, signs, wires and anything
+// that moves (lorries, the car, the forklifts, the crane, the train) never count. Found again when buildings change.
+const ROOF_MAX = 48, ROOF_R = { value:Array.from({ length:ROOF_MAX }, () => new THREE.Vector4(0, 0, 0, 0)) }, ROOF_Y = { value:new Float32Array(ROOF_MAX) }, ROOF_N = { value:0 };
+let roofKey = '';
+// the up-facing area of a mesh in world space (its top, seen from above), cached on the mesh while it does not move
+const _ua = new THREE.Vector3(), _ub = new THREE.Vector3(), _uc = new THREE.Vector3();
+function upArea(o){ o.updateWorldMatrix(true, false); const key = o.matrixWorld.elements.join(','); if (o.userData.upKey === key) return o.userData.upA;
+  const g = o.geometry, pos = g.attributes.position, idx = g.index, n = idx ? idx.count : pos.count, mw = o.matrixWorld; let a = 0;
+  for (let i = 0; i + 2 < n; i += 3) { const i0 = idx ? idx.getX(i) : i, i1 = idx ? idx.getX(i + 1) : i + 1, i2 = idx ? idx.getX(i + 2) : i + 2;
+    _ua.fromBufferAttribute(pos, i0).applyMatrix4(mw); _ub.fromBufferAttribute(pos, i1).applyMatrix4(mw); _uc.fromBufferAttribute(pos, i2).applyMatrix4(mw);
+    const cy = (_ub.z - _ua.z) * (_uc.x - _ua.x) - (_ub.x - _ua.x) * (_uc.z - _ua.z); a += Math.abs(cy) / 2 * (cy > 0 ? 1 : 0); }
+  o.userData.upKey = key; o.userData.upA = a; return a; }
+function findRoofs(){
+  const fadeNodes = new Set(); for (const f of M.fade || []) for (const n of f.nodes) fadeNodes.add(n);   // a roof faded away while the owner is under it is still a roof
+  const shown = o => { for (let p = o; p; p = p.parent) if (!p.visible && !fadeNodes.has(p)) return false; return true; };   // not yet built (hidden) is not
+  let nMesh = 0; world.traverse(o => { if (o.isMesh && shown(o)) nMesh++; }); const key = nMesh + '|' + S.level; if (key === roofKey) return; roofKey = key;
+  const moving = new Set([M.truck, M.truck2, M.flat, M.car, fork.o, fork8.o, rail && rail.g, crane && crane.g, crane && crane.flat, owner && owner.o, bolt.o].filter(Boolean));
+  const skip = o => { for (let p = o; p; p = p.parent) { if (moving.has(p) || p.userData.char || /tree|pine|bush|hedge|lamp|sign|board|wire|pole|flag|sock/i.test(p.name || '')) return true; } return false; };
+  const bb = new THREE.Box3(), out = [];
+  const sc = new THREE.Vector3();
+  world.traverse(o => { if (o.userData.roof && shown(o)) { const [rw, rd, ry] = o.userData.roof, q = o.getWorldPosition(sc); out.push([q.x - rw / 2, q.z - rd / 2, q.x + rw / 2, q.z + rd / 2, ry]); }   // a cutaway building names the roof it stands for
+    if (!o.isMesh || o.isInstancedMesh || !shown(o) || o.userData.noSnow) return; bb.setFromObject(o); const w = bb.max.x - bb.min.x, d = bb.max.z - bb.min.z, h = bb.max.y - bb.min.y;
+    if (bb.min.y < 1.6 || h > 2.6 || w < .9 || d < .9 || w * d < 1.5 || w * d > 400) return; if (skip(o)) return;
+    const g = o.geometry; if (!g) return; if (!g.boundingBox) g.computeBoundingBox(); o.getWorldScale(sc); const gb = g.boundingBox, ld = [(gb.max.x - gb.min.x) * Math.abs(sc.x), (gb.max.y - gb.min.y) * Math.abs(sc.y), (gb.max.z - gb.min.z) * Math.abs(sc.z)].sort((a, b) => b - a);
+    if (ld[1] < .8) return;   // a cable or a beam running on the diagonal: long, but thin both other ways
+    if (upArea(o) < .45 * w * d) return;   // a roof's top fills its footprint; cables, merged small fittings and frames do not
+    out.push([bb.min.x + .08, bb.min.z + .08, bb.max.x - .08, bb.max.z - .08, bb.min.y - .05, o.name || (o.parent && o.parent.name) || '?']); });
+  out.sort((a, b) => (b[2] - b[0]) * (b[3] - b[1]) - (a[2] - a[0]) * (a[3] - a[1]));   // the biggest first, if there are ever more than the shader holds
+  M.roofList = out; ROOF_N.value = Math.min(ROOF_MAX, out.length); for (let i = 0; i < ROOF_N.value; i++) { const r = out[i]; ROOF_R.value[i].set(r[0], r[1], r[2], r[3]); ROOF_Y.value[i] = r[4]; }
+}
 function snowPatch(){
   const site = [SITE.x0 - .5, SITE.z0 - .5, SITE.x1 + .5, SITE.z1 + .5], bb = new THREE.Box3();
   scene.traverse(o => { if (!o.isMesh || o.userData.noSnow) return; const ms = Array.isArray(o.material) ? o.material : [o.material];
     for (const m of ms) { if (!m || m.userData.snow || !(m.isMeshStandardMaterial || m.isMeshLambertMaterial) || m.transparent && m.opacity < .9) continue;
       bb.setFromObject(o); const yard = bb.max.y < .08 && bb.min.x > site[0] - 30 && (bb.max.x - bb.min.x) * (bb.max.z - bb.min.z) > 3 && (bb.min.x + bb.max.x) / 2 > site[0] && (bb.min.x + bb.max.x) / 2 < site[2] && (bb.min.z + bb.max.z) / 2 > site[1] && (bb.min.z + bb.max.z) / 2 < site[3];
       m.userData.snow = yard ? 'y' : 'a'; const U = yard ? SNOW_YARD : SNOW_U;
-      m.onBeforeCompile = sh => { sh.uniforms.uSnow = U; sh.fragmentShader = 'uniform float uSnow;\n' + sh.fragmentShader.replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n  { vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz); float k = uSnow * smoothstep(0.42, 0.8, dot(normal, upV)); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.93, 0.96), k); }'); };
-      m.customProgramCacheKey = () => 'snow-' + m.userData.snow; m.needsUpdate = true; } });
+      m.onBeforeCompile = sh => { sh.uniforms.uSnow = U; sh.uniforms.uRoofR = ROOF_R; sh.uniforms.uRoofY = ROOF_Y; sh.uniforms.uRoofN = ROOF_N;
+        sh.vertexShader = 'varying vec3 vSnowW;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n  { vec4 sw = vec4(transformed, 1.0);\n  #ifdef USE_INSTANCING\n  sw = instanceMatrix * sw;\n  #endif\n  vSnowW = (modelMatrix * sw).xyz; }');
+        sh.fragmentShader = 'uniform float uSnow;\nuniform vec4 uRoofR[' + ROOF_MAX + '];\nuniform float uRoofY[' + ROOF_MAX + '];\nuniform int uRoofN;\nvarying vec3 vSnowW;\n' + sh.fragmentShader.replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n  { vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz); float k = uSnow * smoothstep(0.42, 0.8, dot(normal, upV));\n    for (int i = 0; i < ' + ROOF_MAX + '; i++) { if (i >= uRoofN) break; vec4 r = uRoofR[i]; if (vSnowW.x > r.x && vSnowW.x < r.z && vSnowW.z > r.y && vSnowW.z < r.w && vSnowW.y < uRoofY[i]) { k = 0.0; break; } }\n    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.93, 0.96), k); }'); };
+      m.customProgramCacheKey = () => 'snow2-' + m.userData.snow; m.needsUpdate = true; } });
 }
 const SNOW_N = 1100; let snowFx = null, snowPatchT = -9;
 function updateSnow(dt){
@@ -7468,7 +7540,7 @@ function updateSnow(dt){
   W.lying = clamp((W.lying || 0) + (fall > .2 ? dt * fall / 90 : -dt / (winter ? 2400 : 300)), 0, 1);
   // the crew shovel the yard from seven on a snowy morning; fresh snow covers it again
   if (dayMin() < 2) W.cleared = 0; if (S.tutDone && !(S.day && S.day.closing) && S.staff.length) W.cleared = clamp((W.cleared || 0) + dt / 140 - (fall > .6 ? dt / 300 : 0), 0, 1);
-  if (W.lying > .02 && T - snowPatchT > 3) { snowPatchT = T; snowPatch(); }
+  if ((W.lying > .02 || (W.hailLying || 0) > .02) && T - snowPatchT > 3) { snowPatchT = T; findRoofs(); snowPatch(); }
   SNOW_U.value = W.lying * .95; SNOW_YARD.value = W.lying * .9 * (1 - (W.cleared || 0) * .85);
   // the morning grit: the grit bin's lanes are done at seven on an icy day
   if (S.restored.grit && wxK('ice') > .5 && W.gritted !== dayNo() && dayMin() < 30) { W.gritted = dayNo(); toast('Icy morning: the crew grits the lanes from the grit bin.', ''); }
@@ -7637,7 +7709,8 @@ function placeCam(dt){
   Object.assign(cam, { left:-viewW / 2, right:viewW / 2, top:viewH / 2, bottom:-viewH / 2, near:Math.max(1, CAM_DIST - reach), far:CAM_DIST + reach }); cam.updateProjectionMatrix();
   if (!placeCam.hud || T - placeCam.hudT > 1) { placeCam.hudT = T; const ob = $('obj').getBoundingClientRect(), db = $('dock').getBoundingClientRect(); placeCam.hud = [clamp(ob.bottom / h, 0, .45), clamp(1 - db.top / h, 0, .2)]; if ($('toasts').children.length) placeToasts(); }   // the banner's height changes with its text
   const D = viewH / Math.sin(CAM_EL), span = (lo, hi, v, half) => { const a = lo + half, b = hi - half; return a > b ? (a + b) / 2 : clamp(v, a, b); };
-  const tx = span(M.scrapOpen ? -27 : SITE.x0 - 1.5, SITE.x1 + 3, S.gus.party >= 2 ? partySpot()[0] : owner.o.position.x, viewW / 2), tz = span((S.lv3.field ? -22.5 : SITE.z0 - 2.5) - placeCam.hud[0] * D, ROAD_Z + 2.6 + placeCam.hud[1] * D, (S.gus.party >= 2 ? partySpot()[1] : owner.o.position.z) - (aspect < 1 ? 1.1 : .6), D / 2);   // the farewell party holds the camera   // the North field extends the site northwards
+  const sb = siteBounds(); if (S.l8 && S.l8.zonesShown && !S.l8.pad) sb[0] = Math.min(sb[0], PADS8.C[0] - 2);   // choosing the beam store's zone: all three in view
+  const tx = span(Math.min(M.scrapOpen ? -27 : SITE.x0 - 1.5, sb[0] - 1.5), Math.max(SITE.x1 + 3, sb[1] + 3), S.gus.party >= 2 ? partySpot()[0] : owner.o.position.x, viewW / 2), tz = span(Math.min(S.lv3.field ? -22.5 : SITE.z0 - 2.5, sb[2] - 2.5) - placeCam.hud[0] * D, Math.max(ROAD_Z + 2.6, sb[3] + 2.5) + placeCam.hud[1] * D, (S.gus.party >= 2 ? partySpot()[1] : owner.o.position.z) - (aspect < 1 ? 1.1 : .6), D / 2);   // the farewell party holds the camera   // the North field extends the site northwards
   if (camLock) { camPos.x = camLock[0]; camPos.z = camLock[1]; } else { camPos.x += (tx - camPos.x) * Math.min(1, dt * 5); camPos.z += (tz - camPos.z) * Math.min(1, dt * 5); }
   const qk = typeof quake === 'number' && quake > 0 && !REDUCED ? quake : 0, qx = qk ? Math.sin(T * 47) * qk * .05 : 0, qz = qk ? Math.cos(T * 53) * qk * .04 : 0;   // the crane's thud shakes the view a little
   cam.position.set(camPos.x + qx, Math.sin(CAM_EL) * CAM_DIST, camPos.z + qz + Math.cos(CAM_EL) * CAM_DIST); cam.lookAt(camPos.x + qx, 0, camPos.z + qz);
@@ -7752,7 +7825,7 @@ async function boot(){
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
   else loginCalendar();
-  window.__iv = { updateGuide, get guideHere(){ return guideHere; }, get guideShown(){ return !!(guide && guide.visible); }, get guideRingShown(){ return !!(guideRing && guideRing.visible); }, get pageHidden(){ return pageHidden; }, audioAllowed, toast, placeToasts, segBlocked, STRAY_RING, SITE, stateWord, VERA_FROM, STRAY_AT, KENNEL, buildKennel, boltFeed, slotFree, parkSlotNear, officeHours, get veraWalk(){ return veraWalk; }, svcAt, FAULTS, upgVisible, upCost, lineText, applyMains, stockLedger, get beats(){ return beats; }, learnSkill, canPromote, staffOf, linesHtml, coverHtml, settingsHtml, SHOVEL_AT, PHOTO_AT, milestonePhoto, repaintSigns, COLKEYS:() => [...COL.keys()], get rail(){ return rail; }, buyRaw, chooseStore, goLiveHD, lightFurnace, l8DayEnd, get furnOn(){ return furnOn; }, get fork8(){ return fork8; }, PADS8, SIGN_RING, DAIRY_PAD, hurryOk, set hurry(v){ hurry = v; }, openGap, takeCard, makeCard, refillBoard, boardHtml, cardFits, l7Delivered, zoneCentres, zonesLive, get cyrus(){ return cyrus; }, PEGS, SURVEY_RING, BOARD_RING, hireTommy, buildClockTower, buildDockLamps, REFIT, orderRefit, finishRefit, bookService, svcDue, svcPost, tierOf, get crane(){ return crane; }, craneGone, INSPECT6, get insp6(){ return insp6; }, clerkChar, clerkOn, juneSettle, ledger, buildCanteen, hailShelter, updateCrane, cutDark, buildLevel6, acceptCall2, finishPlot, rainK, noWalkIns, wxLorryLate, stormOn, helperOf, walkPatience, PAY_Q, ICE_AT, BOLT_NAP, BOLT_SHADE, setWx:k => { wxForce = k; wxForceT = 1e9; wx.from = wx.kind = k; wx.k = 1; }, wxFlash:() => { wx.flash = 1; }, rainbowNow:() => { wx.rainbow = .7; }, get wx(){ return wx; }, bolt, chalkProg, CHALK, loginCalendar, wxPlan, wxSummary, migrate, DAY_S, PAY_MIN, PAY_AT, LV_START, calDay, weekday, isFriday, dateOf, dueAt, seasonOf, payTime, payDay, payStep, ownerAtHatch, payNeeded, knockOff, get M_hatch(){ return M.hatch; }, get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payAccounts, closeWeek, weekAccounts, takeLoan, repayLoan, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  window.__iv = { TABS, findRoofs, ROOF_N, ROOF_R, ROOF_Y, get roofKey(){ return roofKey; }, set roofKey(v){ roofKey = v; }, siteBounds, updateGuide, get guideHere(){ return guideHere; }, get guideShown(){ return !!(guide && guide.visible); }, get guideRingShown(){ return !!(guideRing && guideRing.visible); }, get pageHidden(){ return pageHidden; }, audioAllowed, toast, placeToasts, segBlocked, STRAY_RING, SITE, stateWord, VERA_FROM, STRAY_AT, KENNEL, buildKennel, boltFeed, slotFree, parkSlotNear, officeHours, get veraWalk(){ return veraWalk; }, svcAt, FAULTS, upgVisible, upCost, lineText, applyMains, stockLedger, get beats(){ return beats; }, learnSkill, canPromote, staffOf, linesHtml, coverHtml, settingsHtml, SHOVEL_AT, PHOTO_AT, milestonePhoto, repaintSigns, COLKEYS:() => [...COL.keys()], get rail(){ return rail; }, buyRaw, chooseStore, goLiveHD, lightFurnace, l8DayEnd, get furnOn(){ return furnOn; }, get fork8(){ return fork8; }, PADS8, SIGN_RING, DAIRY_PAD, hurryOk, set hurry(v){ hurry = v; }, openGap, takeCard, makeCard, refillBoard, boardHtml, cardFits, l7Delivered, zoneCentres, zonesLive, get cyrus(){ return cyrus; }, PEGS, SURVEY_RING, BOARD_RING, hireTommy, buildClockTower, buildDockLamps, REFIT, orderRefit, finishRefit, bookService, svcDue, svcPost, tierOf, get crane(){ return crane; }, craneGone, INSPECT6, get insp6(){ return insp6; }, clerkChar, clerkOn, juneSettle, ledger, buildCanteen, hailShelter, updateCrane, cutDark, buildLevel6, acceptCall2, finishPlot, rainK, noWalkIns, wxLorryLate, stormOn, helperOf, walkPatience, PAY_Q, ICE_AT, BOLT_NAP, BOLT_SHADE, setWx:k => { wxForce = k; wxForceT = 1e9; wx.from = wx.kind = k; wx.k = 1; }, wxFlash:() => { wx.flash = 1; }, rainbowNow:() => { wx.rainbow = .7; }, get wx(){ return wx; }, bolt, chalkProg, CHALK, loginCalendar, wxPlan, wxSummary, migrate, DAY_S, PAY_MIN, PAY_AT, LV_START, calDay, weekday, isFriday, dateOf, dueAt, seasonOf, payTime, payDay, payStep, ownerAtHatch, payNeeded, knockOff, get M_hatch(){ return M.hatch; }, get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payAccounts, closeWeek, weekAccounts, takeLoan, repayLoan, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });
