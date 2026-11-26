@@ -2529,9 +2529,10 @@ function updateOwner(dt){
   const sp = 3.4 * (1 + .12 * S.up.boots) * (1 + .1 * (S.skills.walk || 0)) * load * (typeof walkSnowK === 'function' ? walkSnowK() : 1);   // empty 100%, crates 95%, pipes 92%, a loaded trolley 90%, snow a further -10%
   if (owner.lock > 0) owner.lock -= dt;
   if (k > 0 && !(owner.lock > 0)) { const n = Math.max(1, Math.ceil(sp * dt / .07)); for (let i = 0; i < n; i++) { o.position.x += dx * sp * dt / n; o.position.z += dz * sp * dt / n; collide(o.position); }   // short steps: never through a thin kerb or fence on a slow frame
-    owner.face(dx, dz, dt); S.moved = true; owner.stepTo = null; }
-  else if (owner.stepTo && !(owner.lock > 0)) { const ddx = owner.stepTo[0] - o.position.x, ddz = owner.stepTo[1] - o.position.z, d = Math.hypot(ddx, ddz);   // stepping out of the car and clear of it
-    if (d < .05) owner.stepTo = null; else { const st = Math.min(d, 1.6 * dt); o.position.x += ddx / d * st; o.position.z += ddz / d * st; collide(o.position); owner.face(ddx, ddz, dt); owner.play('walk'); } }
+    owner.face(dx, dz, dt); S.moved = true; owner.stepTo = null; owner.autoPath = null; owner.inputAt = T; }
+  else if (!owner.stepTo && owner.autoPath && owner.autoPath.length && !(owner.lock > 0)) owner.stepTo = owner.autoPath.shift();   // a route: the next point of it
+  if (!(k > 0) && owner.stepTo && !(owner.lock > 0)) { const ddx = owner.stepTo[0] - o.position.x, ddz = owner.stepTo[1] - o.position.z, d = Math.hypot(ddx, ddz);   // stepping out of the car and clear of it
+    if (d < .05) owner.stepTo = null; else { const st = Math.min(d, (owner.autoPath ? 2.6 : 1.6) * dt); o.position.x += ddx / d * st; o.position.z += ddz / d * st; collide(o.position); owner.face(ddx, ddz, dt); owner.play('walk'); } }
   target = ownerTarget();
   if (!target || target.key !== dwell.key) dwell = { key:target && target.key, t:0 }; else dwell.t += dt;
   if (target && target.type === 'staff' && target.c.st.id > 0 && dwell.t > .45 && !dwell.done) { dwell.done = true; inspectStaff(target.c); }
@@ -3556,7 +3557,7 @@ function ownerHands(dt){
     const gate = walkWant(type) - (t === type ? n : 0);   // a walk-in customer at the gate waiting for these
     // what the lorry still needs not counting the owner's own load (with loaders on, their loads count but his did not)
     const held = t === type ? n : 0, excl = need() + (truckBound(owner) ? held : 0);
-    if ((!t || t === type) && n < (type === 'crate' && !owner.cart ? HAND_CRATES : ownerCarry()) && have() > 0 && (excl - held > 0 || gate > 0) && take()) { handT = .16; sfx('pick', .5); return; }   // build 0.19: you lend a hand loading, loaders or not
+    if (!closingTime() && (!t || t === type) && n < (type === 'crate' && !owner.cart ? HAND_CRATES : ownerCarry()) && have() > 0 && (excl - held > 0 || gate > 0) && take()) { handT = .16; sfx('pick', .5); return; }   // build 0.19: you lend a hand loading, loaders or not
     if (held && n > walkWant(type) + Math.max(0, excl) && back()) { handT = .16; return; }   // more than the lorry and the gate want: back where it came from
   }
   // the trolley bay: take a free trolley by standing at its handle; park yours the same way once it is empty
@@ -5957,9 +5958,10 @@ function plotBeat(id){
 }
 function objective(){
   if (showUpg && T < showUpg.until && !officeOpen) return { t:`New: ${showUpg.name}. Take a look`, at:showUpg.at };
+  if (trip && trip.kind === 'night') return { t:trip.phase === 'back' || trip.phase === 'park' ? '07:00: driving in to open up the works' : trip.phase === 'away' ? 'Night: you have gone home. Bolt keeps watch' : '17:00: driving home for the night', at:null };
   if (trip) { const d = trip.kind === 'ad' ? ADS[trip.key] : PLACES[trip.key], left = Math.max(0, Math.ceil(trip.min * .8 - trip.t));
     return { t:trip.phase === 'wait' ? 'Waiting for the lorry to clear the gateway' : trip.phase === 'away' ? `On the road to ${d.name} (${left} s). Gus is minding the yard` : trip.phase === 'home' ? `Driving back from ${d.name} (${left} s)` : trip.phase === 'out' ? `Driving out to ${d.name}` : 'Back at the works: parking the car', at:null }; }
-  if (S.tutDone && S.day && S.day.closing) return { t:S.day.closing.shut ? '17:00: the gates are shut for the night' : '17:00: the crew is clocking off. The gates shut when the yard is empty', at:null };
+  if (S.tutDone && S.day && S.day.closing) { const N = S.day.closing.night || {}; return { t:S.day.closing.shut ? (N.kind === 'office' ? 'Night: you sleep in the office. Bolt keeps watch' : 'Night: you have gone home. Bolt keeps watch') : N.st === 'walk' || N.st === 'cart' ? (N.kind === 'office' ? '17:00: off to the office to sleep' : '17:00: off home in the car') : '17:00: the crew is clocking off. Finish what is in your hands: no new work after the whistle', at:null }; }
   if (!S.tutDone) { const s = TUT[Math.min(S.tut, TUT.length - 1)]; return { t:s.text ? s.text() : s.t, at:s.atFn ? s.atFn() : s.at && s.at(), alert:s.alert }; }
   const und = S.faults.find(f => !f.diag);
   const guided = S.faults.find(f => f.guided);
@@ -6247,7 +6249,10 @@ function lorryTick(v, s, V, f0){
   if (V.state === 'away') return 0;
   const Tr = V === truck ? M.truck : M.flat, p = Tr.position, sp = s.last ? Math.hypot(p.x - s.last[0], p.z - s.last[1]) / Math.max(.001, s.dt) : 0; s.last = [p.x, p.z];
   s.sp = lerp(s.sp || 0, Math.min(sp, 12), .15); v.f(f0 + s.sp * 5, .25);
-  return (V.state === 'docked' || V.state === 'parked') ? .55 : .7 + .3 * Math.min(1, s.sp / 8);
+  // parked at a dock: the engine ticks over a few seconds and the driver switches off while he is loaded; after the
+  // knocking-off whistle it stays off (the lorry stands at the dock overnight and finishes loading in the morning)
+  if (V.state === 'docked' || V.state === 'parked') { s.dockT = (s.dockT || 0) + (s.dt || 0); return closingTime() ? 0 : Math.max(0, .55 * (1 - s.dockT / 6)); }
+  s.dockT = 0; return .7 + .3 * Math.min(1, s.sp / 8);
 }
 const _snd = new Map();
 function updateAudio(dt){
@@ -6466,9 +6471,10 @@ function updateDay(dt){
   if (D.closing) { S.time = D.closing.at; if (S.order) S.order.time = Math.max(0, S.order.time - dt); D.closing.t += dt;
     // nobody holds the day for ever: after a minute anyone still walking out goes by the wicket door (a lorry in the gateway
     // and the crew walking round it could otherwise wait on each other); after two the gates shut whatever is still moving
+    nightRoutine(dt);
     if (D.closing.t > 60 && !D.closing.wicket) { D.closing.wicket = true; for (const c of staffObj.values()) if (c.leaving && !c.gone) { c.gone = true; c.leaving = false; c.o.visible = false; } }
-    if (D.closing.t > 120 && !D.closing.shut) { for (const c of staffObj.values()) if (!c.gone && c.st.role !== 'forklift' && c.st.posted !== false) { c.gone = true; c.leaving = false; c.o.visible = false; } D.closing.shut = true; D.closing.st = 0; }
-    if (!D.closing.shut && ((D.closing.t > 4 && yardEmpty()) || (D.closing.t > 40 && !trip && !lorryMoving() && ![...staffObj.values()].some(c => c.leaving && !c.gone)))) { /* never shut on somebody walking out */ D.closing.shut = true; D.closing.st = 0; sfxAt('clank', 5, SITE.z1); toast('The gates are shut for the night.', ''); }
+    if (D.closing.t > 120 && !D.closing.shut) { nightNow(); for (const c of staffObj.values()) if (!c.gone && c.st.role !== 'forklift' && c.st.posted !== false) { c.gone = true; c.leaving = false; c.o.visible = false; } D.closing.shut = true; D.closing.st = 0; }
+    if (!D.closing.shut && ((D.closing.t > 4 && yardEmpty()) || (D.closing.t > 40 && (!trip || (nightTrip() && trip.phase === 'away')) && ownerOff() && !lorryMoving() && ![...staffObj.values()].some(c => c.leaving && !c.gone)))) { /* never shut on somebody walking out */ D.closing.shut = true; D.closing.st = 0; sfxAt('clank', 5, SITE.z1); toast('The gates are shut for the night.', ''); }
     if (D.closing.shut) { D.closing.st = (D.closing.st || 0) + dt; if (D.closing.st > .9 && !D.closing.lock) { D.closing.lock = true; sfxAt('clank', 5, SITE.z1); sfx('drop'); } }   // the leaves meet, the bolt drops
     if (D.closing.shut && D.closing.st > 2.2 && !D.closing.card && !cardOpen) { D.closing.card = true; endOfDay(D.n); }
     return; }
@@ -6535,7 +6541,52 @@ function knockOff(n){
   if (trip && trip.phase === 'wait') { endTrip(); toast('Too late to go out now: the car stays parked.', ''); }   // still waiting at the spot for a lorry: the owner gets out
   whistle(2.2); toast('17:00, the knocking-off whistle. The crew finishes up and goes home.', 'gold');
 }
-const yardEmpty = () => [...staffObj.values()].every(c => c.gone || c.st.role === 'forklift' || c.st.posted === false) && !(folk.get('gus') && gusChar() && !S.gus.retired && !folk.get('gus').gone) && !walker && !trip && !lorryMoving() && !['arrive', 'leave'].includes(truckB.state);   // the car is parked and no lorry is in the gateway before the gates shut
+const nightTrip = () => !!(trip && trip.kind === 'night');
+const ownerOff = () => !(S.day && S.day.closing && S.tutDone) || ['asleep', 'gone'].includes((S.day.closing.night || {}).st) || (nightTrip() && trip.phase === 'away');   // gone home or asleep in the office
+const yardEmpty = () => [...staffObj.values()].every(c => c.gone || c.st.role === 'forklift' || c.st.posted === false) && !(folk.get('gus') && gusChar() && !S.gus.retired && !folk.get('gus').gone) && !walker && (!trip || (nightTrip() && trip.phase === 'away')) && ownerOff() && !lorryMoving() && !['arrive', 'leave'].includes(truckB.state);   // the car is parked and no lorry is in the gateway before the gates shut
+// ---- the evening (the user's call, build 0.33): after the whistle the owner finishes only what is in hand, parks a
+// trolley, then drives home in grandad's car, or sleeps in the office when the roads are bad (heavy snow, a storm) or the
+// car is not there. Bolt keeps watch over the yard through the night. In the morning the owner comes out of the office,
+// or drives in through the gates and parks, and the crew follows.
+const SLEEP_AT = () => P.deskRing;   // the office couch by the desk, inside the workshop
+function nightKind(){ const bad = (wx.kind === 'heavysnow' && wx.k > .5) || (typeof stormOn === 'function' && stormOn()) || snowLying() > .75; return !M.car || !M.car.visible || bad ? 'office' : 'home'; }
+function ownerRoute(to){ const o = owner.o.position; owner.autoPath = findPath(o.x, o.z, to[0], to[1]); owner.stepTo = null; }
+function nightRoutine(dt){
+  const C = S.day.closing; if (!owner || !S.tutDone || C.card || C.shut && (C.night || {}).st !== 'walk') return; const N = C.night ||= { st:'work' };
+  const idle = T - (owner.inputAt || -9) > 3, crewGone = [...staffObj.values()].every(c => c.gone || c.leaving || c.st.role === 'forklift' || c.st.posted === false);
+  if (N.st === 'work') {
+    if (owner.stack.length && C.t > 45) returnHeld();   // still holding goods: they go back on the stack for the morning
+    if (owner.stack.length || trip || !(crewGone || C.t > 25)) return;
+    N.kind = nightKind();
+    if (owner.cart) { const i = parkSlotNear(owner); N.slot = i >= 0 ? i : owner.cartRec.slot; N.st = 'cart'; ownerRoute(cartSpot(N.slot)); return; }
+    N.st = 'walk'; ownerRoute(N.kind === 'home' ? P.carDoor : SLEEP_AT()); toast(N.kind === 'home' ? 'The crew have gone. Time to lock up and drive home.' : 'The roads are no place for grandad\'s car tonight: you bed down on the office couch.', ''); return; }
+  if (N.st === 'cart') { const sp = cartSpot(N.slot); if (near(owner.o, sp, .55) && owner.cart) { parkCart(owner, N.slot); owner.cartArm = false; N.st = 'walk'; ownerRoute(N.kind === 'home' ? P.carDoor : SLEEP_AT()); }
+    else if (!owner.cart) { N.st = 'walk'; ownerRoute(N.kind === 'home' ? P.carDoor : SLEEP_AT()); } else if (idle && !owner.stepTo && !(owner.autoPath && owner.autoPath.length)) ownerRoute(sp); return; }
+  if (N.st === 'walk') { const to = N.kind === 'home' ? P.carDoor : SLEEP_AT();
+    if (near(owner.o, to, .6)) { owner.autoPath = null; owner.stepTo = null;
+      if (N.kind === 'home' && M.car && !trip) { trip = { kind:'night', key:null, phase:'wait', t:0, min:0 }; CAR.s = 0; CAR.v = 0; COL.delete('car'); owner.o.visible = false; owner.o.position.set(...P.carDoor); sfxAt('drop', ...P.carSpot, .6); N.st = 'gone'; }
+      else { owner.o.visible = false; N.st = 'asleep'; sfx('drop', .3); } save(); return; }
+    if (idle && !owner.stepTo && !(owner.autoPath && owner.autoPath.length)) ownerRoute(to); }
+}
+// goods still in the owner's hands at the end of the evening go back where they came from (the pallet, the racks)
+function returnHeld(){ const t = owner.carryType, n = owner.stack.length; if (!n) return; while (owner.stack.length) owner.stack.pop().removeFromParent(); owner.carryType = null;
+  if (t === 'crate') { S.pallet += n; syncPallet(); } else if (t === 'pipe') { S.pipes += n; syncPipes(); } else if (t === 'toolbox') { S.tools = (S.tools || 0) + n; if (typeof syncTools === 'function') syncTools(); }
+  if (owner.cart) layoutCarry(owner); toast(`You put the ${n} ${t === 'toolbox' ? 'tool' : t}${n === 1 ? '' : 's'} back on the stack for the morning.`, ''); }
+// the two-minute fail-safe: the owner is off for the night at once (into the office, or the car gone up the road)
+function nightNow(){ const C = S.day.closing, N = C.night ||= { st:'work' }; if (['asleep', 'gone'].includes(N.st)) return; returnHeld(); if (owner.cart) parkCart(owner, parkSlotNear(owner)); owner.autoPath = null; owner.stepTo = null;
+  N.kind = N.kind || nightKind(); owner.o.visible = false; if (N.kind === 'home' && M.car && !trip) { trip = { kind:'night', key:null, phase:'away', t:0, min:0 }; COL.delete('car'); M.car.visible = false; N.st = 'gone'; } else N.st = 'asleep'; }
+// a game opened in the middle of the night: the owner is still asleep in the office, or home with the car
+function restoreNight(){ const N = S.day && S.day.closing && S.day.closing.night; if (!N || !owner) return;
+  if (N.st === 'asleep') owner.o.visible = false;
+  else if (N.st === 'gone' && M.car) { owner.o.visible = false; trip = { kind:'night', key:null, phase:'away', t:0, min:0 }; COL.delete('car'); M.car.visible = false; } }
+// 07:00: out of the office, or in through the gates in the car
+function nightMorning(N){
+  if (!N) return; if (N.kind === 'home' && nightTrip()) { trip.phase = 'back'; CAR.s = 0; CAR.v = 8; M.car.visible = true; return; }   // the drive in: back, park, out of the driver's door
+  if (nightTrip()) { trip = null; M.car.visible = true; }
+  const d = SLEEP_AT(); owner.o.position.set(d[0], 0, d[1]); owner.o.visible = true; owner.autoPath = null; owner.stepTo = [d[0] + .2, d[1] + 1.2];
+  if (N.kind === 'office') toast('07:00: you fold the blanket on the office couch. The kettle is on.', '');
+  else if (N.kind === 'home') { M.car.position.set(P.carSpot[0], 0, P.carSpot[1]); M.car.visible = true; colOf(M.car, .05, 'car'); }
+}
 function closingStep(c, dt){
   if (!(S.day && S.day.closing)) return false;
   if (c.gone) return true;
@@ -6553,12 +6604,13 @@ function closingStep(c, dt){
 const gateQueue = k => [P.frontOut[0] + (k % 2 ? .45 : -.45), 0, P.frontOut[1] + .6 + Math.floor(k / 2) * .75];   // the first pair stands 2.5 m from the hinges: clear of the leaves' swing
 // 07:00: the clock moves on to the next working day and the crew clock in through the main gate, a step apart
 function clockIn(){
-  const D = S.day; if (!D || !D.closing) return;
+  const D = S.day; if (!D || !D.closing) return; const night = D.closing.night;
   D.n = Math.round((D.closing.at + .01) / DAY_S); S.time = D.n * DAY_S + .01; D.closing = null; D.at = daySnap();
   let k = 0;
   for (const c of staffObj.values()) { c.leaving = false; if (!c.gone) continue; c.gone = false; c.o.visible = true;
     c.o.position.set(...gateQueue(k)); c.holdUntil = T + 1.7 + k * .45; k++; c.path = null; c.task = null; c.state = 'arrive'; goTo(c, P.frontIn[0], P.frontIn[1]); }
   const g = folk.get('gus'); if (g && g.gone) { g.gone = false; g.o.visible = true; g.o.position.set(...gateQueue(k)); g.job = null; g.gs = null; g.path = null; g.holdUntil = T + 1.7 + k * .45; }
+  if (night && ['asleep', 'gone'].includes(night.st)) nightMorning(night); else if (!owner.o.visible && !trip) owner.o.visible = true;
   save();
 }
 // build 0.19: a target for each working day, set from how the day before went, with a cash bonus and +2 reputation
@@ -6719,7 +6771,7 @@ function boltStep(dt, sp){
 }
 function boltAnim(dt){
   const run = bolt.sp > .2, k = run ? bolt.sp / 3 : 0; bolt.anim += dt * (run ? 13 * Math.min(1.4, .6 + k) : 0);
-  const sit = ['sit', 'beg', 'stray', 'meet'].includes(bolt.mode), lie = ['nap', 'shade', 'down'].includes(bolt.mode), eat = bolt.mode === 'eat', sniff = bolt.mode === 'sniff' || bolt.mode === 'sniffing';
+  const sit = ['sit', 'beg', 'stray', 'meet'].includes(bolt.mode), lie = ['nap', 'shade', 'down'].includes(bolt.mode), eat = bolt.mode === 'eat', sniff = ['sniff', 'sniffing', 'patrolSniff'].includes(bolt.mode);
   bolt.legs.forEach((L, i) => { const tgt = lie ? (i < 2 ? -1.35 : 1.35) : sit && i >= 2 ? .9 : run ? Math.sin(bolt.anim + (i === 0 || i === 3 ? 0 : Math.PI)) * .55 : 0; L.rotation.z += (tgt - L.rotation.z) * Math.min(1, dt * 12); });
   const by = lie ? .16 : sit ? .33 : .36 + (run ? Math.abs(Math.sin(bolt.anim)) * .03 : 0), br = sit ? .42 : lie ? 0 : 0;
   bolt.body.position.y += (by - bolt.body.position.y) * Math.min(1, dt * 10); bolt.body.rotation.z += (br - bolt.body.rotation.z) * Math.min(1, dt * 10);
@@ -6774,6 +6826,14 @@ function boltIdle(dt, o, b, dO, idle){
       if (!boltFree(qx, qz) || segBlocked(b.x, b.z, qx, qz, RAD)) continue; bolt.path = [[qx, qz]]; bolt.mode = 'sniff'; bolt.sniffs = (bolt.sniffs || 0) + 1; return; }
     bolt.sitT = T; }
 }
+// night watch: a slow round of the yard (the gate, the dock, the back yard, Old Faithful, the stock room, the trolley bay),
+// a sniff at every stop and a bark at the gate; with the morning whistle he runs back to the owner
+const NIGHT_ROUND = () => [P.frontIn, P.patrol[3], [16.5, -3.0], P.filler, P.storeSpot, P.patrol[0]];
+function boltPatrol(dt){ const R = NIGHT_ROUND(), b = bolt.o.position; bolt.pi = bolt.pi || 0; const at = R[bolt.pi % R.length];
+  if (bolt.mode === 'patrolSniff') { bolt.t -= dt; bolt.v = 0; bolt.sp = 0; bolt.o.rotation.y += Math.sin(T * 2.1) * dt * .7; if (bolt.t <= 0) { bolt.pi++; bolt.mode = 'patrol'; bolt.path = null; } return; }
+  if (bolt.mode !== 'patrol') { bolt.mode = 'patrol'; bolt.path = null; }
+  if (!bolt.path || !bolt.path.length) { if (Math.hypot(b.x - at[0], b.z - at[1]) < .4) { bolt.mode = 'patrolSniff'; bolt.t = 2 + Math.random() * 2.5; if (bolt.pi % R.length === 0) boltBark(2); return; } const np = findPath(b.x, b.z, at[0], at[1]); bolt.path = np.length ? np : [at]; }
+  boltStep(dt, 1.35); }
 // the shared sandwich: half of it on the ground in front of him, the owner crouched beside him
 function boltFeed(){ bolt.mode = 'eat'; bolt.t = 0; const b = bolt.o.position, f = bolt.o.rotation.y, x = b.x + Math.cos(f) * .32, z = b.z - Math.sin(f) * .32;
   const s = new THREE.Group(); const bread = std('#e2c48a', .9), fill = std('#b8443a', .8); for (const y of [.012, .05]) { const m = new THREE.Mesh(BX(.13, .025, .1), bread); m.position.y = y; m.castShadow = true; s.add(m); }
@@ -6813,7 +6873,7 @@ function updateBolt(dt){
       boltAnim(dt); }
     return; }
   if (!M.kennel) buildKennel();   // an older save with Bolt already in the yard
-  bolt.on = true; bolt.o.visible = !(S.day && S.day.closing && S.day.closing.shut && !near(owner.o, [bolt.o.position.x, bolt.o.position.z], 12));
+  bolt.on = true; bolt.o.visible = true;   // in the yard day and night: at night he keeps watch
   const o = owner.o.position, b = bolt.o.position, dO = Math.hypot(o.x - b.x, o.z - b.z);
   if (owner.stepTo || (owner.lastPos && Math.hypot(o.x - owner.lastPos[0], o.z - owner.lastPos[1]) > .01)) bolt.lastMove = T; owner.lastPos = [o.x, o.z];
   const ownerIdle = T - (bolt.lastMove || 0);
@@ -6825,12 +6885,13 @@ function updateBolt(dt){
   let flee = false; for (const [m, on] of [[fork.o, fork.o && /^to/.test(fork.state)], [M.truck, ['arrive', 'leave'].includes(truck.state)], [M.flat, ['arrive', 'leave'].includes(sup.state)], [M.car, !!trip]]) if (on && m && Math.hypot(m.position.x - b.x, m.position.z - b.z) < 3.2) flee = true;
   if (boltDodge(dt)) { boltAnim(dt); return; }
   const closing = S.day && S.day.closing, trip_ = !!trip;
-  let want = trip_ || closing ? 'nap' : heatOn() && ownerIdle > 6 ? 'shade' : lunchTime() && dO > 3 && ownerIdle > 4 ? 'nap' : ownerIdle > 28 && dO > 5 ? 'nap' : 'follow';
+  let want = closing ? (ownerOff() ? 'patrol' : 'follow') : trip_ ? 'nap' : heatOn() && ownerIdle > 6 ? 'shade' : lunchTime() && dO > 3 && ownerIdle > 4 ? 'nap' : ownerIdle > 28 && dO > 5 ? 'nap' : 'follow';
   if (flee) want = 'follow';
   if (want === 'follow') { if (bolt.mode === 'nap' && dO > 4 && ownerIdle > 2 && !flee) want = 'nap';   // asleep: he stays asleep unless the owner comes by or moves off
     else if (!['sniff', 'sniffing'].includes(bolt.mode) && boltFollow(dt, dO, flee)) { bolt.mode = 'follow'; bolt.sniffs = 0; }
     else boltIdle(dt, o, b, dO, ownerIdle); }
   if (want !== 'follow') bolt.trail = [];   // asleep or away: the trail starts again from where the owner is when he wakes
+  if (want === 'patrol') { boltPatrol(dt); boltAnim(dt); return; }
   if (want === 'nap' || want === 'shade') { const at = want === 'shade' ? BOLT_SHADE : BOLT_NAP;
     if (Math.hypot(b.x - at[0], b.z - at[1]) > .3) { if (!bolt.path || !bolt.goal || bolt.goal[0] !== at[0]) boltGo(...at); if (boltStep(dt, 1.8)) bolt.sp = 0; bolt.mode = 'go'; }
     else { bolt.sp = 0; bolt.mode = want; bolt.o.rotation.y = -Math.PI / 2; } }   // lying on his blanket facing out of the kennel door (or out of the shade)
@@ -7141,7 +7202,7 @@ function gateHolderBusy(){
 }
 // the other vehicles on the move (a parked lorry is in its bay, clear of every path): [state object, mesh, back, front, half-width]
 function otherVehicles(V){ const out = [];
-  if (V !== CAR && trip && M.car && M.car.visible) out.push([CAR, M.car, 2.0, 2.0, .85]);
+  if (V !== CAR && trip && ['out', 'back', 'park'].includes(trip.phase) && M.car && M.car.visible) out.push([CAR, M.car, 2.0, 2.0, .85]);   // waiting at its spot it is parked: a lorry coming in does not stop for it (the two used to wait on each other)
   if (V !== truck && M.truck && M.truck.visible && ['arrive', 'leave'].includes(truck.state)) out.push([truck, M.truck, 3.3, 3.3, 1.15]);
   if (V !== sup && M.flat && M.flat.visible && ['arrive', 'leave'].includes(sup.state)) out.push([sup, M.flat, 3.3, 3.3, 1.15]);
   if (typeof truckB !== 'undefined' && V !== truckB && M.truckB && M.truckB.visible && ['arrive', 'leave'].includes(truckB.state)) out.push([truckB, M.truckB, 3.3, 3.3, 1.15]);
@@ -7187,14 +7248,14 @@ function updateTrip(dt){
     if (carDrive(CAR_OUT, dt, road ? 9 : 3)) { T_.phase = 'away'; T_.t = 0; M.car.visible = false; }
     if (M.car.position.x > -14) owner.o.position.set(M.car.position.x, 0, M.car.position.z); else owner.o.position.set(...P.carDoor); return; }
   const carK = S.restored.car ? .8 : 1;
-  if (T_.phase === 'away') { if (T_.t >= T_.min * .8 * carK) { T_.phase = 'there'; tripScene(); } return; }
+  if (T_.phase === 'away') { if (T_.kind === 'night') return; if (T_.t >= T_.min * .8 * carK) { T_.phase = 'there'; tripScene(); } return; }   // the night drive: home until the morning
   if (T_.phase === 'there') return;   // the scene card is open
   if (T_.phase === 'home') { if (T_.t >= T_.min * .8 * carK) { if (lorryMoving()) return; T_.phase = 'back'; CAR.s = 0; CAR.v = 8; M.car.visible = true; } return; }
   if (T_.phase === 'back') { const road = M.car.position.z > 14; 
     if (M.car.position.x > -14) owner.o.position.set(M.car.position.x, 0, M.car.position.z);
     if (carYield(CAR_BACK)) { CAR.v = 0; return; }
     if (carDrive(CAR_BACK, dt, road ? 9 : 3)) { T_.phase = 'park'; CAR.s = 0; CAR.v = 0; } return; }
-  if (T_.phase === 'park') { owner.o.position.set(M.car.position.x, 0, M.car.position.z); if (carYield(CAR_REV)) { CAR.v = 0; return; } if (carDrive(CAR_REV, dt, 1.6)) { endTrip(); toast('Back at the works.', ''); } }
+  if (T_.phase === 'park') { owner.o.position.set(M.car.position.x, 0, M.car.position.z); if (carYield(CAR_REV)) { CAR.v = 0; return; } if (carDrive(CAR_REV, dt, 1.6)) { const night = T_.kind === 'night'; endTrip(); toast(night ? 'In through the gates and parked: another day at the works.' : 'Back at the works.', ''); } }
 }
 // the visit itself: a scene card; the drive home starts when it is closed
 function tripScene(){ story({ kind:trip.kind === 'ad' ? 'advert' : 'visit', key:trip.key }); }
@@ -7824,8 +7885,8 @@ async function boot(){
   const ld = $('loading'); setTimeout(() => { ld.style.opacity = 0; setTimeout(() => { ld.remove(); try { yt && yt.game.gameReady(); } catch(e){} }, 600); }, 350);
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
-  else loginCalendar();
-  window.__iv = { TABS, findRoofs, ROOF_N, ROOF_R, ROOF_Y, get roofKey(){ return roofKey; }, set roofKey(v){ roofKey = v; }, siteBounds, updateGuide, get guideHere(){ return guideHere; }, get guideShown(){ return !!(guide && guide.visible); }, get guideRingShown(){ return !!(guideRing && guideRing.visible); }, get pageHidden(){ return pageHidden; }, audioAllowed, toast, placeToasts, segBlocked, STRAY_RING, SITE, stateWord, VERA_FROM, STRAY_AT, KENNEL, buildKennel, boltFeed, slotFree, parkSlotNear, officeHours, get veraWalk(){ return veraWalk; }, svcAt, FAULTS, upgVisible, upCost, lineText, applyMains, stockLedger, get beats(){ return beats; }, learnSkill, canPromote, staffOf, linesHtml, coverHtml, settingsHtml, SHOVEL_AT, PHOTO_AT, milestonePhoto, repaintSigns, COLKEYS:() => [...COL.keys()], get rail(){ return rail; }, buyRaw, chooseStore, goLiveHD, lightFurnace, l8DayEnd, get furnOn(){ return furnOn; }, get fork8(){ return fork8; }, PADS8, SIGN_RING, DAIRY_PAD, hurryOk, set hurry(v){ hurry = v; }, openGap, takeCard, makeCard, refillBoard, boardHtml, cardFits, l7Delivered, zoneCentres, zonesLive, get cyrus(){ return cyrus; }, PEGS, SURVEY_RING, BOARD_RING, hireTommy, buildClockTower, buildDockLamps, REFIT, orderRefit, finishRefit, bookService, svcDue, svcPost, tierOf, get crane(){ return crane; }, craneGone, INSPECT6, get insp6(){ return insp6; }, clerkChar, clerkOn, juneSettle, ledger, buildCanteen, hailShelter, updateCrane, cutDark, buildLevel6, acceptCall2, finishPlot, rainK, noWalkIns, wxLorryLate, stormOn, helperOf, walkPatience, PAY_Q, ICE_AT, BOLT_NAP, BOLT_SHADE, setWx:k => { wxForce = k; wxForceT = 1e9; wx.from = wx.kind = k; wx.k = 1; }, wxFlash:() => { wx.flash = 1; }, rainbowNow:() => { wx.rainbow = .7; }, get wx(){ return wx; }, bolt, chalkProg, CHALK, loginCalendar, wxPlan, wxSummary, migrate, DAY_S, PAY_MIN, PAY_AT, LV_START, calDay, weekday, isFriday, dateOf, dueAt, seasonOf, payTime, payDay, payStep, ownerAtHatch, payNeeded, knockOff, get M_hatch(){ return M.hatch; }, get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payAccounts, closeWeek, weekAccounts, takeLoan, repayLoan, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  else { loginCalendar(); restoreNight(); }
+  window.__iv = { get CARs(){ return CAR; }, get nightState(){ return S.day && S.day.closing && S.day.closing.night; }, ownerOff, nightKind, NIGHT_ROUND, TABS, findRoofs, ROOF_N, ROOF_R, ROOF_Y, get roofKey(){ return roofKey; }, set roofKey(v){ roofKey = v; }, siteBounds, updateGuide, get guideHere(){ return guideHere; }, get guideShown(){ return !!(guide && guide.visible); }, get guideRingShown(){ return !!(guideRing && guideRing.visible); }, get pageHidden(){ return pageHidden; }, audioAllowed, toast, placeToasts, segBlocked, STRAY_RING, SITE, stateWord, VERA_FROM, STRAY_AT, KENNEL, buildKennel, boltFeed, slotFree, parkSlotNear, officeHours, get veraWalk(){ return veraWalk; }, svcAt, FAULTS, upgVisible, upCost, lineText, applyMains, stockLedger, get beats(){ return beats; }, learnSkill, canPromote, staffOf, linesHtml, coverHtml, settingsHtml, SHOVEL_AT, PHOTO_AT, milestonePhoto, repaintSigns, COLKEYS:() => [...COL.keys()], get rail(){ return rail; }, buyRaw, chooseStore, goLiveHD, lightFurnace, l8DayEnd, get furnOn(){ return furnOn; }, get fork8(){ return fork8; }, PADS8, SIGN_RING, DAIRY_PAD, hurryOk, set hurry(v){ hurry = v; }, openGap, takeCard, makeCard, refillBoard, boardHtml, cardFits, l7Delivered, zoneCentres, zonesLive, get cyrus(){ return cyrus; }, PEGS, SURVEY_RING, BOARD_RING, hireTommy, buildClockTower, buildDockLamps, REFIT, orderRefit, finishRefit, bookService, svcDue, svcPost, tierOf, get crane(){ return crane; }, craneGone, INSPECT6, get insp6(){ return insp6; }, clerkChar, clerkOn, juneSettle, ledger, buildCanteen, hailShelter, updateCrane, cutDark, buildLevel6, acceptCall2, finishPlot, rainK, noWalkIns, wxLorryLate, stormOn, helperOf, walkPatience, PAY_Q, ICE_AT, BOLT_NAP, BOLT_SHADE, setWx:k => { wxForce = k; wxForceT = 1e9; wx.from = wx.kind = k; wx.k = 1; }, wxFlash:() => { wx.flash = 1; }, rainbowNow:() => { wx.rainbow = .7; }, get wx(){ return wx; }, bolt, chalkProg, CHALK, loginCalendar, wxPlan, wxSummary, migrate, DAY_S, PAY_MIN, PAY_AT, LV_START, calDay, weekday, isFriday, dateOf, dueAt, seasonOf, payTime, payDay, payStep, ownerAtHatch, payNeeded, knockOff, get M_hatch(){ return M.hatch; }, get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payAccounts, closeWeek, weekAccounts, takeLoan, repayLoan, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });

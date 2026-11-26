@@ -41,13 +41,13 @@ await run(80, '(S.l5.made2 || 0) > 0'); check(await ev(() => (window.__iv.S.l5.m
 await ev(() => { const v = window.__iv; v.S.call = v.dock2Spec(); v.acceptCall2(v.S.call); v.S.call = null; });
 await run(90, "v.truckB.state === 'docked'"); check(await ev(() => window.__iv.truckB.state === 'docked'), 'the white lorry backs into dock 2\'s bay');
 let worstY = 0; await ev(() => { window.__wy = 0; window.__each = v => { for (const c of v.staffObj.values()) { const q = c.o.position, g = v.groundY(q.x, q.z); if (g > .05 && q.x > 18) window.__wy = Math.max(window.__wy, Math.abs(q.y - g) + (g > .05 ? 1e-9 : 0)); } }; });
-await run(160, 'S.order2 && S.order2.ready'); worstY = await ev(() => window.__wy); await ev(() => { window.__each = null; });
+await run(260, 'S.order2 && S.order2.ready'); worstY = await ev(() => window.__wy); await ev(() => { window.__each = null; });
 check(await ev(() => window.__iv.S.order2 && window.__iv.S.order2.ready), 'loaders carry the pipes up dock 2\'s ramp onto the white lorry');
 check(worstY < .01, `feet stay on dock 2's ramp and deck (worst ${worstY.toFixed(3)} m)`);
 await ev(() => window.__iv.signOrder2(window.__iv.owner)); check(await ev(() => (window.__iv.S.l5.d2done || 0) >= 1), 'dock 2\'s first lorry is signed off');
 // two orders the same day
 const pairs0 = await ev(() => window.__iv.S.l5.pairs || 0);
-await ev(() => { const v = window.__iv, S = v.S; if (!S.order) { S.call = { client:'Valley Grocers', qty:6, pq:0, tq:0, pay:300, deadline:400 }; v.acceptCall(); v.closeOffice(); } S.pallet = 20; v.syncPallet(); });
+await ev(() => { const v = window.__iv, S = v.S; if (v.dayMin() > 380) S.time = v.dayNo() * v.DAY_S + 380; if (!S.order) { S.call = { client:'Valley Grocers', qty:6, pq:0, tq:0, pay:300, deadline:400 }; v.acceptCall(); v.closeOffice(); } S.pallet = 20; v.syncPallet(); });   // early enough that both lorries leave before the whistle (after it they wait at the dock overnight)
 await run(200, '(S.l5.pairs || 0) > ' + pairs0);
 check(await ev(p0 => (window.__iv.S.l5.pairs || 0) > p0, pairs0), 'a lorry from each dock on the same day counts as two orders out together');
 // Friday: pay packets from cash, the accounts, Gus's farewell

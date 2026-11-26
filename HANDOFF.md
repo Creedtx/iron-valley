@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (25 Nov 2026, build 0.32, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
+# Handover: where Iron Valley stands (26 Nov 2026, build 0.33, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
 
 Read this first when continuing in a new session.
 
@@ -89,6 +89,27 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
+## Done in build 0.33 (the user's phone play, Levels 1-5; tests `reach.mjs`, `fixes033.mjs`, `night.mjs`)
+- Bought land in view: the camera's limits come from `siteBounds()` (Ada's corner plot across Mill Road was walkable
+  but off camera). `tools/reach.mjs` checks every ring, pad, plot sign, person and build zone at Levels 1-8 is inside
+  the bounds and reachable on foot; it moved the L7 clock pad inside and extends the bounds when the beam store is
+  built at zone C (and the camera while the zones are being chosen).
+- Snow under roofs: `findRoofs()` collects roofs from the scene (elevated slabs whose up-facing area fills their
+  footprint: no cables, merged fittings, trees or vehicles); cutaway models declare theirs (`userData.roof`, the
+  warehouse). The snow shader leaves anything under a roof, below its eave, clear.
+- Office at phone width: staff cards, upgrade rows, section headers and value tables use named grid slots; long
+  statuses go under the title; the Needs-you card is full on Orders and one line elsewhere; nine tabs make two rows.
+- Trolley bay: each space has its own collider (`syncCartCols`) only while a trolley stands in it; the counter-bell
+  pad stands at the counter.
+- Bolt: momentum and turning limits, stuck recovery (re-plan, then a step aside into open ground, `boltFree`),
+  body-width clearance on his footprint line; beside an idle owner he sits, sniffs round and lies down.
+- The evening (`nightRoutine`): after the whistle nobody picks up new work (the owner too), a docked lorry switches
+  off and stays at the dock, loading resumes at 07:00; the owner parks a trolley, then drives home in grandad's car
+  (a `trip` of kind 'night') or sleeps on the office couch on a bad night (heavy snow, a storm, no car); the gates shut
+  once the owner is off; Bolt walks a round of the yard all night (`boltPatrol`); in the morning the owner drives in
+  and parks or comes out of the office (`nightMorning`); a save opened mid-night is restored (`restoreNight`).
+- A car waiting at its spot to set off no longer makes an arriving lorry stop for it (they waited on each other).
 
 ## Done in build 0.32 (`tools/fixes032.mjs`)
 - The phone copy never paused in the background: `tools/package.mjs` copied the Playables bundle (built with

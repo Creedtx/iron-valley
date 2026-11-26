@@ -40,7 +40,7 @@ await ev(() => { const v = window.__iv; v.owner.o.position.set(v.PAY_AT[0], 0, v
 await run(26, 'v.payNeeded().every(st => v.payDay().paid[st.id])');
 check(await ev(() => { const v = window.__iv; return v.payNeeded().length >= 3 && v.payNeeded().every(st => v.payDay().paid[st.id]); }), 'every worker queues at the hatch and gets his packet from the owner');
 check(await ev(() => { const v = window.__iv; return [...v.staffObj.values()].every(c => !c.pay); }), 'nobody is left standing in the pay queue');
-await run(40, 'S.day.closing && S.day.closing.card');
+await run(160, 'S.day.closing && S.day.closing.card');   // the evening: the crew off, the owner drives home, the gates shut
 check(await ev(() => { const b = window.__iv.S.day.book[0]; return b && b.fri && b.week && b.pay && b.pay.n >= 3 && /^Friday/.test(b.date); }), 'Friday\'s day book closes the week with the pay packets');
 check(await ev(() => /Saturday/.test(document.getElementById('storyBody').innerHTML) && /Monday/.test(document.getElementById('storyBody').innerHTML)), 'the Saturday summary shows, and the gates open on Monday');
 await ev(() => { const v = window.__iv; while (v.cardOpen) v.nextCard(); });
