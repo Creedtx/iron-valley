@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (26 Nov 2026, build 0.33, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
+# Handover: where Iron Valley stands (26 Nov 2026, build 0.34, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
 
 Read this first when continuing in a new session.
 
@@ -89,6 +89,36 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
+## Done in build 0.34 (sound and smoothness; test `fixes034.mjs`)
+The user reset and played from Level 1 and found the sound out of step and the play not smooth. A profile showed the
+JS was cheap and the stalls were shaders compiled mid-play.
+- **Shaders compiled during loading** (`warmShaders`): the particle pool is filled, the snow patch goes on every
+  material from the start, then `renderer.compile` (three r170 walks hidden objects too). It runs again after each
+  level-up (`compileAsync` there). New meshes (crew hired, machines built) take the snow patch within 4 s whatever the
+  weather (`updateSnow`), so the first snowfall never recompiles. L2 profile: 18 -> 20 programs during play before,
+  now all built at load with none added in play.
+- **No lights switched in mid-play.** The milestone photo flash is a CSS screen wash (`screenFlash`). The furnace
+  light is created in `buildLevel8`, before the warm-up.
+- **Snow mask:** the roof loop in the snow shader only runs where snow would show (`k > 0`).
+- **Shadow fallback:** at the lowest resolution and still under 36 fps, the shadow map redraws every other frame
+  (`shadowHalf`). Softness is kept.
+- **Audio:**
+  - Noise bursts are cut from the one shared noise buffer (no per-sound allocation).
+  - Voices silent for 4 s on the audio clock are stopped and rebuilt when heard again (`NO_VOICE` ticks them while
+    stopped). This also covers a story card left open.
+  - The master bus ends in a limiter (no clipping crackle).
+  - Any first tap wakes the audio, not just the joystick.
+  - `sfxAt` checks `audioAllowed` first.
+- **New running sounds:** the second saw and second mill, dock 2's lorry (`lorryTick` takes a mesh), both forklifts
+  and the shunting loco (`vehTick`), and the furnace roar.
+- **In step:**
+  - Footsteps land on the walk clip's foot-plants (`FOOT_AT` = .42/.91, measured on the rig as the body's lowest
+    points), two a cycle.
+  - The saw's cutting note and its bite follow the blade in the plank (`CUT_AT`); the old bite played as the crate
+    rolled out.
+  - On a route (out of the car, the night round) the owner's legs now walk at his real pace; before, he glided in
+    the idle or inspect pose.
 
 ## Fix after 0.33: the phone copy stuck at 29% on loading
 - `three.js` was loaded under a fixed name while `game.js` was version-stamped: Chrome on the phone kept its cached

@@ -36,18 +36,19 @@ check(await ev(() => window.__iv.S.level === 8 && window.__iv.dateOf(window.__iv
 check(await ev(() => { const c = window.__iv.charter(); return c.length === 8 && c[0].need === 1500000 && ['lit', 'beams', 'trains', 'foreman', 'clean', 'plot', 'rep'].every(id => c.some(x => x.id === id)); }), 'the v2.0 charter: $1.5M, furnace lit, 150 beams, 4 trains, foreman, a clean day, the plot, 76%');
 check(await ev(() => !!window.__iv.M.l8 && window.__iv.COLKEYS().includes('furnace') && window.__iv.COLKEYS().includes('plinth')), 'the siding, raw-store bays, furnace house and 11 kV plinth stand behind the back fence');
 check(await ev(() => { const v = window.__iv, path = v.findPath(-3, 0, ...v.SIGN_RING); const e = path[path.length - 1]; let x = -3, z = 0, ok = true; for (const q of path) { if ((z > -12) !== (q[1] > -12)) { const t = (-12 - z) / (q[1] - z), cx = x + (q[0] - x) * t; if (cx < -13.9 || cx > -12.2) ok = false; } x = q[0]; z = q[1]; } return ok && Math.hypot(e[0] - v.SIGN_RING[0], e[1] - v.SIGN_RING[1]) < .3; }), 'the owner walks out to the bays through the new back gate');
+const sndLvl = id => ev(id => { const v = window.__iv, s = v.SOUNDS.find(x => x.id === id), fake = { set(){}, f(){}, stop(){} }; const at = s.at(); return at ? s.tick(fake, { dt:.05 }) : 0; }, id);
 // Monday: the first train
 await ev(() => { const v = window.__iv; v.S.time = v.dayNo() * 600 + 55; });
 await run(120, "v.rail.st === 'sign'"); check(await ev(() => window.__iv.rail.st === 'sign'), 'No. 7 "Valley Belle" pushes the wagons into the siding on the timetable');
 await ev(() => { const v = window.__iv; v.camLock = [-8, -19]; v.camZoom = 1.2; });
 await ev(() => { const v = window.__iv; v.owner.o.position.set(v.SIGN_RING[0], 0, v.SIGN_RING[1]); window.__r0 = v.S.l8.scrap + v.S.l8.ore; });
-await run(4, "v.rail.st !== 'sign'"); await run(12, "v.rail.st === 'tip'"); await ev(() => { window.__iv.hold = false; }); await wait(1800); await p.screenshot({ path:path.join(out, 'l8_tip.png') });
+await run(4, "v.rail.st !== 'sign'"); await run(12, "v.rail.st === 'tip'"); check(await sndLvl('train') > 0, 'the loco is heard while it shunts in the siding'); await ev(() => { window.__iv.hold = false; }); await wait(1800); await p.screenshot({ path:path.join(out, 'l8_tip.png') });
 await run(90, "v.rail.st === 'out'"); check(await ev(() => window.__iv.S.l8.trains === 1 && window.__iv.S.l8.scrap + window.__iv.S.l8.ore > window.__r0), 'the owner signs; each wagon is shunted over its bay and tipped');
 await ev(() => { window.__iv.camLock = null; });
 // Tuesday: the heavy-duty supply, the furnace, two operators
 await ev(() => { const v = window.__iv, S = v.S; S.cash += 400000; v.applyRestore('hd', true); v.applyRestore('furnace', true); v.hire('operator'); v.hire('operator'); v.closeOffice(); for (const st of S.staff) st.posted = true; });
 check(await ev(() => window.__iv.S.l8.lit && window.__iv.S.staff.filter(s => s.mach === 'furnace').length === 2), 'the heavy-duty supply goes live, the furnace is lit, two operators hired for it');
-await run(80, 'S.l8.made >= 2'); check(await ev(() => window.__iv.S.l8.made >= 2 && window.__iv.S.l8.bed >= 1), 'beams slide out of the furnace onto the cooling bed (12 s each)');
+await run(80, 'S.l8.made >= 2'); check(await sndLvl('furnace') >= (await ev(() => window.__iv.furnOnNow ? 1 : .35)) - .01, 'the furnace roars while it runs'); check(await ev(() => window.__iv.S.l8.made >= 2 && window.__iv.S.l8.bed >= 1), 'beams slide out of the furnace onto the cooling bed (12 s each)');
 check(await ev(() => window.__iv.S.l8.letter), 'the second letter is found in the old safe');
 await ev(() => { const v = window.__iv; v.camLock = [-20, -7]; v.camZoom = 1.1; v.hold = false; }); await wait(2500); await p.screenshot({ path:path.join(out, 'l8_furnace.png') });
 // the beam store in a build zone, the second forklift

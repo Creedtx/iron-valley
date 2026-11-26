@@ -1517,6 +1517,7 @@ function sawWorker(){
 function lineNodes(m){ return m.userData.ln ||= { blade:m.getObjectByName('blade'), pulley:m.getObjectByName('pulley'), plank:m.getObjectByName('plank'),
   rollers:[...Array(8)].map((_, i) => m.getObjectByName('roller_' + i)).filter(Boolean), head:m.getObjectByName('press_head'), wip:m.getObjectByName('crate_wip'),
   out:m.getObjectByName('crate_out'), wheel:m.getObjectByName('comp_wheel'), piston:m.getObjectByName('comp_piston') }; }
+const CUT_AT = [.28, .5];   // the part of a crate cycle the blade is in the plank (the sawdust and the saw's cutting note both follow it)
 function animLine(m, cyc, run, dt, powered = true, stocked = false){
   const n = lineNodes(m); if (!n.blade) return;
   n.base ||= { plank:n.plank.position.x, head:n.head.position.y, out:n.out.position.x, piston:n.piston.position.y };
@@ -1529,7 +1530,8 @@ function animLine(m, cyc, run, dt, powered = true, stocked = false){
   // 0 .. .5: the plank rolls in and through the saw
   n.plank.visible = p < .5; n.plank.position.x = n.base.plank - .4 + p / .5 * 1.25;
   const roll = p < .5 ? 16 : 0; for (let i = 0; i < 6; i++) n.rollers[i].rotation.z -= dt * roll;
-  if (p > .28 && p < .5 && Math.random() < dt * 30) dustBurst(m);
+  if (p > CUT_AT[0] && p < CUT_AT[1] && Math.random() < dt * 30) dustBurst(m);
+  if (p > CUT_AT[0] && p < CUT_AT[1] && !ud.bite) { ud.bite = true; sfxAt('saw', m.position.x, m.position.z); } else if (p < CUT_AT[0]) ud.bite = false;   // the blade bites as the plank meets it
   // .45 .. .9: the nailer drives the crate together
   n.wip.visible = p > .45 && p < .9;
   const nail = p > .5 && p < .88 ? Math.max(0, Math.sin((p - .5) * Math.PI * 16)) : 0; n.head.position.y = n.base.head - nail * .13;
@@ -1553,7 +1555,7 @@ function updateSaw(dt){
     if (sawT >= SAW_CYCLE) { sawT = 0; S.feed--; S.pallet++; S.made++; machCycle('saw'); if (S.wrongTimber > 0) S.wrongTimber--;
       // crate batch upgrade: a steady share of planks yields a second crate (no luck involved)
       S.batchAcc += Math.min(1, .25 * S.up.batch); if (S.batchAcc >= 1 && (orderLeft() > 0 || stockLeftC() > 0) && S.pallet < palletCap()) { S.batchAcc -= 1; S.pallet++; S.made++; floatText('+1 crate', P.saw[0], 1.5, P.saw[1], 'info'); }
-      syncOrderCounts(); if (S.order) { if (!S.order.t1) S.order.t1 = Math.round(S.order.time); if (!S.order.tc && S.order.cut >= S.order.qty) S.order.tc = Math.round(S.order.time); } S.cond.saw = Math.max(0, S.cond.saw - 2.2); syncFeed(); syncPallet(); sfxAt('saw', ...P.saw); sfxAt('thunk', P.saw[0] + .6, P.saw[1], .7); giveXp(by.st, 10); }
+      syncOrderCounts(); if (S.order) { if (!S.order.t1) S.order.t1 = Math.round(S.order.time); if (!S.order.tc && S.order.cut >= S.order.qty) S.order.tc = Math.round(S.order.time); } S.cond.saw = Math.max(0, S.cond.saw - 2.2); syncFeed(); syncPallet(); sfxAt('thunk', P.saw[0] + .6, P.saw[1], .7); giveXp(by.st, 10); }
   } else animLine(M.saw, 0, false, dt, circuitOn('saw') && !sawBroken(), S.feed > 0);
   if (sawBroken() && Math.random() < dt * 5) spark(P.saw[0] + rand(-.3, .3), 1.0, P.saw[1] + rand(-.2, .2));
   setLamp(M.saw.getObjectByName('status_lamp'), ...(sawBroken() || !circuitOn('saw') ? LAMP_STOP : sawOn ? LAMP_RUN() : LAMP_IDLE));
@@ -2185,7 +2187,7 @@ async function startLevel(n){
     toast('Level 8: Steel Works. The siding is laid behind the North field, the furnace house and the 11 kV plinth are up. The first train is due at eight.', 'gold'); }
   if (n === 3) { S.lv3.e0 = S.earned; S.lv3.f0 = S.fixed; buildLevel3(); applyUpgradeVisuals(); sfx('level', .7); toast(plotOwned('north') ? 'Level 3: Local Manufacturer. Install the tool press on the North field.' : 'Level 3: Local Manufacturer. Buy the North field from Abel Thorne, then install the tool press on it.', 'gold'); }
   if (n === 3) toast('Valley Timber Co. has closed the free account. From now on you buy timber in the office (Stock), and the generator burns diesel your loaders fetch from the tank.', 'gold');
-  placeFolk(); story({ kind:'skip', level:n, w0, w1 }); story({ kind:'courier', level:n }); setTimeout(() => { levelShot = yardShot(); }, 1500);
+  placeFolk(); warmShaders(); story({ kind:'skip', level:n, w0, w1 }); story({ kind:'courier', level:n }); setTimeout(() => { levelShot = yardShot(); }, 1500);
   if (CHOICE[n]) setTimeout(() => toast(`This level's choice: ${CHOICE[n]}`, ''), 2500);
   save(); renderOffice();
 }
@@ -2527,12 +2529,12 @@ function inspectStaff(c){
 function updateOwner(dt){
   const [dx, dz, k] = inputDir(), o = owner.o, load = owner.cart ? (owner.cart.n || owner.stack.length ? .9 : .95) : owner.stack.length ? (owner.carryType === 'pipe' ? .92 : .95) : 1;
   const sp = 3.4 * (1 + .12 * S.up.boots) * (1 + .1 * (S.skills.walk || 0)) * load * (typeof walkSnowK === 'function' ? walkSnowK() : 1);   // empty 100%, crates 95%, pipes 92%, a loaded trolley 90%, snow a further -10%
-  if (owner.lock > 0) owner.lock -= dt;
+  if (owner.lock > 0) owner.lock -= dt; owner.stepV = 0;
   if (k > 0 && !(owner.lock > 0)) { const n = Math.max(1, Math.ceil(sp * dt / .07)); for (let i = 0; i < n; i++) { o.position.x += dx * sp * dt / n; o.position.z += dz * sp * dt / n; collide(o.position); }   // short steps: never through a thin kerb or fence on a slow frame
     owner.face(dx, dz, dt); S.moved = true; owner.stepTo = null; owner.autoPath = null; owner.inputAt = T; }
   else if (!owner.stepTo && owner.autoPath && owner.autoPath.length && !(owner.lock > 0)) owner.stepTo = owner.autoPath.shift();   // a route: the next point of it
   if (!(k > 0) && owner.stepTo && !(owner.lock > 0)) { const ddx = owner.stepTo[0] - o.position.x, ddz = owner.stepTo[1] - o.position.z, d = Math.hypot(ddx, ddz);   // stepping out of the car and clear of it
-    if (d < .05) owner.stepTo = null; else { const st = Math.min(d, (owner.autoPath ? 2.6 : 1.6) * dt); o.position.x += ddx / d * st; o.position.z += ddz / d * st; collide(o.position); owner.face(ddx, ddz, dt); owner.play('walk'); } }
+    if (d < .05) owner.stepTo = null; else { const st = Math.min(d, (owner.autoPath ? 2.6 : 1.6) * dt); o.position.x += ddx / d * st; o.position.z += ddz / d * st; collide(o.position); owner.face(ddx, ddz, dt); owner.stepV = st / Math.max(dt, 1e-4); } }
   target = ownerTarget();
   if (!target || target.key !== dwell.key) dwell = { key:target && target.key, t:0 }; else dwell.t += dt;
   if (target && target.type === 'staff' && target.c.st.id > 0 && dwell.t > .45 && !dwell.done) { dwell.done = true; inspectStaff(target.c); }
@@ -2547,6 +2549,7 @@ function updateOwner(dt){
     if (handFix.prog >= 1 && FAULTS[handFix.kind].svc) svcDone(handFix, owner); else if (handFix.prog >= 1) { clearFault(handFix, owner); toast(handFix.guided ? 'Fixed by hand. A mechanic does that twice as fast: hire one in the office.' : 'Fixed it yourself.', 'good'); } }
   const working = owner.working && T - owner.working < .2;
   if (owner.lock > 0) {} else if (k > 0) owner.play(owner.stack.length || owner.cart ? 'carry' : 'walk', (.6 + k * .65) * (1 + .12 * S.up.boots));
+  else if (owner.stepV > .2) owner.play(owner.stack.length || owner.cart ? 'carry' : 'walk', owner.stepV / 2.72);   // on a route (out of the car, the night round): the legs walk at the pace he moves, 2.72 m a cycle like the joystick's
   else if (working) { owner.play('work'); if (owner.workAt) owner.faceTo(owner.workAt, dt); }
   else if (handFix) { owner.play(FAULTS[handFix.kind].anim); owner.faceTo(jobFace(handFix), dt); }
   else if (owner.stack.length) owner.play('carry', 0);
@@ -4258,7 +4261,7 @@ function updateSaw2(dt){
   if (canRun) {
     saw2T += dt * sawSpeedK() * tierK('saw2') * autoFeedK() * crewSpeed(by) * pf(); animLine(M.saw2, saw2T / SAW_CYCLE, true, dt);
     by.st.energy = Math.max(0, by.st.energy - dt * (100 / 90));
-    if (saw2T >= SAW_CYCLE) { saw2T = 0; S.lv4.feed2--; S.lv4.pallet2++; S.made++; S.lv4.made2 = (S.lv4.made2 || 0) + 1; machCycle('saw2'); syncOrderCounts(); syncFeed2(); syncPallet2(); sfxAt('saw', ...P.saw2, .6); giveXp(by.st, 10); }
+    if (saw2T >= SAW_CYCLE) { saw2T = 0; S.lv4.feed2--; S.lv4.pallet2++; S.made++; S.lv4.made2 = (S.lv4.made2 || 0) + 1; machCycle('saw2'); syncOrderCounts(); syncFeed2(); syncPallet2(); giveXp(by.st, 10); }
   } else animLine(M.saw2, 0, false, dt, true, S.lv4.feed2 > 0);
   setLamp(M.saw2.getObjectByName('status_lamp'), ...(!powerOn() ? LAMP_STOP : saw2On ? LAMP_RUN() : LAMP_IDLE));
 }
@@ -5512,7 +5515,7 @@ function openGap(x0, x1, z){   // a gateway in a fence line: its panels come dow
   for (const x of [x0, x1]) { put(inst('env_gate_post'), x, z, 0).userData.dyn = true; addCol([x - .2, z - .2, x + .2, z + .2]); }
 }
 function buildLevel8(){
-  if (M.l8Built) return; M.l8Built = true; const g = new THREE.Group(); g.userData.dyn = true; world.add(g); M.l8 = g;
+  if (M.l8Built) return; M.l8Built = true; if (!M.furnLight) { M.furnLight = new THREE.PointLight('#ff8a30', 0, 14, 1.6); M.furnLight.position.set(FURN_DOOR[0], 1.6, FURN_DOOR[1] + 1.2); scene.add(M.furnLight); } const g = new THREE.Group(); g.userData.dyn = true; world.add(g); M.l8 = g;
   const box = (w, h, d, m, x, y, z, p = g) => { const b = new THREE.Mesh(BX(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; b.receiveShadow = true; p.add(b); return b; };
   const conc = std('#a7a198', .95), brick = std('#6e3f2c', .9), steel = std('#5a5f63', .55, .5), dark = std('#2b2f33', .7, .3), rust = std('#7a4a2e', .85, .3);
   // the siding: from the main line's turnout in the west to a buffer stop by the back gate
@@ -5828,8 +5831,11 @@ function updateSplash(dt){ if (!(wxRain() > .3 || (S.wx && S.wx.wet > .3)) || in
 const PHOTO_AT = [-3.4, -1.0];
 function milestonePhoto(what){ if (S.photo && S.photo.until > S.time) return; S.photo = { what, until:S.time + 40 }; M.ring('photo', ...PHOTO_AT, '#e8ab2c', .55); toast(`${what}: the crew lines up by the workshop door for a photograph. Join them in the ring.`, 'gold'); }
 function updatePhoto(dt){ const ph = S.photo; if (!ph || ph.until < S.time) { if (M.rings && M.rings.photo) M.rings.photo.g.visible = false; return; } if (M.rings.photo) M.rings.photo.g.visible = !ph.done;
-  if (!ph.done && near(owner.o, PHOTO_AT, .55) && ownerStill()) { ph.done = true; ph.until = S.time + 3; S.photos = (S.photos || 0) + 1; tone(1800, .05, 'square', .03); if (scene.userData.flash === undefined) scene.userData.flash = 0; const L = new THREE.PointLight('#ffffff', 40, 14); L.position.set(PHOTO_AT[0], 3, PHOTO_AT[1] + 3); scene.add(L); setTimeout(() => L.removeFromParent(), 140);
+  if (!ph.done && near(owner.o, PHOTO_AT, .55) && ownerStill()) { ph.done = true; ph.until = S.time + 3; S.photos = (S.photos || 0) + 1; tone(1800, .05, 'square', .03); screenFlash();
     for (const c of staffObj.values()) { c.say = { text:'Cheese!', until:T + 1.5 }; c.play('cheer'); c.lock = 1.2; } confetti(); toast(`The photograph goes up in the office: ${ph.what}.`, 'good'); save(); } }
+// the camera's flash: a white wash over the screen (a light switched into the scene would recompile every material)
+function screenFlash(){ const d = document.createElement('div'); d.style.cssText = 'position:fixed;inset:0;background:#fff;pointer-events:none;z-index:40;opacity:' + (REDUCED ? .35 : .85) + ';transition:opacity .35s ease-out';
+  document.body.appendChild(d); requestAnimationFrame(() => requestAnimationFrame(() => { d.style.opacity = 0; })); setTimeout(() => d.remove(), 500); }
 // ---- the chalk tally board at goods-in: each material and its days of cover (Level 3+) ------------------------------
 function updateTally(){ if (S.level < 3 || !P.goodsIn) return; if (!M.tally) { const g = new THREE.Group(); g.position.set(P.goodsIn[0] + 1.25, 0, P.goodsIn[1] - 1.3); for (const dx of [-.4, .4]) { const p = new THREE.Mesh(BX(.06, 1.6, .06), std('#5a3b24', .8)); p.position.set(dx, .8, 0); g.add(p); }
     const f = new THREE.Mesh(new THREE.PlaneGeometry(.95, .6), new THREE.MeshBasicMaterial({ color:'#ffffff' })); f.position.set(0, 1.35, .04); g.add(f); g.userData.face = f; g.userData.dyn = true; world.add(g); M.tally = g; }
@@ -5884,9 +5890,13 @@ function stateWord(k, r){ const t = (r[1] || '').toLowerCase(), sub = (r[2] || '
 const mtag = (k, r) => `<div class="mtag ${r[0]}"><b>${stateWord(k, r)}</b>${r[1]}${r[2] ? ' · ' + r[2] : ''}</div>`;
 // ---- haptics (v2.0 19.2), off unless switched on in the settings ------------------------------------------------------
 function buzz(p){ try { if (S.haptics && navigator.vibrate) navigator.vibrate(p); } catch(e){} }
-// footsteps change with the ground: concrete, gravel, the wet yard, snow, the steel dock deck (v2.0 19.1)
+// footsteps change with the ground: concrete, gravel, the wet yard, snow, the steel dock deck (v2.0 19.1); each one lands with a foot
+const FOOT_AT = [.42, .91];   // where in the walk cycle each foot takes the weight (the body dips lowest there: measured on the rig)
 let stepT = 0;
-function updateFootsteps(dt){ const k = inputDir()[2]; if (k <= 0 || !owner.o.visible) { stepT = 0; return; } stepT -= dt * (1.6 + k * 1.4); if (stepT > 0) return; stepT = 1;
+function updateFootsteps(dt){ const a = owner.action, walking = owner.o.visible && (owner.clip === 'walk' || owner.clip === 'carry') && a && (inputDir()[2] > 0 || owner.stepTo);
+  if (!walking) { owner.footPh = null; return; } const ph = (a.time / a.getClip().duration) % 1, last = owner.footPh; owner.footPh = ph; if (last == null) return;
+  if (!FOOT_AT.some(f => (last < f && ph >= f) || (last > ph && (f > last || ph >= f)))) return;   // a foot comes down between the last frame and this one
+  owner.steps = (owner.steps || 0) + 1; owner.stepPh = ph;   // counted (and the phase kept) for the tests
   const p = owner.o.position, onDeck = typeof groundY === 'function' && groundY(p.x, p.z) > .5, inYard = p.x > SITE.x0 && p.x < SITE.x1 && p.z > SITE.z0 && p.z < SITE.z1;
   if (onDeck) tone(330 + Math.random() * 40, .04, 'triangle', .012); else if (snowLying() > .3 && !(inYard && (S.wx.cleared || 0) > .6)) noiseS(.07, 900, .02); else if (wxRain() > .3) noiseS(.05, 2400, .012, 'bandpass'); else if (!inYard) noiseS(.04, 3200, .01, 'bandpass'); else noiseS(.03, 600, .008); }
 function updatePolish(dt){ syncFaultTags(); updateBeats(); if (S.reduced !== undefined) REDUCED = S.reduced; updateFootsteps(dt); if (!levelShot && frames > 90 && !cardOpen) levelShot = yardShot();
@@ -6133,6 +6143,13 @@ function updateGuide(o){
    EFFECTS
    ===================================================================== */
 const sprites = [], spritePool = [];
+// build 0.34: every shader program is compiled up front, so nothing stalls the first time a mesh shows, the snow comes
+// or a spark flies. Hidden objects count (three's compile walks the whole scene); the particle pool is filled first, and
+// the snow patch is put on every material from the start (it costs nothing while no snow lies).
+let warmN = 0;
+function warmShaders(wait){ try { while (spritePool.length < 24) { const m = new THREE.Sprite(new THREE.SpriteMaterial({ map:TX.dot, transparent:true, depthWrite:false })); m.userData.v = new THREE.Vector3(); m.visible = false; scene.add(m); spritePool.push(m); }
+    findRoofs(); snowPatch(); warmN++;
+    if (!wait && renderer.compileAsync) return renderer.compileAsync(scene, cam).catch(() => {}); renderer.compile(scene, cam); } catch(e) { console.warn('[iv] warm', e); } }
 function sprite(col, x, y, z, vx, vy, vz, life, size, grav = 0, add = false){
   if (sprites.length > 160) return;
   let m = spritePool.pop();
@@ -6179,11 +6196,14 @@ let pageHidden = false;   // another app in front or the screen off (phone copy 
 const audioAllowed = () => !ytMuted && !hold && !pageHidden;
 function setYtAudio(on){ ytMuted = !on; if (!AC) return; if (audioAllowed()) AC.resume().catch(() => {}); else AC.suspend().catch(() => {}); }
 window.__ivAudio = () => AC ? AC.state : null;   // test hook: the audio state
+// any first tap or click wakes the sound (a button in the office as well as the joystick)
+addEventListener('pointerdown', () => audioOn(), { capture:true }); addEventListener('touchend', () => audioOn(), { capture:true, passive:true });
 function audioOn(){ if (!audioAllowed()) return; if (AC) { if (AC.state === 'suspended') AC.resume().catch(() => {}); return; } try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
 function tone(f, d, type = 'square', v = .04, delay = 0, slide){ if (!AC || !audioAllowed()) return; const t0 = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.setValueAtTime(f, t0); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + d);
   g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + .01); g.gain.exponentialRampToValueAtTime(.0001, t0 + d); o.connect(g).connect(OUT || master()); o.start(t0); o.stop(t0 + d + .02); }
-function noiseS(d, f, v, type = 'lowpass'){ if (!AC || !audioAllowed()) return; const n = Math.floor(AC.sampleRate * d), b = AC.createBuffer(1, n, AC.sampleRate), x = b.getChannelData(0); for (let i = 0; i < n; i++) x[i] = (Math.random() * 2 - 1) * (1 - i / n);
-  const s = AC.createBufferSource(), fl = AC.createBiquadFilter(), g = AC.createGain(); s.buffer = b; fl.type = type; fl.frequency.value = f; g.gain.value = v; s.connect(fl).connect(g).connect(OUT || master()); s.start(); }
+function noiseS(d, f, v, type = 'lowpass'){ if (!AC || !audioAllowed()) return; const t0 = AC.currentTime, s = AC.createBufferSource(), fl = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = noiseBuf(); fl.type = type; fl.frequency.value = f; g.gain.setValueAtTime(v, t0); g.gain.linearRampToValueAtTime(0, t0 + d);   // a burst cut from the shared noise, fading out over its length
+  s.connect(fl).connect(g).connect(OUT || master()); s.start(t0, Math.random() * Math.max(0, 1.95 - d), d + .02); }
 function sfx(n, vol = 1){ if (!AC || paused) return; ({ pick:() => { tone(520, .06, 'triangle', .05 * vol); buzz(12); }, drop:() => tone(190, .08, 'square', .035 * vol), coin:() => tone(1180 + Math.random() * 80, .06, 'square', .022),
   tick:() => tone(880, .03, 'square', .012), buy:() => { tone(523, .1, 'triangle', .07); tone(659, .1, 'triangle', .07, .09); tone(784, .2, 'triangle', .07, .18); },
   horn:() => { tone(220, .25, 'sawtooth', .03); tone(277, .25, 'sawtooth', .03, .02); }, saw:() => noiseS(.22, 3200, .03, 'bandpass'), clank:() => { noiseS(.05, 2600, .1 * vol); tone(160, .08, 'square', .03 * vol); },
@@ -6198,7 +6218,10 @@ function sfx(n, vol = 1){ if (!AC || paused) return; ({ pick:() => { tone(520, .
    and distance dulls the top end the way air does. Engines and motors are continuous voices; a cut, a nail or a
    reversing beeper is a one-shot heard from where it happens. */
 let OUT = null, MASTER = null, NOISE = null;
-function master(){ if (!MASTER) { MASTER = AC.createGain(); MASTER.gain.value = 1; MASTER.connect(AC.destination); } return MASTER; }
+// the master bus ends in a limiter: a yard full of machines, lorries and a whistle at once never clips into a crackle
+function master(){ if (!MASTER) { MASTER = AC.createGain(); MASTER.gain.value = S.fxVol ?? 1; let out = AC.destination;
+    try { const L = AC.createDynamicsCompressor(); L.threshold.value = -10; L.knee.value = 6; L.ratio.value = 12; L.attack.value = .003; L.release.value = .2; L.connect(AC.destination); out = LIMITER = L; } catch(e) {}
+    MASTER.connect(out); } return MASTER; }
 function noiseBuf(){ if (!NOISE) { const n = AC.sampleRate * 2; NOISE = AC.createBuffer(1, n, AC.sampleRate); const x = NOISE.getChannelData(0); for (let i = 0; i < n; i++) x[i] = Math.random() * 2 - 1; } return NOISE; }
 const earV = new THREE.Vector3();
 function earOf(x, z, near = 2.2, far = 15){
@@ -6207,7 +6230,7 @@ function earOf(x, z, near = 2.2, far = 15){
   return { g:(1 - k) * (1 - k), pan:clamp(side / 9, -.8, .8), k };
 }
 function sfxAt(n, x, z, vol = 1){
-  if (!AC || paused) return; if (!owner) return sfx(n, vol);
+  if (!AC || paused || !audioAllowed()) return; if (!owner) return sfx(n, vol);
   const e = earOf(x, z, 2, 16); if (e.g < .015) return;
   const g = AC.createGain(); g.gain.value = e.g; const pn = AC.createStereoPanner ? AC.createStereoPanner() : null;
   if (pn) { pn.pan.value = e.pan; g.connect(pn).connect(master()); } else g.connect(master());
@@ -6222,7 +6245,7 @@ function engineVoice(out, f0, rough){
   lfo.type = 'square'; lfo.frequency.value = f0 / 4; lg.gain.value = rough * .85; lfo.connect(lg).connect(ng.gain);
   o.connect(lp); sub.connect(sg).connect(lp); lp.connect(out); n.connect(nb).connect(ng).connect(out);
   [o, sub, n, lfo].forEach(x => x.start());
-  return { f(hz, tau = .35){ const t = AC.currentTime; o.frequency.setTargetAtTime(hz, t, tau); sub.frequency.setTargetAtTime(hz / 2, t, tau); lfo.frequency.setTargetAtTime(hz / 4, t, tau); lp.frequency.setTargetAtTime(hz * 5, t, tau); } };
+  return { stop(){ [o, sub, n, lfo].forEach(x => { try { x.stop(); } catch(e){} }); lp.disconnect(); ng.disconnect(); }, f(hz, tau = .35){ const t = AC.currentTime; o.frequency.setTargetAtTime(hz, t, tau); sub.frequency.setTargetAtTime(hz / 2, t, tau); lfo.frequency.setTargetAtTime(hz / 4, t, tau); lp.frequency.setTargetAtTime(hz * 5, t, tau); } };
 }
 // an electric machine: the motor's whine rising with its speed, mains hum, and a blade or belt hiss while it cuts
 function motorVoice(out, top = 120, hiss = 2600){
@@ -6231,30 +6254,41 @@ function motorVoice(out, top = 120, hiss = 2600){
   n.buffer = noiseBuf(); n.loop = true; bp.type = 'bandpass'; bp.frequency.value = hiss; bp.Q.value = 2.2; ng.gain.value = 0;
   o.connect(lp).connect(mg); hum.connect(hg).connect(mg); mg.connect(out); n.connect(bp).connect(ng).connect(out);
   [o, hum, n].forEach(x => x.start());
-  return { set(spin, cut){ const t = AC.currentTime; o.frequency.setTargetAtTime(15 + spin * (top - 15), t, .45); mg.gain.setTargetAtTime(spin * .85, t, .45); ng.gain.setTargetAtTime(cut * .8, t, .07); bp.frequency.setTargetAtTime(hiss * (.7 + .3 * spin), t, .45); } };
+  return { stop(){ [o, hum, n].forEach(x => { try { x.stop(); } catch(e){} }); mg.disconnect(); ng.disconnect(); }, set(spin, cut){ const t = AC.currentTime; o.frequency.setTargetAtTime(15 + spin * (top - 15), t, .45); mg.gain.setTargetAtTime(spin * .85, t, .45); ng.gain.setTargetAtTime(cut * .8, t, .07); bp.frequency.setTargetAtTime(hiss * (.7 + .3 * spin), t, .45); } };
 }
 // each source: where it is, how loud it is right now (0..1) and what its voice is doing
 const SOUNDS = [
   { id:'gen', vol:.075, voice:out => engineVoice(out, 50, .55), at:() => P.gen,
     tick(v){ const run = genActive(), kw = load() / Math.max(1, genKW()); v.f(run ? 50 - 3 * kw : 14, run ? .35 : 1.2); return run ? .75 + .25 * kw : 0; } },
   { id:'saw', vol:.07, voice:out => motorVoice(out, 120, 2600), at:() => P.saw,
-    tick(v){ const spin = clamp((M.saw.userData.spin || 0) / 34, 0, 1); v.set(spin, sawOn && (sawT / SAW_CYCLE) % 1 > .2 && (sawT / SAW_CYCLE) % 1 < .5 ? 1 : 0); return spin > .02 ? 1 : 0; } },
+    tick(v){ const spin = clamp((M.saw.userData.spin || 0) / 34, 0, 1); v.set(spin, sawOn && (sawT / SAW_CYCLE) % 1 > CUT_AT[0] && (sawT / SAW_CYCLE) % 1 < CUT_AT[1] ? 1 : 0); return spin > .02 ? 1 : 0; } },
   { id:'truck', vol:.08, voice:out => engineVoice(out, 30, .75), at:() => [M.truck.position.x, M.truck.position.z], tick(v, s){ return lorryTick(v, s, truck, 30); } },
   { id:'flat', vol:.07, voice:out => engineVoice(out, 34, .7), at:() => [M.flat.position.x, M.flat.position.z], tick(v, s){ return lorryTick(v, s, sup, 34); } },
   { id:'mill', vol:.065, voice:out => motorVoice(out, 95, 1700), at:() => P.pmill, tick(v){ if (!M.mill) return 0; v.set(pipeOn ? 1 : 0, pipeOn ? .6 : 0); return pipeOn ? 1 : .001; } },
   { id:'press', vol:.065, voice:out => motorVoice(out, 80, 1200), at:() => P.tpress, tick(v){ if (!M.press) return 0; v.set(toolOn ? 1 : 0, toolOn ? .4 : 0); return toolOn ? 1 : .001; } },
+  // build 0.34: the second crate machine, the second pipe mill, dock 2's lorry, the forklifts, the furnace and the train
+  { id:'saw2', vol:.07, voice:out => motorVoice(out, 120, 2600), at:() => M.saw2 ? P.saw2 : null, tick(v){ const ph = (saw2T / SAW_CYCLE) % 1, spin = clamp((M.saw2.userData.spin || 0) / 34, 0, 1); v.set(spin, saw2On && ph > CUT_AT[0] && ph < CUT_AT[1] ? 1 : 0); return spin > .02 ? 1 : 0; } },
+  { id:'mill2', vol:.065, voice:out => motorVoice(out, 95, 1700), at:() => M.mill2 ? P.mill2 : null, tick(v){ v.set(mill2On ? 1 : 0, mill2On ? .6 : 0); return mill2On ? 1 : .001; } },
+  { id:'truckB', vol:.08, voice:out => engineVoice(out, 30, .75), at:() => M.truck2 && M.truck2.visible ? [M.truck2.position.x, M.truck2.position.z] : null, tick(v, s){ return lorryTick(v, s, truckB, 30, M.truck2); } },
+  { id:'fork', vol:.06, voice:out => engineVoice(out, 42, .45), at:() => fork.o ? [fork.o.position.x, fork.o.position.z] : null, tick(v, s){ return vehTick(v, s, fork.o, 42, !!forkDriver()); } },
+  { id:'fork8', vol:.06, voice:out => engineVoice(out, 44, .45), at:() => fork8.o ? [fork8.o.position.x, fork8.o.position.z] : null, tick(v, s){ return vehTick(v, s, fork8.o, 44, fork8.state !== 'park'); } },
+  { id:'furnace', vol:.08, voice:out => engineVoice(out, 18, 1.1), at:() => S.l8 && S.l8.lit ? FURN_DOOR : null, tick(v){ v.f(furnOn ? 19 : 15, 1.5); return furnOn ? 1 : .35; } },
+  { id:'train', vol:.09, voice:out => engineVoice(out, 26, .9), at:() => rail && rail.g && rail.st !== 'away' ? [rail.g.position.x, rail.g.position.z] : null, tick(v, s){ return vehTick(v, s, rail.g, 26, true); } },
 ];
+// a small engine (a forklift, the shunting loco): ticking over while it is manned, revving as it moves
+function vehTick(v, s, o, f0, on){ if (!o || !o.visible || !on) return 0; const p = o.position, sp = s.last ? Math.hypot(p.x - s.last[0], p.z - s.last[1]) / Math.max(.001, s.dt) : 0; s.last = [p.x, p.z];
+  s.sp = lerp(s.sp || 0, Math.min(sp, 8), .15); v.f(f0 + s.sp * 8, .25); return .45 + .55 * Math.min(1, s.sp / 3); }
 // a lorry: engine off while it waits off the map, ticking over while it stands at the dock, revving with its speed on the road
-function lorryTick(v, s, V, f0){
+function lorryTick(v, s, V, f0, mesh){
   if (V.state === 'away') return 0;
-  const Tr = V === truck ? M.truck : M.flat, p = Tr.position, sp = s.last ? Math.hypot(p.x - s.last[0], p.z - s.last[1]) / Math.max(.001, s.dt) : 0; s.last = [p.x, p.z];
+  const Tr = mesh || (V === truck ? M.truck : M.flat), p = Tr.position, sp = s.last ? Math.hypot(p.x - s.last[0], p.z - s.last[1]) / Math.max(.001, s.dt) : 0; s.last = [p.x, p.z];
   s.sp = lerp(s.sp || 0, Math.min(sp, 12), .15); v.f(f0 + s.sp * 5, .25);
   // parked at a dock: the engine ticks over a few seconds and the driver switches off while he is loaded; after the
   // knocking-off whistle it stays off (the lorry stands at the dock overnight and finishes loading in the morning)
   if (V.state === 'docked' || V.state === 'parked') { s.dockT = (s.dockT || 0) + (s.dt || 0); return closingTime() ? 0 : Math.max(0, .55 * (1 - s.dockT / 6)); }
   s.dockT = 0; return .7 + .3 * Math.min(1, s.sp / 8);
 }
-const _snd = new Map();
+let LIMITER = null; const _snd = new Map(), NO_VOICE = { f(){}, set(){}, stop(){} };
 function updateAudio(dt){
   if (!AC || AC.state !== 'running' || !owner) return;
   const quiet = paused || cardOpen || hold, t = AC.currentTime;
@@ -6263,10 +6297,14 @@ function updateAudio(dt){
       out.connect(lp); if (pn) lp.connect(pn).connect(master()); else lp.connect(master());
       s = { out, lp, pn, v:null, dt }; _snd.set(src.id, s); }
     s.dt = dt; let lvl = 0, at = null;
-    try { at = src.at(); if (at) { if (!s.v) s.v = src.voice(s.out); lvl = src.tick(s.v, s); } } catch(e) { lvl = 0; }
+    try { at = src.at(); if (at) lvl = src.tick(s.v || NO_VOICE, s); } catch(e) { lvl = 0; }   // with no voice built yet the source still reports its level
     let g = 0;
     if (at && lvl > 0 && !quiet) { const e = earOf(at[0], at[1]); g = src.vol * lvl * e.g; s.lp.frequency.setTargetAtTime(600 + 7400 * (1 - e.k) * (1 - e.k), t, .1); if (s.pn) s.pn.pan.setTargetAtTime(e.pan, t, .1); }
-    s.out.gain.setTargetAtTime(g, t, quiet ? .05 : .15); }
+    if (!s.v && g >= 2e-3) try { s.v = src.voice(s.out); } catch(e) {}   // heard now: build its voice
+    s.out.gain.setTargetAtTime(g, t, quiet ? .05 : .15);
+    // build 0.34: a voice silent for a few seconds (a lorry gone, a machine stopped, a card open) is switched off, and built
+    // again when it is wanted: oscillators left running at nothing still load the phone's audio thread and make it crackle
+    s.mute = g < 1e-3 ? (s.mute ?? t) : null; if (s.v && s.mute != null && t - s.mute > 4) { s.v.stop(); s.v = null; s.last = null; s.sp = 0; } }   // four seconds on the audio clock
 }
 window.__ivSound = () => Object.fromEntries([..._snd].map(([k, s]) => [k, +s.out.gain.value.toFixed(4)]));   // test hook: what each source is playing at
 
@@ -7592,7 +7630,7 @@ function snowPatch(){
       m.userData.snow = yard ? 'y' : 'a'; const U = yard ? SNOW_YARD : SNOW_U;
       m.onBeforeCompile = sh => { sh.uniforms.uSnow = U; sh.uniforms.uRoofR = ROOF_R; sh.uniforms.uRoofY = ROOF_Y; sh.uniforms.uRoofN = ROOF_N;
         sh.vertexShader = 'varying vec3 vSnowW;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n  { vec4 sw = vec4(transformed, 1.0);\n  #ifdef USE_INSTANCING\n  sw = instanceMatrix * sw;\n  #endif\n  vSnowW = (modelMatrix * sw).xyz; }');
-        sh.fragmentShader = 'uniform float uSnow;\nuniform vec4 uRoofR[' + ROOF_MAX + '];\nuniform float uRoofY[' + ROOF_MAX + '];\nuniform int uRoofN;\nvarying vec3 vSnowW;\n' + sh.fragmentShader.replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n  { vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz); float k = uSnow * smoothstep(0.42, 0.8, dot(normal, upV));\n    for (int i = 0; i < ' + ROOF_MAX + '; i++) { if (i >= uRoofN) break; vec4 r = uRoofR[i]; if (vSnowW.x > r.x && vSnowW.x < r.z && vSnowW.z > r.y && vSnowW.z < r.w && vSnowW.y < uRoofY[i]) { k = 0.0; break; } }\n    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.93, 0.96), k); }'); };
+        sh.fragmentShader = 'uniform float uSnow;\nuniform vec4 uRoofR[' + ROOF_MAX + '];\nuniform float uRoofY[' + ROOF_MAX + '];\nuniform int uRoofN;\nvarying vec3 vSnowW;\n' + sh.fragmentShader.replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n  { vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz); float k = uSnow * smoothstep(0.42, 0.8, dot(normal, upV));\n    if (k > 0.0) for (int i = 0; i < ' + ROOF_MAX + '; i++) { if (i >= uRoofN) break; vec4 r = uRoofR[i]; if (vSnowW.x > r.x && vSnowW.x < r.z && vSnowW.z > r.y && vSnowW.z < r.w && vSnowW.y < uRoofY[i]) { k = 0.0; break; } }\n    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.93, 0.96), k); }'); };
       m.customProgramCacheKey = () => 'snow2-' + m.userData.snow; m.needsUpdate = true; } });
 }
 const SNOW_N = 1100; let snowFx = null, snowPatchT = -9;
@@ -7601,7 +7639,9 @@ function updateSnow(dt){
   W.lying = clamp((W.lying || 0) + (fall > .2 ? dt * fall / 90 : -dt / (winter ? 2400 : 300)), 0, 1);
   // the crew shovel the yard from seven on a snowy morning; fresh snow covers it again
   if (dayMin() < 2) W.cleared = 0; if (S.tutDone && !(S.day && S.day.closing) && S.staff.length) W.cleared = clamp((W.cleared || 0) + dt / 140 - (fall > .6 ? dt / 300 : 0), 0, 1);
-  if ((W.lying > .02 || (W.hailLying || 0) > .02) && T - snowPatchT > 3) { snowPatchT = T; findRoofs(); snowPatch(); }
+  // anything built since (new crew, a machine, a shed) takes the snow patch within a few seconds, snow or not, so the first
+  // snowfall never recompiles; the roofs are measured again while snow lies
+  if (T - snowPatchT > 4) { snowPatchT = T; if (W.lying > .02 || (W.hailLying || 0) > .02) findRoofs(); snowPatch(); }
   SNOW_U.value = W.lying * .95; SNOW_YARD.value = W.lying * .9 * (1 - (W.cleared || 0) * .85);
   // the morning grit: the grit bin's lanes are done at seven on an icy day
   if (S.restored.grit && wxK('ice') > .5 && W.gritted !== dayNo() && dayMin() < 30) { W.gritted = dayNo(); toast('Icy morning: the crew grits the lanes from the grit bin.', ''); }
@@ -7795,7 +7835,7 @@ function frame(){
   // any change to the drawing buffer happens here, right before the render: resizing a canvas clears it, and
   // a resize after the render showed one blank frame (the "blink" while walking, when the frame rate dipped
   // and the quality governor changed resolution, or when a phone's address bar moved)
-  guard('view', () => { adaptQuality(raw); if (needResize) { needResize = false; resize(); } placeCam(raw); updateFade(); updateGuide(curObj); renderer.render(scene, cam); });
+  guard('view', () => { adaptQuality(raw); if (needResize) { needResize = false; resize(); } placeCam(raw); updateFade(); updateGuide(curObj); if (shadowHalf) renderer.shadowMap.needsUpdate = (frames & 1) === 0; renderer.render(scene, cam); });
   guard('labels', updateLabels); guard('hud', () => updateHud(raw)); guard('audio', () => updateAudio(raw)); fpsMeter();
 }
 // development FPS meter (preview builds): frames a second, the slowest frame of the last second, and hitches
@@ -7827,7 +7867,7 @@ function step(dt){
   healthCheck(dt); trolleyWatch(); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateLevel6(dt); updateLevel7(dt); updateLevel8(dt); updatePolish(dt); updateReorder(); updateLowLoaders(dt); if (AC && MASTER) MASTER.gain.value = S.fxVol ?? 1; updateTruck(dt); updateTrip(dt); carTip(); updateDay(dt); updateTarget(); updateEvents(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateBolt(dt); updateVeraVisit(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); syncCarry(); updateTutorial(dt); updateFx(dt);
   saveT += dt; if (saveT > 8) { saveT = 0; save(); }
 }
-const MAX_DPR = Math.min(2, devicePixelRatio || 1); let dpr = MAX_DPR, perfT = 0, perfN = 0, perfGood = 0, perfBad = 0, lastDpr = 0, dprSettled = false, needResize = false;
+const MAX_DPR = Math.min(2, devicePixelRatio || 1); let shadowHalf = false, dpr = MAX_DPR, perfT = 0, perfN = 0, perfGood = 0, perfBad = 0, lastDpr = 0, dprSettled = false, needResize = false;
 let rsW = 0, rsH = 0;
 function resize(){ const w = innerWidth, h = innerHeight; if (w === rsW && h === rsH && renderer.getPixelRatio() === dpr) return; rsW = w; rsH = h; renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); }
 // quality governor: keep the frame rate up on slower phones by lowering the render resolution a step at a
@@ -7836,6 +7876,7 @@ function resize(){ const w = innerWidth, h = innerHeight; if (w === rsW && h ===
 function adaptQuality(raw){
   perfT += raw; perfN++; if (perfT < 2) return;
   const fps = perfN / perfT; perfT = perfN = 0;
+  if (fps < 36 && dpr <= 1 && dprSettled !== 'shadow') { if (++perfBad >= 2) { perfBad = 0; shadowHalf = true; renderer.shadowMap.autoUpdate = false; dprSettled = 'shadow'; } return; }   // the last step: shadows at half rate
   if (fps < 42 && dpr > 1) { perfGood = 0; if (++perfBad >= 2) { perfBad = 0; if (lastDpr > 0) dprSettled = true; dpr = Math.max(1, +(dpr - .25).toFixed(2)); lastDpr = -1; needResize = true; } return; }
   perfBad = 0;
   if (fps > 57 && !dprSettled && dpr < MAX_DPR) { if (++perfGood >= 6) { perfGood = 0; dpr = Math.min(MAX_DPR, dpr + .25); lastDpr = 1; needResize = true; } } else perfGood = 0;
@@ -7869,6 +7910,7 @@ async function boot(){
   applyUpgradeVisuals();
   if (S.order) { truck.state = 'docked'; const q = pathAt(ARRIVE, ARRIVE.len); M.truck.position.set(q.x, 0, q.z); M.truck.rotation.y = q.yaw; addCol([P.truck[0] - 1.15, P.truck[1] - 2.45, P.truck[0] + 1.15, P.truck[1] + 2.75], 'truck'); syncBed(); syncPBed(); syncTBed(); }
   camPos.set(owner.o.position.x, 0, owner.o.position.z); cashShown = S.cash; resize();
+  prog(90, 'Warming the machines'); warmShaders(true);
   requestAnimationFrame(frame);
   // Playables lifecycle: pause everything on onPause, resume only on onResume, respect YouTube's mute.
   // The Page Visibility API is not allowed inside Playables, so it is only used when running outside YouTube.
@@ -7886,7 +7928,7 @@ async function boot(){
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
   else { loginCalendar(); restoreNight(); }
-  window.__iv = { get CARs(){ return CAR; }, get nightState(){ return S.day && S.day.closing && S.day.closing.night; }, ownerOff, nightKind, NIGHT_ROUND, TABS, findRoofs, ROOF_N, ROOF_R, ROOF_Y, get roofKey(){ return roofKey; }, set roofKey(v){ roofKey = v; }, siteBounds, updateGuide, get guideHere(){ return guideHere; }, get guideShown(){ return !!(guide && guide.visible); }, get guideRingShown(){ return !!(guideRing && guideRing.visible); }, get pageHidden(){ return pageHidden; }, audioAllowed, toast, placeToasts, segBlocked, STRAY_RING, SITE, stateWord, VERA_FROM, STRAY_AT, KENNEL, buildKennel, boltFeed, slotFree, parkSlotNear, officeHours, get veraWalk(){ return veraWalk; }, svcAt, FAULTS, upgVisible, upCost, lineText, applyMains, stockLedger, get beats(){ return beats; }, learnSkill, canPromote, staffOf, linesHtml, coverHtml, settingsHtml, SHOVEL_AT, PHOTO_AT, milestonePhoto, repaintSigns, COLKEYS:() => [...COL.keys()], get rail(){ return rail; }, buyRaw, chooseStore, goLiveHD, lightFurnace, l8DayEnd, get furnOn(){ return furnOn; }, get fork8(){ return fork8; }, PADS8, SIGN_RING, DAIRY_PAD, hurryOk, set hurry(v){ hurry = v; }, openGap, takeCard, makeCard, refillBoard, boardHtml, cardFits, l7Delivered, zoneCentres, zonesLive, get cyrus(){ return cyrus; }, PEGS, SURVEY_RING, BOARD_RING, hireTommy, buildClockTower, buildDockLamps, REFIT, orderRefit, finishRefit, bookService, svcDue, svcPost, tierOf, get crane(){ return crane; }, craneGone, INSPECT6, get insp6(){ return insp6; }, clerkChar, clerkOn, juneSettle, ledger, buildCanteen, hailShelter, updateCrane, cutDark, buildLevel6, acceptCall2, finishPlot, rainK, noWalkIns, wxLorryLate, stormOn, helperOf, walkPatience, PAY_Q, ICE_AT, BOLT_NAP, BOLT_SHADE, setWx:k => { wxForce = k; wxForceT = 1e9; wx.from = wx.kind = k; wx.k = 1; }, wxFlash:() => { wx.flash = 1; }, rainbowNow:() => { wx.rainbow = .7; }, get wx(){ return wx; }, bolt, chalkProg, CHALK, loginCalendar, wxPlan, wxSummary, migrate, DAY_S, PAY_MIN, PAY_AT, LV_START, calDay, weekday, isFriday, dateOf, dueAt, seasonOf, payTime, payDay, payStep, ownerAtHatch, payNeeded, knockOff, get M_hatch(){ return M.hatch; }, get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payAccounts, closeWeek, weekAccounts, takeLoan, repayLoan, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  window.__iv = { confetti, get furnOnNow(){ return furnOn; }, get limiter(){ return LIMITER; }, get AC(){ return AC; }, audioOn, CUT_AT, setSawT:t => { sawT = t; }, sawOnNow:() => sawOn, get warmN(){ return warmN; }, get shadowHalf(){ return shadowHalf; }, screenFlash, FOOT_AT, get SOUNDS(){ return SOUNDS; }, get sndState(){ return _snd; }, noiseS, get spritePool(){ return spritePool; }, get CARs(){ return CAR; }, get nightState(){ return S.day && S.day.closing && S.day.closing.night; }, ownerOff, nightKind, NIGHT_ROUND, TABS, findRoofs, ROOF_N, ROOF_R, ROOF_Y, get roofKey(){ return roofKey; }, set roofKey(v){ roofKey = v; }, siteBounds, updateGuide, get guideHere(){ return guideHere; }, get guideShown(){ return !!(guide && guide.visible); }, get guideRingShown(){ return !!(guideRing && guideRing.visible); }, get pageHidden(){ return pageHidden; }, audioAllowed, toast, placeToasts, segBlocked, STRAY_RING, SITE, stateWord, VERA_FROM, STRAY_AT, KENNEL, buildKennel, boltFeed, slotFree, parkSlotNear, officeHours, get veraWalk(){ return veraWalk; }, svcAt, FAULTS, upgVisible, upCost, lineText, applyMains, stockLedger, get beats(){ return beats; }, learnSkill, canPromote, staffOf, linesHtml, coverHtml, settingsHtml, SHOVEL_AT, PHOTO_AT, milestonePhoto, repaintSigns, COLKEYS:() => [...COL.keys()], get rail(){ return rail; }, buyRaw, chooseStore, goLiveHD, lightFurnace, l8DayEnd, get furnOn(){ return furnOn; }, get fork8(){ return fork8; }, PADS8, SIGN_RING, DAIRY_PAD, hurryOk, set hurry(v){ hurry = v; }, openGap, takeCard, makeCard, refillBoard, boardHtml, cardFits, l7Delivered, zoneCentres, zonesLive, get cyrus(){ return cyrus; }, PEGS, SURVEY_RING, BOARD_RING, hireTommy, buildClockTower, buildDockLamps, REFIT, orderRefit, finishRefit, bookService, svcDue, svcPost, tierOf, get crane(){ return crane; }, craneGone, INSPECT6, get insp6(){ return insp6; }, clerkChar, clerkOn, juneSettle, ledger, buildCanteen, hailShelter, updateCrane, cutDark, buildLevel6, acceptCall2, finishPlot, rainK, noWalkIns, wxLorryLate, stormOn, helperOf, walkPatience, PAY_Q, ICE_AT, BOLT_NAP, BOLT_SHADE, setWx:k => { wxForce = k; wxForceT = 1e9; wx.from = wx.kind = k; wx.k = 1; }, wxFlash:() => { wx.flash = 1; }, rainbowNow:() => { wx.rainbow = .7; }, get wx(){ return wx; }, bolt, chalkProg, CHALK, loginCalendar, wxPlan, wxSummary, migrate, DAY_S, PAY_MIN, PAY_AT, LV_START, calDay, weekday, isFriday, dateOf, dueAt, seasonOf, payTime, payDay, payStep, ownerAtHatch, payNeeded, knockOff, get M_hatch(){ return M.hatch; }, get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payAccounts, closeWeek, weekAccounts, takeLoan, repayLoan, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });
