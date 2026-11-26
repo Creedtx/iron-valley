@@ -962,7 +962,7 @@ function buildWorld(){
   // the company board by the road
   const sb = put(inst('env_sale_sign'), -8.5, Z1 + 1.3, 0, 0, 1.6); const sbm = board(textTex([['IRON VALLEY', 70, 52], ['WORKSHOP', 40, 104, 500]], 512, 140, { bg:'#4a3226', fg:'#ecdcb4', border:'#2a1c14', bw:10 }), 1.5, .41); sbm.position.set(0, 1.3, .1); sb.add(sbm);
   // ---- outside: lamps, telegraph poles along the road, the railway, trees ----------------------------------------------------------
-  M.car = put(inst('env_car'), P.carSpot[0], P.carSpot[1], 0, 0, .85); M.car.userData.dyn = true; colOf(M.car, .05, 'car');
+  M.car = put(buildCar(), P.carSpot[0], P.carSpot[1], 0, 0, .85); M.car.userData.dyn = true; colOf(M.car, .05, 'car');
   for (const [x, z] of [[1.6, 10.8], [-6.0, 4.6], [9.3, 7.6]]) { put(inst('env_lamp_post'), x, z, 0); addCol([x - .15, z - .15, x + .15, z + .15]); }
   for (const x of [-36, -24, -12, 0, 12, 24, 36]) put(inst('env_power_pole'), x, ROAD_Z + 2.7, Math.PI / 2);
   const wireMat = new THREE.LineBasicMaterial({ color:'#202020' });
@@ -1206,8 +1206,8 @@ function applyRestore(id, fx){
   if (id === 'counter' && !M.counter) { const g = new THREE.Group(), wood = std('#8a6440', .85), top = std('#5d4630', .7); const b = new THREE.Mesh(BX(.95, .95, .5), wood); b.position.y = .475; g.add(b);
     const t = new THREE.Mesh(BX(1.05, .05, .6), top); t.position.y = .97; g.add(t); const s = board(textTex([['TRADE', 54, 48], ['COUNTER', 34, 92, 600]], 256, 120, { bg:'#2f5d8a', fg:'#efe1bd', border:'#1d3a56', bw:8 }), .8, .38); s.position.set(0, .55, .26); g.add(s);
     g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); g.position.set(1.15, 0, 9.7); g.userData.dyn = true; world.add(g); M.counter = g; addCol([.65, 9.42, 1.65, 9.98], 'counter'); rebuildNav(); }
-  if (id === 'car' && M.car && !M.carSigns) { M.carSigns = []; for (const sd of [1, -1]) { const s = board(textTex([[signName().toUpperCase(), 40, 46], ['EST. 1921 · MILL ROAD', 24, 82, 500]], 512, 110, { bg:'#efe1bd', fg:'#2a1d14', border:'#8a3b1b', bw:6 }), 1.5, .33);
-    s.position.set(-.2, .6, sd * .87); s.rotation.y = sd > 0 ? 0 : Math.PI; M.car.add(s); M.carSigns.push(s); } }
+  if (id === 'car' && M.car && !M.carSigns) { M.carSigns = []; for (const sd of [1, -1]) { const s = board(textTex([[signName().toUpperCase(), 40, 46], ['EST. 1921 · MILL ROAD', 24, 82, 500]], 512, 110, { bg:'#efe1bd', fg:'#2a1d14', border:'#8a3b1b', bw:6 }), 1.0, .22);
+    s.position.set(-.64, .6, sd * .875); s.rotation.y = sd > 0 ? 0 : Math.PI; (M.car.userData.body || M.car).add(s); M.carSigns.push(s); } }
   if (id === 'hatch') { buildHatch(); M.hatch.g.visible = true; }
   if (id === 'awning') buildAwning();
   if (id === 'lamps') M.lampsOn = true;
@@ -6273,6 +6273,7 @@ const SOUNDS = [
   { id:'fork', vol:.06, voice:out => engineVoice(out, 42, .45), at:() => fork.o ? [fork.o.position.x, fork.o.position.z] : null, tick(v, s){ return vehTick(v, s, fork.o, 42, !!forkDriver()); } },
   { id:'fork8', vol:.06, voice:out => engineVoice(out, 44, .45), at:() => fork8.o ? [fork8.o.position.x, fork8.o.position.z] : null, tick(v, s){ return vehTick(v, s, fork8.o, 44, fork8.state !== 'park'); } },
   { id:'furnace', vol:.08, voice:out => engineVoice(out, 18, 1.1), at:() => S.l8 && S.l8.lit ? FURN_DOOR : null, tick(v){ v.f(furnOn ? 19 : 15, 1.5); return furnOn ? 1 : .35; } },
+  { id:'car', vol:.055, voice:out => engineVoice(out, 36, .28), at:() => M.car && M.car.visible && trip && ['wait', 'out', 'back', 'park'].includes(trip.phase) ? [M.car.position.x, M.car.position.z] : null, tick(v, s){ return vehTick(v, s, M.car, 36, true); } },   // grandad's petrol engine: smoother and higher than a diesel
   { id:'train', vol:.09, voice:out => engineVoice(out, 26, .9), at:() => rail && rail.g && rail.st !== 'away' ? [rail.g.position.x, rail.g.position.z] : null, tick(v, s){ return vehTick(v, s, rail.g, 26, true); } },
 ];
 // a small engine (a forklift, the shunting loco): ticking over while it is manned, revving as it moves
@@ -7266,6 +7267,191 @@ function roadYield(a, path, s, look, V){
     if (Math.hypot(px - bx * t, pz - bz * t) < half + .25) { V.yieldT = T; if (!V.honk || T - V.honk > 4) { V.honk = T; sfxAt('horn', a.x, a.z, .25); } return true; } }
   return false;
 }
+// ---- grandad's car (build 0.35): a 1970s four-door saloon, built here in three.js --------------------------------------
+// Burgundy paint under a clear coat, a cream vinyl roof, chrome bumpers and trim, four round headlamps, see-through glass
+// with the seats behind it. Its lamps work (head, tail, brake, reverse, indicators), the wheels roll and the front ones
+// steer, the body dips under braking and leans in a turn, the wipers run in the rain, the exhaust puffs (white on a cold
+// day), and the driver's door swings open as the owner gets in or out. Local units as the old model: nose to +x, 4.4 long,
+// placed at 0.85 scale. Left-hand drive: the driver's door is on the -z side, where the owner gets in (P.carDoor).
+let CAR_ENV = null;
+function carEnv(){   // a small sky-over-yard reflection for the chrome, glass and paint (there is no scene environment)
+  if (CAR_ENV) return CAR_ENV;
+  const face = (kind, seed) => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+    if (kind === 'up') { const r = g.createRadialGradient(32, 32, 4, 32, 32, 46); r.addColorStop(0, '#d6e6f2'); r.addColorStop(1, '#8fb4d6'); g.fillStyle = r; }
+    else if (kind === 'down') g.fillStyle = '#58544c';
+    else { const l = g.createLinearGradient(0, 0, 0, 64); l.addColorStop(0, '#86acd0'); l.addColorStop(.47, '#eef0ec'); l.addColorStop(.5, '#7b776d'); l.addColorStop(1, '#4f4b44'); g.fillStyle = l; }
+    g.fillRect(0, 0, 64, 64);
+    if (kind === 'side') { let s = seed; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280; g.fillStyle = '#5f5b54';   // the works and the valley on the horizon
+      for (let x = 0; x < 64;) { const w = 4 + rnd() * 10, h = 2 + rnd() * 7; g.fillRect(x, 31 - h, w, h); x += w + rnd() * 5; } }
+    return c; };
+  CAR_ENV = new THREE.CubeTexture([face('side', 3), face('side', 7), face('up'), face('down'), face('side', 11), face('side', 17)]);
+  CAR_ENV.colorSpace = THREE.SRGBColorSpace; CAR_ENV.needsUpdate = true; return CAR_ENV;
+}
+function buildCar(){
+  const env = carEnv(), car = new THREE.Group(), body = new THREE.Group(); car.add(body); car.name = 'grandads_car';
+  const vinylTex = tex(128, 128, g => { g.fillStyle = '#ddd3bd'; g.fillRect(0, 0, 128, 128); for (let i = 0; i < 1400; i++) { const v = 200 + Math.random() * 40 | 0; g.fillStyle = `rgba(${v},${v - 8},${v - 26},.5)`; g.fillRect(Math.random() * 128, Math.random() * 128, 1 + Math.random() * 2, 1); } });
+  const plateTex = textTex([['VLY 921', 44, 40]], 256, 56, { bg:'#121212', fg:'#dcdcd6', border:'#9a9a94', bw:4 });   // the old black plate, silver letters
+  const M_ = {
+    paint:new THREE.MeshPhysicalMaterial({ color:'#6b1d26', metalness:.3, roughness:.36, clearcoat:1, clearcoatRoughness:.06, envMap:env, envMapIntensity:.85 }),
+    chrome:new THREE.MeshStandardMaterial({ color:'#f3f5f7', metalness:1, roughness:.13, envMap:env, envMapIntensity:1.2 }),
+    chromeD:new THREE.MeshStandardMaterial({ color:'#f3f5f7', metalness:1, roughness:.16, envMap:env, envMapIntensity:1.2, side:THREE.DoubleSide }),
+    glass:new THREE.MeshPhysicalMaterial({ color:'#7d94a0', roughness:.03, transparent:true, opacity:.36, envMap:env, envMapIntensity:1.6, depthWrite:false }),
+    vinyl:new THREE.MeshStandardMaterial({ color:'#ffffff', map:vinylTex, roughness:.6, envMap:env, envMapIntensity:.25 }),
+    rubber:new THREE.MeshStandardMaterial({ color:'#161616', roughness:.92, side:THREE.DoubleSide }),
+    black:new THREE.MeshStandardMaterial({ color:'#0e0e10', roughness:.5 }),
+    steel:new THREE.MeshStandardMaterial({ color:'#40444a', metalness:.6, roughness:.42, envMap:env, envMapIntensity:.5 }),
+    seat:new THREE.MeshStandardMaterial({ color:'#8c5b34', roughness:.5 }), wood:new THREE.MeshStandardMaterial({ color:'#5b3318', roughness:.35, envMap:env, envMapIntensity:.3 }),
+    tweed:new THREE.MeshStandardMaterial({ color:'#6d6553', roughness:.95 }), plate:new THREE.MeshStandardMaterial({ map:plateTex, roughness:.4 }),
+    head:new THREE.MeshStandardMaterial({ color:'#f5f2e8', roughness:.06, metalness:.1, envMap:env, envMapIntensity:1.3, emissive:'#fff0c0', emissiveIntensity:0 }),
+    tail:new THREE.MeshStandardMaterial({ color:'#5c0b0b', roughness:.15, emissive:'#ff2614', emissiveIntensity:.05 }),
+    indL:new THREE.MeshStandardMaterial({ color:'#a8590b', roughness:.15, emissive:'#ff9a18', emissiveIntensity:0 }),
+    indR:new THREE.MeshStandardMaterial({ color:'#a8590b', roughness:.15, emissive:'#ff9a18', emissiveIntensity:0 }),
+    rev:new THREE.MeshStandardMaterial({ color:'#d8d8d4', roughness:.15, emissive:'#ffffff', emissiveIntensity:0 }),
+    gap:new THREE.MeshStandardMaterial({ color:'#160c0c', roughness:.8 }),
+  };
+  const add = (geo, mat, x = 0, y = 0, z = 0, p = body) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); p.add(m); return m; };
+  const box = (w, h, d, mat, x, y, z, p = body) => add(new THREE.BoxGeometry(w, h, d), mat, x, y, z, p);
+  const ext = (shape, depth, bev, mat, p = body) => { const g = new THREE.ExtrudeGeometry(shape, { depth:depth - 2 * bev, bevelEnabled:bev > 0, bevelThickness:bev, bevelSize:bev, bevelOffset:-bev, bevelSegments:3, curveSegments:20 }); g.translate(0, 0, -(depth - 2 * bev) / 2); return add(g, mat, 0, 0, 0, p); };
+  const strut = (a, b, w, t, mat, p = body) => { const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), m = add(new THREE.BoxGeometry(w, A.distanceTo(B), t), mat, 0, 0, 0, p); m.position.copy(A).add(B).multiplyScalar(.5); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.sub(A).normalize()); return m; };
+  // a pillar or panel in the side glass: drawn flat, then leant in with the glass (sheared, so it lies flush on it)
+  const pane = (pts, sd, mat, t = .035) => { const sh = new THREE.Shape(); sh.moveTo(...pts[0]); for (const q of pts.slice(1)) sh.lineTo(...q); sh.lineTo(...pts[0]);
+    const g = new THREE.ExtrudeGeometry(sh, { depth:t, bevelEnabled:false }); g.translate(0, 0, -t / 2); const pa = g.attributes.position;
+    for (let i = 0; i < pa.count; i++) pa.setZ(i, pa.getZ(i) + sd * (HALF * (1 - .13 * clamp((pa.getY(i) - .92) / .44, 0, 1)) + .014)); g.computeVertexNormals(); return add(g, mat); };
+  const BELT = .935, ROOF = 1.36, HALF = .73, tz = (y, sd) => sd * HALF * (1 - .13 * clamp((y - .92) / .44, 0, 1)) + sd * .012;   // the glass leans in towards the roof
+  // the body: the side profile (bonnet, waist, boot, round wheel arches) pressed out to its width, its edges rounded
+  const S_ = new THREE.Shape(); S_.moveTo(-2.16, .34); S_.lineTo(-2.17, .80); S_.quadraticCurveTo(-2.17, .9, -2.06, .905); S_.lineTo(-1.30, .93); S_.lineTo(.98, BELT); S_.lineTo(2.02, .875);
+  S_.quadraticCurveTo(2.17, .87, 2.18, .78); S_.lineTo(2.19, .38); S_.quadraticCurveTo(2.18, .27, 2.06, .26); S_.lineTo(1.74, .26); S_.absarc(1.32, .33, .42, -.165, Math.PI + .165, false);
+  S_.lineTo(-.86, .26); S_.absarc(-1.28, .33, .42, -.165, Math.PI + .165, false); S_.lineTo(-2.06, .26); S_.quadraticCurveTo(-2.15, .27, -2.16, .34);
+  ext(S_, 1.72, .06, M_.paint);
+  for (const cx of [1.32, -1.28]) box(.8, .44, 1.24, M_.black, cx, .52, 0);   // arch liners: nothing shows through the wheel wells
+  // the glasshouse: one tinted shell (windscreen, side glass, rear screen) leaning in, the pillars and a vinyl roof on it
+  const G_ = new THREE.Shape(); G_.moveTo(-1.28, .92); G_.lineTo(.96, .92); G_.lineTo(.36, 1.35); G_.lineTo(-.70, ROOF); G_.lineTo(-1.28, .92);
+  const glass = ext(G_, HALF * 2, .03, M_.glass); { const pa = glass.geometry.attributes.position; for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); pa.setZ(i, pa.getZ(i) * (1 - .13 * clamp((y - .92) / .44, 0, 1))); } glass.geometry.computeVertexNormals(); }
+  const R_ = new THREE.Shape(); R_.moveTo(-.76, 1.335); R_.lineTo(.40, 1.33); R_.quadraticCurveTo(.45, 1.355, .39, 1.39); R_.lineTo(-.70, 1.405); R_.quadraticCurveTo(-.79, 1.39, -.76, 1.335);
+  ext(R_, HALF * 2 * .875 + .05, .035, M_.vinyl);
+  for (const sd of [-1, 1]) {
+    pane([[.93, .93], [1.0, .93], [.41, 1.35], [.34, 1.35]], sd, M_.paint);   // A
+    pane([[-.12, .93], [-.21, .93], [-.25, 1.355], [-.16, 1.355]], sd, M_.paint);   // B
+    pane([[-1.28, .925], [-.98, .925], [-.60, 1.358], [-.72, 1.358]], sd, M_.paint);   // the broad C pillar (the sail panel)
+    strut([.68, .935, tz(.935, sd)], [.68, 1.12, tz(1.12, sd)], .016, .03, M_.chrome);   // the front quarter-light divider
+    strut([-1.22, BELT + .005, tz(.94, sd) + sd * .01], [.93, BELT + .005, tz(.94, sd) + sd * .01], .018, .022, M_.chrome);   // the waist chrome
+    strut([-.70, 1.352, tz(1.35, sd) + sd * .012], [.37, 1.35, tz(1.35, sd) + sd * .012], .02, .02, M_.chrome);   // the drip rail
+    strut([.96, .935, tz(.935, sd) + sd * .02], [.37, 1.345, tz(1.345, sd) + sd * .02], .016, .016, M_.chrome);   // the windscreen frame
+  }
+  // the flanks: the swage chrome (broken by the arches), sills, seams, handles, mirrors, the arch lips
+  for (const sd of [-1, 1]) { const z = sd * .862;
+    for (const [x0, x1] of [[-2.13, -1.56], [-1.0, 1.04], [1.60, 2.16]]) { if (sd < 0 && x0 === -1.0) { box(.82, .022, .012, M_.chrome, -.59, .66, z + sd * .004); box(.14, .022, .012, M_.chrome, .97, .66, z + sd * .004); continue; } box(x1 - x0, .022, .012, M_.chrome, (x0 + x1) / 2, .66, z + sd * .004); }
+    box(1.72, .02, .012, M_.chrome, .02, .29, z + sd * .004);   // the sill chrome, arch to arch
+    for (const [a, b] of [[[-.18, .29], [-.18, .93]], [[-.84, .29], [-.84, .60]], [[-.84, .60], [-1.10, .80]], [[-1.10, .80], [-1.10, .93]], [[-.84, .29], [-.18, .29]]]) strut([a[0], a[1], z + sd * .002], [b[0], b[1], z + sd * .002], .008, .006, M_.gap);
+    if (sd > 0) { strut([.90, .29, z + .002], [.90, .93, z + .002], .008, .006, M_.gap); box(.12, .025, .03, M_.chrome, .04, .84, z + .01); }
+    box(.12, .025, .03, M_.chrome, -1.0, .84, z + sd * .01);
+    for (const cx of [1.32, -1.28]) { const lip = add(new THREE.TorusGeometry(.43, .012, 6, 26, Math.PI + .33), M_.chrome, cx, .33, z + sd * .003); lip.rotation.z = -.165; }
+    strut([1.30, .885, sd * .80], [1.30, .955, sd * .835], .016, .016, M_.chrome); const mir = add(new THREE.CylinderGeometry(.034, .036, .03, 16), M_.chrome, 1.30, .975, sd * .845); mir.rotation.z = Math.PI / 2;   // a small round wing mirror
+    box(.17, .028, .008, M_.chrome, 1.72, .76, z + sd * .004);   // the wing script
+  }
+  { const cap = add(new THREE.CylinderGeometry(.05, .05, .012, 16), M_.chrome, -1.72, .80, .866); cap.rotation.x = Math.PI / 2; }   // the petrol cap
+  // the nose: grille, four lamps, indicators, badge, bumper, plate
+  box(.04, .27, .80, M_.black, 2.165, .62, 0);
+  box(.03, .025, .82, M_.chrome, 2.195, .76, 0); box(.03, .025, .82, M_.chrome, 2.195, .48, 0); for (const sd of [-1, 1]) box(.03, .28, .025, M_.chrome, 2.195, .62, sd * .40);
+  for (let i = 0; i < 5; i++) box(.018, .011, .78, M_.chrome, 2.19, .53 + i * .045, 0); box(.022, .26, .03, M_.chrome, 2.193, .62, 0);
+  for (const sd of [-1, 1]) for (const zz of [.52, .71]) { const z = sd * zz;
+    const hs = add(new THREE.CylinderGeometry(.09, .09, .05, 20), M_.black, 2.165, .64, z); hs.rotation.z = Math.PI / 2;
+    const bz = add(new THREE.TorusGeometry(.087, .013, 8, 24), M_.chrome, 2.193, .64, z); bz.rotation.y = Math.PI / 2;
+    const ln = add(new THREE.SphereGeometry(.08, 18, 8, 0, Math.PI * 2, 0, .75), M_.head, 2.15, .64, z); ln.rotation.z = -Math.PI / 2;
+    box(.02, .05, .12, sd < 0 ? M_.indL : M_.indR, 2.19, .51, sd * .655); }
+  { const bd = add(new THREE.CylinderGeometry(.045, .045, .012, 20), M_.chrome, 2.11, .86, 0); bd.rotation.z = -1.45; const en = add(new THREE.CylinderGeometry(.03, .03, .014, 16), M_.indR, 2.112, .862, 0); en.rotation.z = -1.45; }
+  for (const sd of [-1, 1]) strut([1.0, .939, sd * .30], [2.0, .879, sd * .30], .014, .02, M_.paint);   // the bonnet's two creases
+  const bumper = (x0, sx) => { const pts = [[-.08, -.90], [.11, -.83], [.21, -.5], [.23, 0], [.21, .5], [.11, .83], [-.08, .90]].map(([dx, z]) => new THREE.Vector3(x0 + sx * dx, 0, z));
+    const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 56, .055, 10); g.scale(1, 1.45, 1); g.translate(0, .42, 0); add(g, M_.chrome);
+    for (const sd of [-1, 1]) { box(.08, .17, .07, M_.chrome, x0 + sx * .23, .46, sd * .42); box(.03, .15, .05, M_.rubber, x0 + sx * .275, .46, sd * .42); } };
+  bumper(2.06, 1); bumper(-2.05, -1);
+  { const pl = add(new THREE.PlaneGeometry(.46, .1), M_.plate, 2.352, .40, 0); pl.rotation.y = Math.PI / 2; const pr = add(new THREE.PlaneGeometry(.46, .1), M_.plate, -2.186, .60, 0); pr.rotation.y = -Math.PI / 2; box(.03, .03, .16, M_.chrome, -2.18, .67, 0); }
+  // the tail: lamp clusters (tail and brake, indicator, reversing), the boot lid, its lock, the exhaust
+  for (const sd of [-1, 1]) { box(.02, .17, .38, M_.chrome, -2.175, .70, sd * .62); box(.02, .13, .17, M_.tail, -2.186, .70, sd * .715); box(.02, .13, .08, sd < 0 ? M_.indL : M_.indR, -2.186, .70, sd * .585); box(.02, .13, .07, M_.rev, -2.186, .70, sd * .505); }
+  box(.006, .006, 1.5, M_.gap, -2.172, .81, 0); strut([-1.30, .934, -.70], [-2.06, .908, -.70], .006, .006, M_.gap); strut([-1.30, .934, .70], [-2.06, .908, .70], .006, .006, M_.gap);
+  { const lk = add(new THREE.CylinderGeometry(.022, .022, .02, 12), M_.chrome, -2.185, .79, 0); lk.rotation.z = Math.PI / 2; box(.008, .025, .22, M_.chrome, -2.18, .83, .5); }
+  { const ex = add(new THREE.CylinderGeometry(.032, .032, .3, 12), M_.chrome, -2.2, .23, -.5); ex.rotation.z = Math.PI / 2; }
+  // inside: seat backs, the rear bench, the dash, the wheel on the left, the mirror, grandad's flat cap on the parcel shelf
+  for (const sd of [-1, 1]) { const sb = box(.12, .42, .52, M_.seat, -.30, 1.06, sd * .33); sb.rotation.z = .2; box(.08, .13, .26, M_.seat, -.37, 1.30, sd * .33); }
+  { const rb = box(.12, .30, 1.28, M_.seat, -.86, 1.03, 0); rb.rotation.z = .25; box(.3, .02, 1.3, M_.black, -1.22, .945, 0); }
+  box(.34, .05, 1.36, M_.black, .74, .955, 0); box(.04, .06, 1.3, M_.wood, .60, .93, 0);
+  { const w = add(new THREE.TorusGeometry(.16, .014, 8, 28), M_.black, .48, 1.03, -.33); w.lookAt(.48 - .85, 1.03 + .53, -.33); for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3 + Math.PI / 2, d = new THREE.Vector3(Math.cos(a) * .16, Math.sin(a) * .16, 0).applyQuaternion(w.quaternion); strut([.48, 1.03, -.33], [.48 + d.x, 1.03 + d.y, -.33 + d.z], .012, .012, M_.chrome); }
+    strut([.48, 1.03, -.33], [.66, .92, -.33], .035, .035, M_.black); }
+  box(.02, .05, .17, M_.black, .40, 1.29, 0); add(new THREE.CylinderGeometry(.09, .1, .05, 18), M_.tweed, -1.22, .975, .36); box(.08, .012, .14, M_.tweed, -1.13, .962, .36);
+  // the wheels: tyre, steel rim, a domed hubcap with a trim ring (both faces, so one wheel shape serves either side)
+  const wheelParts = p => { const tyre = new THREE.LatheGeometry([[.2, -.1], [.29, -.108], [.318, -.094], [.332, -.05], [.334, 0], [.332, .05], [.318, .094], [.29, .108], [.2, .1]].map(([r, y]) => new THREE.Vector2(r, y)), 30); tyre.rotateX(Math.PI / 2); add(tyre, M_.rubber, 0, 0, 0, p);
+    const rim = new THREE.CylinderGeometry(.205, .205, .19, 24); rim.rotateX(Math.PI / 2); add(rim, M_.steel, 0, 0, 0, p);
+    for (const f of [-1, 1]) { const cap = new THREE.LatheGeometry([[0, .045], [.07, .042], [.13, .033], [.17, .02], [.2, 0]].map(([r, y]) => new THREE.Vector2(r, y)), 24); cap.rotateX(f * Math.PI / 2); cap.translate(0, 0, f * .097); add(cap, M_.chromeD, 0, 0, 0, p);
+      const ring = new THREE.TorusGeometry(.212, .012, 6, 28); ring.translate(0, 0, f * .1); add(ring, M_.chrome, 0, 0, 0, p);
+      const ir = new THREE.TorusGeometry(.12, .007, 6, 24); ir.translate(0, 0, f * .132); add(ir, M_.steel, 0, 0, 0, p); const nub = new THREE.SphereGeometry(.03, 12, 6); nub.translate(0, 0, f * .138); add(nub, M_.chrome, 0, 0, 0, p); } };
+  const spins = [], steer = [], rear = new THREE.Group(); rear.position.set(-1.28, .334, 0); car.add(rear); spins.push(rear);
+  for (const sd of [-1, 1]) { const w = new THREE.Group(); w.position.z = sd * .74; rear.add(w); wheelParts(w); }
+  for (const sd of [-1, 1]) { const pv = new THREE.Group(); pv.position.set(1.32, .334, sd * .74); car.add(pv); steer.push(pv); const sp = new THREE.Group(); pv.add(sp); spins.push(sp); wheelParts(sp); }
+  // the driver's door: its own panel on a front hinge, with its chrome, its glass and frame; the dark doorway shows when open
+  const door = new THREE.Group(); door.position.set(.90, 0, -.862); body.add(door); door.userData.keep = true;
+  { const D = new THREE.Shape(); D.moveTo(0, .30); D.lineTo(-1.07, .30); D.lineTo(-1.07, .93); D.lineTo(0, .93); D.lineTo(0, .30); const pnl = ext(D, .028, .008, M_.paint, door); pnl.position.z = -.012;
+    box(1.06, .022, .012, M_.chrome, -.535, .66, -.03, door); box(.12, .025, .03, M_.chrome, -.86, .84, -.035, door); }
+  const hole = box(1.06, .62, .004, M_.gap, .37, .615, -.8605); hole.userData.keep = true; hole.visible = false;
+  // the wipers: parked along the scuttle, sweeping up the screen (their axis is the windscreen's normal)
+  const n = new THREE.Vector3(.43, .60, 0).normalize(), wipers = [];
+  for (const z0 of [-.46, .06]) { const base = new THREE.Group(); base.position.set(.985, .95, z0); base.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n); body.add(base); base.userData.keep = true;
+    const arm = new THREE.Group(); base.add(arm); box(.012, .012, .46, M_.black, 0, .01, .23, arm); box(.02, .018, .42, M_.rubber, .015, .012, .25, arm); wipers.push(arm); }
+  // the headlamp beams: soft additive cones and a pool on the road, shown in the murk (updateHeadlights switches them)
+  const hl = new THREE.Group(), beamM = new THREE.MeshBasicMaterial({ color:'#fff1cc', transparent:true, opacity:.06, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide });
+  for (const sd of [-1, 1]) { const g = new THREE.ConeGeometry(.5, 2.6, 18, 1, true); g.translate(0, -1.3, 0); g.rotateZ(Math.PI / 2); g.rotateY(sd * .04); const b = add(g, beamM, 2.2, .64, sd * .6, hl); b.userData.noSnow = true; }
+  { const pool = add(new THREE.CircleGeometry(.95, 24), new THREE.MeshBasicMaterial({ color:'#fff3d2', transparent:true, opacity:.10, blending:THREE.AdditiveBlending, depthWrite:false }), 3.6, .03, 0, hl); pool.rotation.x = -Math.PI / 2; pool.scale.set(1.5, 1, 1); }
+  hl.traverse(o => { if (o.isMesh) { o.geometry.computeBoundingSphere(); o.geometry.boundingBox = new THREE.Box3(); o.castShadow = false; } });   // the beams never count in the car's collider
+  hl.visible = false; car.add(hl);
+  // merge everything fixed on the body by material (a handful of draw calls), the same for each wheel
+  const merge = root => { root.updateMatrixWorld(true); const inv = root.matrixWorld.clone().invert(), by = new Map(), rm = [];
+    root.traverse(o => { if (!o.isMesh) return; for (let p = o; p && p !== root; p = p.parent) if (p.userData.keep) return;
+      const g = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone()).applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)); g.clearGroups();
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+      if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+      if (!by.has(o.material)) by.set(o.material, []); by.get(o.material).push(g); rm.push(o); });
+    for (const o of rm) o.removeFromParent();
+    for (const [mat, gs] of by) { const m = new THREE.Mesh(mergeGeometries(gs, false), mat); m.castShadow = mat !== M_.glass; m.receiveShadow = true; root.add(m); } };
+  merge(body); for (const w of rear.children) merge(w); for (const s of steer) merge(s.children[0]); door.traverse(o => { if (o.isMesh) { o.castShadow = o.material !== M_.glass; o.receiveShadow = true; } });
+  Object.assign(car.userData, { body, door, hole, wipers, spins, steer, hl, mat:M_ });
+  // the driver: the owner himself at the wheel while the car is out (hidden when it is parked)
+  const d = makeChar('owner', 0, 0, {}); d.o.children.filter(x => x.isMesh && x.geometry.type === 'PlaneGeometry').forEach(x => x.removeFromParent());
+  body.add(d.o); d.o.position.set(-.12, .0, -.33); d.o.scale.setScalar(.92 / .85); d.faceNow(Math.PI / 2); d.play('sit'); d.o.visible = false; car.userData.driver = d;
+  return car;
+}
+const CARFX = { last:null, v:0, a:0, pitch:0, roll:0, steer:0, spin:0, door:0, doorT:0, wasTrip:false, puff:0, blink:0, wipe:0, wipeA:0 };
+const carDoorBusy = () => CARFX.doorT > 0 || (!!trip !== CARFX.wasTrip && !!M.car && M.car.visible);   // also the moment the owner gets in, before the door has started
+function updateCarFx(dt){
+  const c = M.car, u = c && c.userData, F = CARFX; if (!u || !u.body || !(dt > 0)) return;
+  const p = c.position, yaw = c.rotation.y, nx = Math.cos(yaw), nz = -Math.sin(yaw);   // the nose (+x local) in the yard
+  let ds = 0, yr = 0;
+  if (F.last && c.visible) { const dx = p.x - F.last[0], dz = p.z - F.last[1]; let dy = yaw - F.last[2]; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    if (Math.hypot(dx, dz) < 2 && Math.abs(dy) < .4) { ds = dx * nx + dz * nz; yr = dy / dt; } }   // a jump (parked again, back from town) is not driving
+  F.last = [p.x, p.z, yaw];
+  const v = ds / dt, a = (v - F.v) / dt; F.v = lerp(F.v, v, Math.min(1, dt * 8)); F.a = lerp(F.a, clamp(a, -10, 10), Math.min(1, dt * 4));
+  // the wheels roll the distance driven; the front ones steer to the bend (the bicycle model on the 2.6 m wheelbase)
+  F.spin -= ds / (.334 * c.scale.x); for (const s of u.spins) s.rotation.z = F.spin;
+  const want = Math.abs(F.v) > .25 ? clamp(Math.atan(2.6 * c.scale.x * yr / F.v), -.55, .55) : F.steer; F.steer = lerp(F.steer, want, Math.min(1, dt * 6)); for (const s of u.steer) s.rotation.y = F.steer;
+  // the springs: the nose dips under braking and lifts pulling away; the body leans out of a bend
+  F.pitch = lerp(F.pitch, clamp(F.a * .005, -.03, .03), Math.min(1, dt * 5)); F.roll = lerp(F.roll, clamp(F.v * yr * .01, -.035, .035), Math.min(1, dt * 5));
+  u.body.rotation.z = F.pitch; u.body.rotation.x = F.roll;
+  // the driver's door: open as the owner gets in or out, then shut with a clunk
+  const inCar = !!trip; if (inCar !== F.wasTrip) { F.wasTrip = inCar; if (c.visible) F.doorT = 1.1; }
+  if (F.doorT > 0) { const t = 1.1 - F.doorT; F.doorT -= dt; const open = t < .3 ? t / .3 : t < .7 ? 1 : Math.max(0, 1 - (t - .7) / .3); F.door = -1.05 * (open * open * (3 - 2 * open)); if (F.doorT <= 0 || (t >= 1 && F.door === 0)) { F.doorT = 0; F.door = 0; sfxAt('thunk', p.x, p.z, .5); } }
+  u.door.rotation.y = F.door; u.hole.visible = F.door < -.02;
+  const engine = inCar && c.visible && ['wait', 'out', 'back', 'park'].includes(trip.phase);
+  if (u.driver) u.driver.o.visible = engine && F.doorT <= 0;
+  // the lamps: headlamps with the beams, tail lamps with them, brake lamps slowing or held, reversing lamps backing, indicators in a turn
+  const head = !!(u.hl && u.hl.visible), braking = engine && (F.a < -1 || Math.abs(F.v) < .05), turning = engine && Math.abs(F.steer) > .1;
+  F.blink = turning ? F.blink + dt : 0; const blinkOn = turning && F.blink % .7 < .35;
+  u.mat.head.emissiveIntensity = head ? 2.4 : 0; u.mat.tail.emissiveIntensity = (head ? .7 : .05) + (braking ? 1.8 : 0); u.mat.rev.emissiveIntensity = engine && F.v < -.1 ? 2 : 0;
+  u.mat.indL.emissiveIntensity = blinkOn && F.steer > 0 ? 2.5 : 0; u.mat.indR.emissiveIntensity = blinkOn && F.steer < 0 ? 2.5 : 0;
+  // the wipers in rain or snow while it is driven, parked again when it stops
+  const wet = engine && (wxRain() > .3 || snowFall() > .3); if (wet) F.wipe += dt * 1.5; F.wipeA = wet ? -1.6 * (.5 - .5 * Math.cos(F.wipe * Math.PI)) : lerp(F.wipeA, 0, Math.min(1, dt * 4)); for (const w of u.wipers) w.rotation.y = F.wipeA;
+  // the exhaust: a thin grey puff, a white cloud on a cold day
+  if (engine) { F.puff -= dt; if (F.puff <= 0) { const cold = seasonOf() === 'winter' || snowLying() > .2; F.puff = cold ? .09 : .16; const w = c.localToWorld(carTail.set(-2.36, .23, -.5));
+    sprite(cold ? '#eceff1' : '#a3a39e', w.x, w.y, w.z, -nx * .5 + rand(-.1, .1), rand(.12, .3), -nz * .5 + rand(-.1, .1), cold ? 1.5 : .8, cold ? .26 : .13, -.04); } }
+}
+const carTail = new THREE.Vector3();
 const lorryMoving = () => truck.state === 'arrive' || truck.state === 'leave' || sup.state === 'arrive' || sup.state === 'leave';
 const canDrive = () => S.tutDone && !trip && !owner.stack.length && !owner.cart && !S.gus.party && !(S.day && S.day.closing) && !!M.car;
 function startTrip(kind, key){
@@ -7280,7 +7466,7 @@ function endTrip(){
 }
 function updateTrip(dt){
   if (!trip) return; const T_ = trip; T_.t += dt;
-  if (T_.phase === 'wait') { if (!lorryMoving()) { T_.phase = 'out'; CAR.s = 0; } return; }
+  if (T_.phase === 'wait') { if (!lorryMoving() && !carDoorBusy()) { T_.phase = 'out'; CAR.s = 0; } return; }   // the door shut first
   if (T_.phase === 'out') { const road = M.car.position.z > 14; 
     if (carYield(CAR_OUT)) { CAR.v = 0; return; }
     if (carDrive(CAR_OUT, dt, road ? 9 : 3)) { T_.phase = 'away'; T_.t = 0; M.car.visible = false; }
@@ -7835,7 +8021,7 @@ function frame(){
   // any change to the drawing buffer happens here, right before the render: resizing a canvas clears it, and
   // a resize after the render showed one blank frame (the "blink" while walking, when the frame rate dipped
   // and the quality governor changed resolution, or when a phone's address bar moved)
-  guard('view', () => { adaptQuality(raw); if (needResize) { needResize = false; resize(); } placeCam(raw); updateFade(); updateGuide(curObj); if (shadowHalf) renderer.shadowMap.needsUpdate = (frames & 1) === 0; renderer.render(scene, cam); });
+  guard('view', () => { adaptQuality(raw); if (needResize) { needResize = false; resize(); } placeCam(raw); updateFade(); updateGuide(curObj); renderer.render(scene, cam); });
   guard('labels', updateLabels); guard('hud', () => updateHud(raw)); guard('audio', () => updateAudio(raw)); fpsMeter();
 }
 // development FPS meter (preview builds): frames a second, the slowest frame of the last second, and hitches
@@ -7864,10 +8050,10 @@ function step(dt){
   T += dt; S.time += dt;
   for (const m of mixers) m.update(dt);
   if (!officeOpen && !trip) { updateOwner(dt); updateCarDoor(); } else target = null;
-  healthCheck(dt); trolleyWatch(); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateLevel6(dt); updateLevel7(dt); updateLevel8(dt); updatePolish(dt); updateReorder(); updateLowLoaders(dt); if (AC && MASTER) MASTER.gain.value = S.fxVol ?? 1; updateTruck(dt); updateTrip(dt); carTip(); updateDay(dt); updateTarget(); updateEvents(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateBolt(dt); updateVeraVisit(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); syncCarry(); updateTutorial(dt); updateFx(dt);
+  healthCheck(dt); trolleyWatch(); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateLevel6(dt); updateLevel7(dt); updateLevel8(dt); updatePolish(dt); updateReorder(); updateLowLoaders(dt); if (AC && MASTER) MASTER.gain.value = S.fxVol ?? 1; updateTruck(dt); updateTrip(dt); updateCarFx(dt); carTip(); updateDay(dt); updateTarget(); updateEvents(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateBolt(dt); updateVeraVisit(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); syncCarry(); updateTutorial(dt); updateFx(dt);
   saveT += dt; if (saveT > 8) { saveT = 0; save(); }
 }
-const MAX_DPR = Math.min(2, devicePixelRatio || 1); let shadowHalf = false, dpr = MAX_DPR, perfT = 0, perfN = 0, perfGood = 0, perfBad = 0, lastDpr = 0, dprSettled = false, needResize = false;
+const MAX_DPR = Math.min(2, devicePixelRatio || 1); let dpr = MAX_DPR, perfT = 0, perfN = 0, perfGood = 0, perfBad = 0, lastDpr = 0, dprSettled = false, needResize = false;
 let rsW = 0, rsH = 0;
 function resize(){ const w = innerWidth, h = innerHeight; if (w === rsW && h === rsH && renderer.getPixelRatio() === dpr) return; rsW = w; rsH = h; renderer.setPixelRatio(dpr); renderer.setSize(w, h, false); }
 // quality governor: keep the frame rate up on slower phones by lowering the render resolution a step at a
@@ -7876,7 +8062,6 @@ function resize(){ const w = innerWidth, h = innerHeight; if (w === rsW && h ===
 function adaptQuality(raw){
   perfT += raw; perfN++; if (perfT < 2) return;
   const fps = perfN / perfT; perfT = perfN = 0;
-  if (fps < 36 && dpr <= 1 && dprSettled !== 'shadow') { if (++perfBad >= 2) { perfBad = 0; shadowHalf = true; renderer.shadowMap.autoUpdate = false; dprSettled = 'shadow'; } return; }   // the last step: shadows at half rate
   if (fps < 42 && dpr > 1) { perfGood = 0; if (++perfBad >= 2) { perfBad = 0; if (lastDpr > 0) dprSettled = true; dpr = Math.max(1, +(dpr - .25).toFixed(2)); lastDpr = -1; needResize = true; } return; }
   perfBad = 0;
   if (fps > 57 && !dprSettled && dpr < MAX_DPR) { if (++perfGood >= 6) { perfGood = 0; dpr = Math.min(MAX_DPR, dpr + .25); lastDpr = 1; needResize = true; } } else perfGood = 0;
@@ -7928,7 +8113,7 @@ async function boot(){
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
   else { loginCalendar(); restoreNight(); }
-  window.__iv = { confetti, get furnOnNow(){ return furnOn; }, get limiter(){ return LIMITER; }, get AC(){ return AC; }, audioOn, CUT_AT, setSawT:t => { sawT = t; }, sawOnNow:() => sawOn, get warmN(){ return warmN; }, get shadowHalf(){ return shadowHalf; }, screenFlash, FOOT_AT, get SOUNDS(){ return SOUNDS; }, get sndState(){ return _snd; }, noiseS, get spritePool(){ return spritePool; }, get CARs(){ return CAR; }, get nightState(){ return S.day && S.day.closing && S.day.closing.night; }, ownerOff, nightKind, NIGHT_ROUND, TABS, findRoofs, ROOF_N, ROOF_R, ROOF_Y, get roofKey(){ return roofKey; }, set roofKey(v){ roofKey = v; }, siteBounds, updateGuide, get guideHere(){ return guideHere; }, get guideShown(){ return !!(guide && guide.visible); }, get guideRingShown(){ return !!(guideRing && guideRing.visible); }, get pageHidden(){ return pageHidden; }, audioAllowed, toast, placeToasts, segBlocked, STRAY_RING, SITE, stateWord, VERA_FROM, STRAY_AT, KENNEL, buildKennel, boltFeed, slotFree, parkSlotNear, officeHours, get veraWalk(){ return veraWalk; }, svcAt, FAULTS, upgVisible, upCost, lineText, applyMains, stockLedger, get beats(){ return beats; }, learnSkill, canPromote, staffOf, linesHtml, coverHtml, settingsHtml, SHOVEL_AT, PHOTO_AT, milestonePhoto, repaintSigns, COLKEYS:() => [...COL.keys()], get rail(){ return rail; }, buyRaw, chooseStore, goLiveHD, lightFurnace, l8DayEnd, get furnOn(){ return furnOn; }, get fork8(){ return fork8; }, PADS8, SIGN_RING, DAIRY_PAD, hurryOk, set hurry(v){ hurry = v; }, openGap, takeCard, makeCard, refillBoard, boardHtml, cardFits, l7Delivered, zoneCentres, zonesLive, get cyrus(){ return cyrus; }, PEGS, SURVEY_RING, BOARD_RING, hireTommy, buildClockTower, buildDockLamps, REFIT, orderRefit, finishRefit, bookService, svcDue, svcPost, tierOf, get crane(){ return crane; }, craneGone, INSPECT6, get insp6(){ return insp6; }, clerkChar, clerkOn, juneSettle, ledger, buildCanteen, hailShelter, updateCrane, cutDark, buildLevel6, acceptCall2, finishPlot, rainK, noWalkIns, wxLorryLate, stormOn, helperOf, walkPatience, PAY_Q, ICE_AT, BOLT_NAP, BOLT_SHADE, setWx:k => { wxForce = k; wxForceT = 1e9; wx.from = wx.kind = k; wx.k = 1; }, wxFlash:() => { wx.flash = 1; }, rainbowNow:() => { wx.rainbow = .7; }, get wx(){ return wx; }, bolt, chalkProg, CHALK, loginCalendar, wxPlan, wxSummary, migrate, DAY_S, PAY_MIN, PAY_AT, LV_START, calDay, weekday, isFriday, dateOf, dueAt, seasonOf, payTime, payDay, payStep, ownerAtHatch, payNeeded, knockOff, get M_hatch(){ return M.hatch; }, get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payAccounts, closeWeek, weekAccounts, takeLoan, repayLoan, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  window.__iv = { leaveScene, THREE, get CARFX(){ return CARFX; }, updateCarFx, confetti, get furnOnNow(){ return furnOn; }, get limiter(){ return LIMITER; }, get AC(){ return AC; }, audioOn, CUT_AT, setSawT:t => { sawT = t; }, sawOnNow:() => sawOn, get warmN(){ return warmN; }, screenFlash, FOOT_AT, get SOUNDS(){ return SOUNDS; }, get sndState(){ return _snd; }, noiseS, get spritePool(){ return spritePool; }, get CARs(){ return CAR; }, get nightState(){ return S.day && S.day.closing && S.day.closing.night; }, ownerOff, nightKind, NIGHT_ROUND, TABS, findRoofs, ROOF_N, ROOF_R, ROOF_Y, get roofKey(){ return roofKey; }, set roofKey(v){ roofKey = v; }, siteBounds, updateGuide, get guideHere(){ return guideHere; }, get guideShown(){ return !!(guide && guide.visible); }, get guideRingShown(){ return !!(guideRing && guideRing.visible); }, get pageHidden(){ return pageHidden; }, audioAllowed, toast, placeToasts, segBlocked, STRAY_RING, SITE, stateWord, VERA_FROM, STRAY_AT, KENNEL, buildKennel, boltFeed, slotFree, parkSlotNear, officeHours, get veraWalk(){ return veraWalk; }, svcAt, FAULTS, upgVisible, upCost, lineText, applyMains, stockLedger, get beats(){ return beats; }, learnSkill, canPromote, staffOf, linesHtml, coverHtml, settingsHtml, SHOVEL_AT, PHOTO_AT, milestonePhoto, repaintSigns, COLKEYS:() => [...COL.keys()], get rail(){ return rail; }, buyRaw, chooseStore, goLiveHD, lightFurnace, l8DayEnd, get furnOn(){ return furnOn; }, get fork8(){ return fork8; }, PADS8, SIGN_RING, DAIRY_PAD, hurryOk, set hurry(v){ hurry = v; }, openGap, takeCard, makeCard, refillBoard, boardHtml, cardFits, l7Delivered, zoneCentres, zonesLive, get cyrus(){ return cyrus; }, PEGS, SURVEY_RING, BOARD_RING, hireTommy, buildClockTower, buildDockLamps, REFIT, orderRefit, finishRefit, bookService, svcDue, svcPost, tierOf, get crane(){ return crane; }, craneGone, INSPECT6, get insp6(){ return insp6; }, clerkChar, clerkOn, juneSettle, ledger, buildCanteen, hailShelter, updateCrane, cutDark, buildLevel6, acceptCall2, finishPlot, rainK, noWalkIns, wxLorryLate, stormOn, helperOf, walkPatience, PAY_Q, ICE_AT, BOLT_NAP, BOLT_SHADE, setWx:k => { wxForce = k; wxForceT = 1e9; wx.from = wx.kind = k; wx.k = 1; }, wxFlash:() => { wx.flash = 1; }, rainbowNow:() => { wx.rainbow = .7; }, get wx(){ return wx; }, bolt, chalkProg, CHALK, loginCalendar, wxPlan, wxSummary, migrate, DAY_S, PAY_MIN, PAY_AT, LV_START, calDay, weekday, isFriday, dateOf, dueAt, seasonOf, payTime, payDay, payStep, ownerAtHatch, payNeeded, knockOff, get M_hatch(){ return M.hatch; }, get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payAccounts, closeWeek, weekAccounts, takeLoan, repayLoan, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });

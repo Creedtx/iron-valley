@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (26 Nov 2026, build 0.34, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
+# Handover: where Iron Valley stands (26 Nov 2026, build 0.35, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
 
 Read this first when continuing in a new session.
 
@@ -90,6 +90,33 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
 
+## Done in build 0.35 (grandad's car; the walkers' shudder; tests `fixes035.mjs`, `car_shots.mjs`)
+- **The shudder:** 0.34's last quality step drew the shadow map every other frame on a slow phone. Every walker's
+  shadow then lagged a step on alternate frames, so people seemed to shake back and forth. It is removed; shadows are
+  drawn every frame again.
+- **Grandad's car** is now built in three.js (`buildCar`); Blender isn't in the cloud box, and `env_car` in models.js is
+  no longer used. It is an original 1970s four-door saloon, left-hand drive (the owner gets in on the -z side):
+  - **Body:** burgundy clear-coat paint and a cream vinyl roof. The glasshouse leans in, with flush pillars and a broad
+    C pillar.
+  - **Chrome:** wrap-round bumpers with overriders, a grille, four round headlamps, swage, sill and waist strips, arch
+    lips, a small wing mirror on each wing, domed hubcaps.
+  - **Plates and interior:** old black-and-silver plates "VLY 921". Inside: seats, a wood dash, the wheel on the left,
+    grandad's flat cap on the parcel shelf.
+  - **Reflections:** chrome, glass and paint reflect a small sky-over-yard cube map (`carEnv`); there is no scene
+    environment.
+  - **Draw cost:** merged by material to about 45 meshes. The beam meshes have empty bounding boxes so they never
+    count in the collider (the car's footprint is 4.1 x 1.7 m).
+  - **Motion (`updateCarFx`, from the car's actual movement):**
+    - wheels roll; the fronts steer on the bicycle model
+    - the nose dips braking and lifts pulling away, and the body leans in bends
+    - the driver's door opens and shuts as the owner gets in or out (`carDoorBusy` holds the 'wait' phase), with a
+      dark doorway showing when it is open
+    - the owner sits at the wheel while the car is out
+    - lamps: head (with additive beams, shown by `updateHeadlights`), tail, brake, reverse, indicators
+    - wipers run in rain or snow; the exhaust puffs, white when it's cold
+    - a petrol engine voice (`car` in SOUNDS)
+  - **Signwriting:** the boards are on the rear doors, 1.0 x 0.22.
+
 ## Done in build 0.34 (sound and smoothness; test `fixes034.mjs`)
 The user reset and played from Level 1 and found the sound out of step and the play not smooth. A profile showed the
 JS was cheap and the stalls were shaders compiled mid-play.
@@ -101,8 +128,7 @@ JS was cheap and the stalls were shaders compiled mid-play.
 - **No lights switched in mid-play.** The milestone photo flash is a CSS screen wash (`screenFlash`). The furnace
   light is created in `buildLevel8`, before the warm-up.
 - **Snow mask:** the roof loop in the snow shader only runs where snow would show (`k > 0`).
-- **Shadow fallback:** at the lowest resolution and still under 36 fps, the shadow map redraws every other frame
-  (`shadowHalf`). Softness is kept.
+- ~~Shadow fallback (half-rate shadows)~~: removed in 0.35, it made walkers shudder.
 - **Audio:**
   - Noise bursts are cut from the one shared noise buffer (no per-sound allocation).
   - Voices silent for 4 s on the audio clock are stopped and rebuilt when heard again (`NO_VOICE` ticks them while
