@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (26 Nov 2026, build 0.35, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
+# Handover: where Iron Valley stands (27 Nov 2026, build 0.36, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
 
 Read this first when continuing in a new session.
 
@@ -89,6 +89,21 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
+## Done in build 0.36 (Bolt follows in real time; test `fixes036.mjs`)
+The user saw Bolt walk on to wherever the owner had turned round before coming back: he replayed the whole trail.
+- **The trail is the way the owner ended up going (`boltTrail`).** When the owner comes back within 0.45 m of a point
+  he walked earlier (there and back, or a loop), everything after that point is wiped.
+- **Short cuts (`boltFollow`):** a footprint that is a short clear straight run from Bolt, but much further along the
+  trail (more than 2.2x plus 1.2 m), becomes his next point. A normal corner never qualifies, so he still goes round
+  corners on the owner's own line (0.10 m off it in `fixes029`).
+- **Pace:**
+  - His path is the next ~2 m of footprints, so he only eases up when he is really arriving. Before, he braked towards
+    each 30 cm footprint and lagged 3-4 m behind.
+  - His speed is at least the owner's walking speed (from the owner's smoothed velocity).
+  - Result: about 1.5 m behind at walking pace, with no stop-start.
+- **Tests:** `fixes029`'s line check is now measured only while the owner walks; once the owner stands still, Bolt's
+  sniff-about is allowed.
 
 ## Done in build 0.35 (grandad's car; the walkers' shudder; tests `fixes035.mjs`, `car_shots.mjs`)
 - **The shudder:** 0.34's last quality step drew the shadow map every other frame on a slow phone. Every walker's
