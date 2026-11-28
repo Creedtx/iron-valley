@@ -6925,7 +6925,8 @@ function updateTracks(){ if (!TRACKS) return; const u = TRACKS.userData, lying =
     if (age > TRACK_LIFE * .4 || lying < .1) { TRACKS.getMatrixAt(i, trackM); trackM.decompose(trackP, trackQ, trackS); trackS.set(u.s[i * 3] * f, 1, u.s[i * 3 + 1] * f); TRACKS.setMatrixAt(i, trackM.compose(trackP, trackQ, trackS)); dirty = true; if (f === 0) u.t[i] = -1e9; } }
   if (dirty) TRACKS.instanceMatrix.needsUpdate = true; }
 // he keeps out from under people's feet: a body's width from the crew, the visitors and the owner
-function boltSpace(){ const b = bolt.o.position; let moved = false;
+function boltSpace(){ if (['arrive', 'stray', 'meet', 'eat', 'greet'].includes(bolt.mode)) return;   // the stray's scenes with the owner, and the welcome, are close on purpose
+  const b = bolt.o.position; let moved = false;
   for (const c of [...staffObj.values(), ...folk.values(), owner]) { if (!c || !c.o || !c.o.visible) continue; const p = c.o.position, dx = b.x - p.x, dz = b.z - p.z, d = Math.hypot(dx, dz), need = c === owner ? .42 : .5;
     if (d < need && d > 1e-3) { b.x = p.x + dx / d * need; b.z = p.z + dz / d * need; moved = true; } }
   if (moved) collide(b, !['arrive', 'stray', 'meet', 'eat'].includes(bolt.mode)); }
