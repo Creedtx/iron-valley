@@ -639,9 +639,9 @@ function nearestVisible(x, z){ let best = -1, bd = 1e9; NAV.forEach((n, i) => { 
 function findPath(x, z, tx, tz){
   if (!segBlocked(x, z, tx, tz, 0.15) && !lorryBlocked(x, z, tx, tz)) return [[tx, tz]];
   const s = nearestVisible(x, z), t = nearestVisible(tx, tz); if (s < 0 || t < 0) return [[tx, tz]];
-  // build 0.37: a target no way point can see (out on the road beyond the fence, inside a wall) cannot be walked to: the
-  // way goes to the reachable point nearest it and waits there (walk() asks again), never on in a straight line through
-  if (segBlocked(tx, tz, NAV[t].x, NAV[t].z, .12)) { const near = findPath(x, z, NAV[t].x, NAV[t].z); const res = [...near, [tx, tz]]; res.cut = true; return res; }
+  // build 0.37: from the yard, a target outside it that no way point can see (out on the road beyond the fence) cannot be
+  // walked to: the way goes to the reachable point nearest it and waits there (walk() asks again), never through the fence
+  if (inYard({ x, z }) && !inYard({ x:tx, z:tz }) && segBlocked(tx, tz, NAV[t].x, NAV[t].z, .12)) { /* a work spot tucked against a machine inside the yard is still walked to */ const near = findPath(x, z, NAV[t].x, NAV[t].z); const res = [...near, [tx, tz]]; res.cut = true; return res; }
   const g = new Map([[s, 0]]), came = new Map(), open = new Set([s]);
   const h = i => Math.hypot(NAV[i].x - NAV[t].x, NAV[i].z - NAV[t].z);
   while (open.size) { let cur = -1, bf = 1e9; for (const i of open) { const f = g.get(i) + h(i); if (f < bf) { bf = f; cur = i; } }
@@ -2644,7 +2644,7 @@ function walk(c, dt){
   c.rnd = 0;
   // build 0.37: the fence and the walls hold for everybody: a step that would take a walker into one is not taken (a way
   // that runs through one is asked again by the watchdog above)
-  { const nx = c.o.position.x + dx / d * s, nz = c.o.position.z + dz / d * s; if (wallAt(nx, nz) && !wallAt(c.o.position.x, c.o.position.z)) { S.wallStops = (S.wallStops || 0) + 1; c.play('idle'); c.face(dx, dz, dt); return false; } }
+  { const nx = c.o.position.x + dx / d * s, nz = c.o.position.z + dz / d * s, wk = wallAt(nx, nz); if (wk && !wallAt(c.o.position.x, c.o.position.z) && wallAt(tx, tz) !== wk) { /* a work spot inside a low box (the furnace men's stands at the cooling bed's edge) is still stepped to */ S.wallStops = (S.wallStops || 0) + 1; if ((S.wallStops & 31) === 1) { (S.wallLog ||= []).push(`${c.st ? c.st.name + '/' + c.st.role : c.name || '?'}:${c.state} ${nx.toFixed(1)},${nz.toFixed(1)} ${wallAt(nx, nz)} -> ${tx.toFixed(1)},${tz.toFixed(1)}`); if (S.wallLog.length > 12) S.wallLog.shift(); } c.play('idle'); c.face(dx, dz, dt); return false; } }
   c.o.position.x += dx / d * s; c.o.position.z += dz / d * s; c.face(dx, dz, dt);
   c.play(c.trolley || c.cart || (c.stack.length && c.carryType !== 'fuel') ? 'carry' : 'walk', crewSpeed(c)); return false;
 }
