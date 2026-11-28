@@ -2612,6 +2612,11 @@ function syncFaultRings(){
 // a wall, fence or building at this point (vehicles and the trolley spaces are not walls: they are walked round or waited for)
 const WALK_THRU = /^(truck|truck2|supply|car|vehTmp|cartBay\d|fork|tarp|palletStack)$/;
 function wallAt(x, z){ for (const [k, b] of COL) { if (WALK_THRU.test(k)) continue; if (x > b[0] + .03 && x < b[2] - .03 && z > b[1] + .03 && z < b[3] - .03) return k; } return null; }
+// round a box by its nearest clear corner (an open gate leaf on the pavement, a post): the way a person steps round it
+function detourRound(px, pz, tx, tz, k){ const b = COL.get(k); if (!b) return null; const m = .34; let best = null, bd = 1e9;
+  for (const q of [[b[0] - m, b[1] - m], [b[2] + m, b[1] - m], [b[2] + m, b[3] + m], [b[0] - m, b[3] + m]]) { if (wallAt(q[0], q[1]) || segHitsBox(px, pz, q[0], q[1], b[0], b[1], b[2], b[3])) continue;
+    const d = Math.hypot(q[0] - px, q[1] - pz) + Math.hypot(tx - q[0], tz - q[1]); if (d < bd) { bd = d; best = q; } }
+  return best; }
 function goTo(c, x, z){ c.path = findPath(c.o.position.x, c.o.position.z, x, z); c.goal = [x, z]; c.wd = null; }
 function walk(c, dt){
   if (!c.path || !c.path.length) return true;
@@ -2622,7 +2627,7 @@ function walk(c, dt){
   // arrival tolerance grows with the step size: at a low frame rate one step (and one crowd push) can be
   // larger than a fixed 6 cm, and the walker would circle the spot for ever (build 0.7: Walt stuck at 8 cm
   // from the saw while the owner stood beside it). The last waypoint snaps so the work spot is exact.
-  if (d < Math.max(.06, sp * dt * (last ? 1.6 : 1))) { if (last) c.o.position.set(tx, groundY(tx, tz), tz); c.path.shift(); c.wd = null; return !c.path.length; }
+  if (d < Math.max(.06, sp * dt * (last ? 1.6 : 1))) { if (last) c.o.position.set(tx, groundY(tx, tz), tz); c.path.shift(); c.wd = null; c.detourN = 0; return !c.path.length; }
   // watchdog: no headway on this waypoint for 2.5 s (someone standing in the way, a crowd push) -> re-path,
   // and after two re-paths step over the gap. Counted in S.unstuck so the soak test can see it.
   const wd = c.wd && c.wd.wp === c.path[0] ? c.wd : (c.wd = { wp:c.path[0], best:d, t:0, n:c.wd ? c.wd.n : 0 });
@@ -2644,7 +2649,8 @@ function walk(c, dt){
   c.rnd = 0;
   // build 0.37: the fence and the walls hold for everybody: a step that would take a walker into one is not taken (a way
   // that runs through one is asked again by the watchdog above)
-  { const nx = c.o.position.x + dx / d * s, nz = c.o.position.z + dz / d * s, wk = wallAt(nx, nz); if (wk && !wallAt(c.o.position.x, c.o.position.z) && wallAt(tx, tz) !== wk) { /* a work spot inside a low box (the furnace men's stands at the cooling bed's edge) is still stepped to */ S.wallStops = (S.wallStops || 0) + 1; if ((S.wallStops & 31) === 1) { (S.wallLog ||= []).push(`${c.st ? c.st.name + '/' + c.st.role : c.name || '?'}:${c.state} ${nx.toFixed(1)},${nz.toFixed(1)} ${wallAt(nx, nz)} -> ${tx.toFixed(1)},${tz.toFixed(1)}`); if (S.wallLog.length > 12) S.wallLog.shift(); } c.play('idle'); c.face(dx, dz, dt); return false; } }
+  { const nx = c.o.position.x + dx / d * s, nz = c.o.position.z + dz / d * s, wk = wallAt(nx, nz); if (wk && !wallAt(c.o.position.x, c.o.position.z) && wallAt(tx, tz) !== wk) { /* a work spot inside a low box (the furnace men's stands at the cooling bed's edge) is still stepped to */ S.wallStops = (S.wallStops || 0) + 1; const dr = (c.detourN || 0) < 6 && detourRound(c.o.position.x, c.o.position.z, tx, tz, wk); if (dr) { c.path.unshift(dr); c.detourN = (c.detourN || 0) + 1; c.wd = null; }   /* round it, then on */
+      if ((S.wallStops & 31) === 1) { (S.wallLog ||= []).push(`${c.st ? c.st.name + '/' + c.st.role : c.name || '?'}:${c.state} ${nx.toFixed(1)},${nz.toFixed(1)} ${wallAt(nx, nz)} -> ${tx.toFixed(1)},${tz.toFixed(1)}`); if (S.wallLog.length > 12) S.wallLog.shift(); } c.play('idle'); c.face(dx, dz, dt); return false; } }
   c.o.position.x += dx / d * s; c.o.position.z += dz / d * s; c.face(dx, dz, dt);
   c.play(c.trolley || c.cart || (c.stack.length && c.carryType !== 'fuel') ? 'carry' : 'walk', crewSpeed(c)); return false;
 }
