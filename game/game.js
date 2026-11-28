@@ -639,6 +639,9 @@ function nearestVisible(x, z){ let best = -1, bd = 1e9; NAV.forEach((n, i) => { 
 function findPath(x, z, tx, tz){
   if (!segBlocked(x, z, tx, tz, 0.15) && !lorryBlocked(x, z, tx, tz)) return [[tx, tz]];
   const s = nearestVisible(x, z), t = nearestVisible(tx, tz); if (s < 0 || t < 0) return [[tx, tz]];
+  // build 0.37: a target no way point can see (out on the road beyond the fence, inside a wall) cannot be walked to: the
+  // way goes to the reachable point nearest it and waits there (walk() asks again), never on in a straight line through
+  if (segBlocked(tx, tz, NAV[t].x, NAV[t].z, .12)) { const near = findPath(x, z, NAV[t].x, NAV[t].z); const res = [...near, [tx, tz]]; res.cut = true; return res; }
   const g = new Map([[s, 0]]), came = new Map(), open = new Set([s]);
   const h = i => Math.hypot(NAV[i].x - NAV[t].x, NAV[i].z - NAV[t].z);
   while (open.size) { let cur = -1, bf = 1e9; for (const i of open) { const f = g.get(i) + h(i); if (f < bf) { bf = f; cur = i; } }
@@ -2606,6 +2609,9 @@ function syncFaultRings(){
 /* =====================================================================
    STAFF AI
    ===================================================================== */
+// a wall, fence or building at this point (vehicles and the trolley spaces are not walls: they are walked round or waited for)
+const WALK_THRU = /^(truck|truck2|supply|car|vehTmp|cartBay\d|fork|tarp|palletStack)$/;
+function wallAt(x, z){ for (const [k, b] of COL) { if (WALK_THRU.test(k)) continue; if (x > b[0] + .03 && x < b[2] - .03 && z > b[1] + .03 && z < b[3] - .03) return k; } return null; }
 function goTo(c, x, z){ c.path = findPath(c.o.position.x, c.o.position.z, x, z); c.goal = [x, z]; c.wd = null; }
 function walk(c, dt){
   if (!c.path || !c.path.length) return true;
@@ -2636,6 +2642,9 @@ function walk(c, dt){
     else if (c.rnd > .8) { const e = stepAside(c, vw.m); if (e) { c.path.unshift(e); c.rnd = 0; } }   // no way round: step out of its way and let it pass
     c.play('idle'); c.face(dx, dz, dt); return false; }
   c.rnd = 0;
+  // build 0.37: the fence and the walls hold for everybody: a step that would take a walker into one is not taken (a way
+  // that runs through one is asked again by the watchdog above)
+  { const nx = c.o.position.x + dx / d * s, nz = c.o.position.z + dz / d * s; if (wallAt(nx, nz) && !wallAt(c.o.position.x, c.o.position.z)) { S.wallStops = (S.wallStops || 0) + 1; c.play('idle'); c.face(dx, dz, dt); return false; } }
   c.o.position.x += dx / d * s; c.o.position.z += dz / d * s; c.face(dx, dz, dt);
   c.play(c.trolley || c.cart || (c.stack.length && c.carryType !== 'fuel') ? 'carry' : 'walk', crewSpeed(c)); return false;
 }
@@ -3000,20 +3009,26 @@ function updateSpecialist(c, dt){
     if (c.state === 'home') { c.faceNow(Math.PI); c.play('work', .45); }
   }
 }
+// the owner in the yard (not away in the car, not out on the road): only then does anybody walk over to him
+function inYard(p, m = .4){ const b = siteBounds(); return p.x > b[0] - m && p.x < b[1] + m && p.z > b[2] - m && p.z < b[3] + m; }
+const ownerOnSite = () => !!owner && owner.o.visible && !trip && inYard(owner.o.position);
+// who has the new order: the owner, or (the owner away) Gus, who took the call at the phone
+function orderFrom(){ if (ownerOnSite()) return { who:'owner', c:owner }; const g = gusChar(); if (g && !S.gus.retired && g.o.visible && inYard(g.o.position)) return { who:'gus', c:g }; return null; }
 function updateSupervisor(c, dt){
   if (c.state === 'follow') { updateFollow(c, dt); return; }
   if (updateBreak(c, dt)) return;
   if (c.state === 'arrive') { if (walk(c, dt)) c.state = 'idle'; return; }
   if (c.state === 'talking') { c.play('point'); if (!c.talking) c.state = 'idle'; return; }
   const free = ['idle', 'toPatrol', 'patrolWait'].includes(c.state);
-  if (free && S.order && !S.order.met && !S.order.briefed) { c.state = 'toMeet'; c.meetAt = null; }
-  if (c.state === 'toMeet') { c.rp -= dt; if (!S.order || S.order.briefed) { c.state = 'idle'; return; }
-    const op = owner.o.position, d = dist2(c.o, [op.x, op.z]);
-    if (d < 1.4) { c.state = 'meet'; c.wait = 2.6; c.path = null; S.meets = (S.meets || 0) + 1; owner.say = { text:`${S.order.client}: ${describe(S.order)}, due ${dueAt(S.order.deadline - S.order.time)}.`, until:T + 2.6 }; c.say = { text:'Got it, boss. I\'ll brief the crew.', until:T + 2.8 }; return; }
+  if (free && S.order && !S.order.met && !S.order.briefed && orderFrom()) { c.state = 'toMeet'; c.meetAt = null; }
+  if (c.state === 'toMeet') { c.rp -= dt; const src = orderFrom(); if (!S.order || S.order.briefed || !src) { c.state = 'idle'; c.path = null; return; }   // nobody to take it from: he waits in the yard
+    c.meetWith = src.who; const op = src.c.o.position, d = dist2(c.o, [op.x, op.z]);
+    if (d < 1.4) { c.state = 'meet'; c.wait = 2.6; c.path = null; S.meets = (S.meets || 0) + 1; src.c.say = { text:`${src.who === 'gus' ? 'Phone call: ' : ''}${S.order.client}: ${describe(S.order)}, due ${dueAt(S.order.deadline - S.order.time)}.`, until:T + 2.6 };
+      c.say = { text:src.who === 'gus' ? 'Thanks, Gus. I\'ll brief the crew.' : 'Got it, boss. I\'ll brief the crew.', until:T + 2.8 }; return; }
     if (!c.meetAt || Math.hypot(c.meetAt[0] - op.x, c.meetAt[1] - op.z) > 1) { c.meetAt = [op.x, op.z]; goTo(c, op.x + .8, op.z + .3); }
     if (walk(c, dt)) goTo(c, op.x, op.z); return; }
-  if (c.state === 'meet') { c.play('inspect'); c.faceTo([owner.o.position.x, owner.o.position.z], dt); c.wait -= dt;
-    if (dist2(c.o, [owner.o.position.x, owner.o.position.z]) > 2.2) { c.state = 'toMeet'; return; }
+  if (c.state === 'meet') { const src = orderFrom(), mp = src && src.who === c.meetWith ? src.c.o.position : null; c.play('inspect'); if (mp) c.faceTo([mp.x, mp.z], dt); c.wait -= dt;
+    if (!mp || dist2(c.o, [mp.x, mp.z]) > 2.2) { c.state = 'toMeet'; return; }
     if (c.wait <= 0) { if (S.order) S.order.met = true; const op = orderOp(S.order); if (op) { goTo(c, op.o.position.x + .8, op.o.position.z + .5); c.state = 'toBrief'; } else c.state = 'idle'; } return; }
   if (c.state === 'toBrief') { if (walk(c, dt)) { c.state = 'brief'; c.wait = 1.6; } return; }
   if (c.state === 'brief') { const op = orderOp(S.order); if (op) c.faceTo([op.o.position.x, op.o.position.z], dt); c.play('point'); c.wait -= dt;
@@ -3136,6 +3151,7 @@ function leadStep(c, dt){
   if (Math.hypot(o.x - post[0], o.z - post[1]) < (st.role === 'operator' ? 1.3 : 1.8)) {
     st.posted = true; c.follow = false; c.state = 'idle'; c.path = null;
     toast(st.role === 'operator' ? `${st.name} takes the crate machine.` : `${st.name} takes the loading: pallet to truck.`, 'good'); sfx('hire'); save(); checkCharter(); return; }
+  if (!ownerOnSite()) { c.path = null; c.play('idle'); return; }   // the owner out of the yard: he waits inside the fence
   if (d > 1.25) { if (!c.path || T - (c.repath || 0) > .45) { goTo(c, o.x, o.z); c.repath = T; } walk(c, dt); } else { c.path = null; c.play('idle'); c.faceTo([o.x, o.z], dt); }
 }
 function updateStaff(dt){
@@ -4444,6 +4460,7 @@ function promote(id){
 function movePost(id){ const c = (id && staffObj.get(id)) || supervisor(); if (!c) return; c.state = 'follow'; c.st.post = null; if (c === supervisor()) S.lv4.post = null; c.say = { text:'Where to, boss?', until:T + 2 }; closeOffice(); }
 let stillT = 0;
 function updateFollow(c, dt){
+  if (!ownerOnSite()) { c.path = null; c.play('idle'); return; }   // the owner out of the yard: he waits for him inside the fence
   const op = owner.o.position, d = dist2(c.o, [op.x, op.z]);
   if (d > 1.3) { if (!c.path || !c.path.length || !c.meetAt || Math.hypot(c.meetAt[0] - op.x, c.meetAt[1] - op.z) > .8) { c.meetAt = [op.x, op.z]; goTo(c, op.x + .7, op.z + .4); } walk(c, dt); }
   else c.play('idle');
@@ -5897,6 +5914,7 @@ function updateFootsteps(dt){ const a = owner.action, walking = owner.o.visible 
   if (!walking) { owner.footPh = null; return; } const ph = (a.time / a.getClip().duration) % 1, last = owner.footPh; owner.footPh = ph; if (last == null) return;
   if (!FOOT_AT.some(f => (last < f && ph >= f) || (last > ph && (f > last || ph >= f)))) return;   // a foot comes down between the last frame and this one
   owner.steps = (owner.steps || 0) + 1; owner.stepPh = ph;   // counted (and the phase kept) for the tests
+  if (snowLying() > .25) { const r = owner.o.rotation.y, fx = Math.sin(r), fz = Math.cos(r), sd = owner.steps % 2 ? .075 : -.075, q = owner.o.position; trackPrint(q.x - fz * sd, q.z + fx * sd, Math.atan2(-fz, fx), .07, .04); }   // a boot print in the snow
   const p = owner.o.position, onDeck = typeof groundY === 'function' && groundY(p.x, p.z) > .5, inYard = p.x > SITE.x0 && p.x < SITE.x1 && p.z > SITE.z0 && p.z < SITE.z1;
   if (onDeck) tone(330 + Math.random() * 40, .04, 'triangle', .012); else if (snowLying() > .3 && !(inYard && (S.wx.cleared || 0) > .6)) noiseS(.07, 900, .02); else if (wxRain() > .3) noiseS(.05, 2400, .012, 'bandpass'); else if (!inYard) noiseS(.04, 3200, .01, 'bandpass'); else noiseS(.03, 600, .008); }
 function updatePolish(dt){ syncFaultTags(); updateBeats(); if (S.reduced !== undefined) REDUCED = S.reduced; updateFootsteps(dt); if (!levelShot && frames > 90 && !cardOpen) levelShot = yardShot();
@@ -6148,7 +6166,7 @@ const sprites = [], spritePool = [];
 // the snow patch is put on every material from the start (it costs nothing while no snow lies).
 let warmN = 0;
 function warmShaders(wait){ try { while (spritePool.length < 24) { const m = new THREE.Sprite(new THREE.SpriteMaterial({ map:TX.dot, transparent:true, depthWrite:false })); m.userData.v = new THREE.Vector3(); m.visible = false; scene.add(m); spritePool.push(m); }
-    findRoofs(); snowPatch(); warmN++;
+    buildTracks(); findRoofs(); snowPatch(); warmN++;
     if (!wait && renderer.compileAsync) return renderer.compileAsync(scene, cam).catch(() => {}); renderer.compile(scene, cam); } catch(e) { console.warn('[iv] warm', e); } }
 function sprite(col, x, y, z, vx, vy, vz, life, size, grav = 0, add = false){
   if (sprites.length > 160) return;
@@ -6763,7 +6781,7 @@ function buildBolt(){
   const legs = []; for (const [x, z, front] of [[.155, .062, 1], [.155, -.062, 1], [-.16, .062, 0], [-.16, -.062, 0]]) { const L = new THREE.Group(); L.position.set(x, .3, z); g.add(L);
     mesh(new THREE.CylinderGeometry(.028, .04, .17, 8), fur, 0, -.07, 0, L); mesh(new THREE.CylinderGeometry(.02, .027, .15, 8), front ? pale : fur, front ? .008 : -.018, -.21, 0, L); mesh(SPH, pale, front ? .02 : -.006, -.284, 0, L, .036, .021, .03); legs.push(L); }
   g.add(blob(.7, .4)); g.userData.dyn = true; g.visible = false; world.add(g);
-  bolt.o = g; bolt.body = body; bolt.head = head; bolt.tail = tail; bolt.legs = legs; bolt.tongue = tg; return g;
+  bolt.o = g; bolt.body = body; bolt.head = head; bolt.tail = tail; bolt.legs = legs; bolt.tongue = tg; bolt.ears = ears; return g;
 }
 // his own place: a kennel Gus knocks up from offcuts in the warm corner by Old Faithful, his blanket and his water bowl
 const KENNEL = [3.15, -8.2];
@@ -6808,18 +6826,108 @@ function boltStep(dt, sp){
       if (best) { const np = findPath(best[0], best[1], goal[0], goal[1]); bolt.path = [best, ...(np.length ? np : [goal])]; } bolt.stuckN = 0; } }   // step aside into the open, then on
   return false;
 }
-function boltAnim(dt){
-  const run = bolt.sp > .2, k = run ? bolt.sp / 3 : 0; bolt.anim += dt * (run ? 13 * Math.min(1.4, .6 + k) : 0);
-  const sit = ['sit', 'beg', 'stray', 'meet'].includes(bolt.mode), lie = ['nap', 'shade', 'down'].includes(bolt.mode), eat = bolt.mode === 'eat', sniff = ['sniff', 'sniffing', 'patrolSniff'].includes(bolt.mode);
-  bolt.legs.forEach((L, i) => { const tgt = lie ? (i < 2 ? -1.35 : 1.35) : sit && i >= 2 ? .9 : run ? Math.sin(bolt.anim + (i === 0 || i === 3 ? 0 : Math.PI)) * .55 : 0; L.rotation.z += (tgt - L.rotation.z) * Math.min(1, dt * 12); });
-  const by = lie ? .16 : sit ? .33 : .36 + (run ? Math.abs(Math.sin(bolt.anim)) * .03 : 0), br = sit ? .42 : lie ? 0 : 0;
-  bolt.body.position.y += (by - bolt.body.position.y) * Math.min(1, dt * 10); bolt.body.rotation.z += (br - bolt.body.rotation.z) * Math.min(1, dt * 10);
-  bolt.tail.rotation.y = Math.sin(T * (bolt.mode === 'beg' || eat || run ? 16 : bolt.mode === 'stray' ? 3 : 5)) * (lie ? .1 : bolt.mode === 'stray' ? .25 : .6);
-  bolt.tail.rotation.z = bolt.mode === 'stray' ? -.7 : 0;   // a stray's tail low and tucked, a happy dog's up
-  bolt.head.rotation.z = bolt.bark > 0 ? Math.sin(bolt.bark * 30) * .25 : eat ? -.75 + Math.abs(Math.sin(T * 9)) * .2 : sniff ? -.62 + Math.sin(T * 11) * .05 : lie ? -.25 : 0; bolt.bark = Math.max(0, bolt.bark - dt);
-  if (bolt.tongue) bolt.tongue.visible = (run && bolt.sp > 2.4) || (heatOn() && !lie);   // panting
-  if (bolt.shake > 0) { bolt.shake -= dt; bolt.body.rotation.x = Math.sin(bolt.shake * 40) * .35; if (Math.random() < dt * 30) sprite('#cfe0ee', bolt.o.position.x + rand(-.3, .3), .45, bolt.o.position.z + rand(-.3, .3), rand(-1.5, 1.5), rand(.5, 1.5), rand(-1.5, 1.5), .5, .05, -6); } else bolt.body.rotation.x = 0;
+// build 0.37: his legs, body, head, ears and tail. The gait follows his speed (a walk, a trot, a gallop), and each leg's
+// swing is timed to the ground going by so a paw on the ground stays put: the stride in metres per cycle and the share of
+// the cycle a foot is down (the duty factor) are a dog's. The body dips braking and lifts pulling away, banks into a turn,
+// bobs twice a stride at the trot and rocks at the gallop; the head stays steady and looks at what he is watching (the
+// owner, a lorry, someone passing); ears prick when he is alert and fly back at the gallop; the tail says how he feels.
+const GAITS = {   // legs: right fore, left fore, right hind, left hind (he faces +x, so +z is his right)
+  walk:  { stride:.42, duty:.62, amp:.32, off:[.75, .25, .5, 0],   lift:.03 },
+  trot:  { stride:.75, duty:.45, amp:.48, off:[.5, 0, 0, .5],     lift:.04 },
+  gallop:{ stride:1.25, duty:.32, amp:.75, off:[.62, .5, .12, 0], lift:.05 } };
+function boltGait(){ const s = bolt.sp || 0, g = bolt.gait || 'walk';   // with a little overlap, so he never flickers between two
+  return g === 'walk' ? (s > 1.3 ? 'trot' : 'walk') : g === 'trot' ? (s < 1.0 ? 'walk' : s > 3.3 ? 'gallop' : 'trot') : (s < 2.9 ? 'trot' : 'gallop'); }
+function boltLook(){   // what he is watching, if anything
+  const b = bolt.o.position, o = owner && owner.o.visible ? owner.o.position : null;
+  if (bolt.bark > 0 && truck.state === 'arrive') return [M.truck.position.x, M.truck.position.z];
+  if (bolt.mode === 'greet' && o) return [o.x, o.z];
+  if (['sit', 'beg', 'down', 'follow', 'meet', 'stray'].includes(bolt.mode) && o && (bolt.sp || 0) < .6 && Math.hypot(o.x - b.x, o.z - b.z) < 9) return [o.x, o.z];
+  if ((bolt.sp || 0) > .2) { if (!(bolt.glanceT > T) && Math.random() < .01) { bolt.glance = null; for (const c of staffObj.values()) { const p = c.o.position; if (c.o.visible && Math.hypot(p.x - b.x, p.z - b.z) < 2.6) { bolt.glance = c; bolt.glanceT = T + 1.2; break; } } }
+    if (bolt.glanceT > T && bolt.glance) return [bolt.glance.o.position.x, bolt.glance.o.position.z]; }
+  return null;
 }
+function boltAnim(dt){
+  boltSpace();
+  const sp = bolt.sp || 0, run = sp > .08, mode = bolt.mode;
+  const sit = ['sit', 'beg', 'stray', 'meet'].includes(mode), lie = ['nap', 'shade', 'down'].includes(mode), eat = mode === 'eat', sniff = ['sniff', 'sniffing', 'patrolSniff'].includes(mode);
+  // the gait, blended over a quarter of a second when it changes
+  const gn = boltGait(); bolt.gait = gn; const G = GAITS[gn], k = Math.min(1, dt * 4);
+  const gb = bolt.gb ||= { stride:G.stride, duty:G.duty, amp:G.amp, lift:G.lift, off:G.off.slice() };
+  gb.stride = lerp(gb.stride, G.stride, k); gb.duty = lerp(gb.duty, G.duty, k); gb.amp = lerp(gb.amp, G.amp, k); gb.lift = lerp(gb.lift, G.lift, k);
+  for (let i = 0; i < 4; i++) { let d = G.off[i] - gb.off[i]; d -= Math.round(d); gb.off[i] = (gb.off[i] + d * k + 1) % 1; }
+  const lastPh = bolt.ph || 0; bolt.ph = (lastPh + (run ? sp / gb.stride * dt : 0)) % 1; bolt.anim = bolt.ph * Math.PI * 2;
+  // the legs: stance (the paw planted, sweeping back as the body goes over it) and swing (lifted, forward again)
+  const scratch = bolt.scratch > 0, greetUp = mode === 'greet' && bolt.hop > 0;
+  bolt.legs.forEach((L, i) => { let tgt = 0, lift = 0;
+    if (lie) tgt = i < 2 ? -1.35 : 1.35;
+    else if (sit) tgt = i >= 2 ? .9 : 0;
+    else if (run) { const q = (bolt.ph + gb.off[i]) % 1, A = gb.amp * Math.min(1, .45 + sp / 2);
+      if (q < gb.duty) tgt = A - 2 * A * q / gb.duty; else { const s = (q - gb.duty) / (1 - gb.duty); tgt = -A + 2 * A * (.5 - .5 * Math.cos(Math.PI * s)); lift = Math.sin(Math.PI * s) * gb.lift; }
+      const lq = (lastPh + gb.off[i]) % 1; if (lq > q && snowLying() > .25) { const f = L.localToWorld(PAW_V.set(0, -.284, 0)); trackPrint(f.x, f.z, bolt.o.rotation.y, .034, .03); } }   // a paw comes down: in snow, a print
+    if (scratch && i === 2) { tgt = .55 + Math.sin(T * 38) * .35; lift = .06; }   // the hind leg going at an itch
+    if (greetUp && i < 2) { tgt = .7; lift = .05; }   // up on his hind legs, front paws reaching for the owner
+    // the shoulder and the hip ride with the body: bobbing, rearing up, sitting back, lying down
+    const root = .3 + (bolt.body.position.y - .36) + (i < 2 ? .155 : -.16) * Math.sin(bolt.body.rotation.z);
+    const kk = Math.min(1, dt * (run ? 30 : 12)); L.rotation.z += (tgt - L.rotation.z) * kk; L.position.y += (root + lift - L.position.y) * Math.min(1, dt * 30); });
+  // the body's springs: pitch with acceleration, bank into a turn, the gait's bob and rock
+  const yaw = bolt.o.rotation.y, lastYaw = bolt.lastYaw ?? yaw; let yr = yaw - lastYaw; yr = Math.atan2(Math.sin(yr), Math.cos(yr)) / Math.max(dt, 1e-3); bolt.lastYaw = yaw;
+  const acc = (sp - (bolt.lastSp ?? sp)) / Math.max(dt, 1e-3); bolt.lastSp = sp; bolt.acc = lerp(bolt.acc || 0, clamp(acc, -12, 12), Math.min(1, dt * 6));
+  const w = Math.PI * 2 * bolt.ph, bob = !run ? 0 : gn === 'gallop' ? .03 * Math.sin(w) : gn === 'trot' ? .012 * Math.cos(2 * w) : .006 * Math.cos(2 * w);
+  const rock = run && gn === 'gallop' ? .11 * Math.sin(w + 1.1) : 0, hop = greetUp ? Math.abs(Math.sin(T * 8.5)) * .07 : 0;
+  bolt.bank = lerp(bolt.bank || 0, run ? clamp(-yr * sp * .05, -.28, .28) : 0, Math.min(1, dt * 8));
+  const breathe = (lie || sit) ? .012 * Math.sin(T * (lie ? 2.0 : 3.4)) : 0;
+  const by = lie ? .16 : sit ? .33 : .36 + bob + hop, br = sit ? .42 : lie ? 0 : clamp(bolt.acc * .012, -.12, .12) + rock + (greetUp ? .55 : 0);
+  bolt.body.position.y += (by - bolt.body.position.y) * Math.min(1, dt * 14); bolt.body.rotation.z += (br - bolt.body.rotation.z) * Math.min(1, dt * 10); bolt.body.scale.y = 1 + breathe;
+  // the head: steady (it rides against the body's rock), turned to what he watches, nose down to sniff or eat
+  const look = boltLook(); let hy = 0; if (look && !lie) { hy = Math.atan2(-(look[1] - bolt.o.position.z), look[0] - bolt.o.position.x) - yaw; hy = clamp(Math.atan2(Math.sin(hy), Math.cos(hy)), -1.05, 1.05); }
+  else if (mode === 'patrol' || mode === 'patrolSniff') hy = Math.sin(T * .9) * .6;   // on his rounds he looks about him
+  bolt.hy = lerp(bolt.hy || 0, hy, Math.min(1, dt * 6)); bolt.head.rotation.y = bolt.hy;
+  bolt.head.rotation.x = lerp(bolt.head.rotation.x, scratch ? .35 : (sit && look && Math.sin(T * .7) > .92) ? .3 : 0, Math.min(1, dt * 5));   // a curious tilt now and then
+  const yawn = bolt.yawn > 0;
+  bolt.head.rotation.z = bolt.bark > 0 ? Math.sin(bolt.bark * 30) * .25 : eat ? -.75 + Math.abs(Math.sin(T * 9)) * .2 : sniff ? -.62 + Math.sin(T * 11) * .05 : yawn ? .35 : lie ? -.25 : -(bolt.body.rotation.z - (sit ? .42 : 0)) * .7 - bob * 2;
+  bolt.bark = Math.max(0, bolt.bark - dt);
+  // ears: pricked when alert, bounced by the trot, laid back by the wind at the gallop
+  const alert = bolt.bark > 0 || (truck.state === 'arrive') || mode === 'greet' ? 1 : 0; bolt.alert = lerp(bolt.alert || 0, alert, Math.min(1, dt * 5));
+  const ears = bolt.ears; if (ears) { const fly = run && gn === 'gallop' ? 1 : 0, bounce = run ? Math.sin(2 * w) * (gn === 'walk' ? .08 : .22) : 0;
+    ears[0].rotation.x = -.25 - .2 * bolt.alert; ears[0].rotation.z = -.55 * fly; ears[1].rotation.x = .9 - .45 * bolt.alert + bounce; ears[1].rotation.z = -.6 - .5 * fly; }
+  // the tail: how he feels (the owner back, the owner near, on his own, a stray), streamed out at the gallop, up when alert
+  const o = owner && owner.o.position, near = o && Math.hypot(o.x - bolt.o.position.x, o.z - bolt.o.position.z) < 3;
+  const moodT = mode === 'greet' || mode === 'beg' || eat ? 1 : mode === 'stray' ? .1 : lie ? .25 : near ? .7 : .45; bolt.mood = lerp(bolt.mood ?? .5, moodT, Math.min(1, dt * 2));
+  const wagF = 3 + 13 * bolt.mood, wagA = (lie ? .1 : .18 + .5 * bolt.mood) * (run && gn === 'gallop' ? .35 : 1);
+  bolt.tail.rotation.y = Math.sin(T * wagF) * wagA; bolt.tail.rotation.z = lerp(bolt.tail.rotation.z, mode === 'stray' ? -.7 : run && gn === 'gallop' ? -.35 : .35 * bolt.alert, Math.min(1, dt * 6));
+  if (bolt.tongue) bolt.tongue.visible = yawn || (run && sp > 2.4) || (heatOn() && !lie);   // panting
+  // idle habits while he sits: a scratch at an itch, a yawn
+  bolt.scratch = Math.max(0, (bolt.scratch || 0) - dt); bolt.yawn = Math.max(0, (bolt.yawn || 0) - dt);
+  if (sit && !scratch && !yawn && T - (bolt.sitT || 0) > 3) { if (Math.random() < dt * .05) bolt.scratch = 1.3; else if (Math.random() < dt * .04) bolt.yawn = 1.1; }
+  if (bolt.shake > 0) { bolt.shake -= dt; bolt.body.rotation.x = Math.sin(bolt.shake * 40) * .35; if (Math.random() < dt * 30) sprite('#cfe0ee', bolt.o.position.x + rand(-.3, .3), .45, bolt.o.position.z + rand(-.3, .3), rand(-1.5, 1.5), rand(.5, 1.5), rand(-1.5, 1.5), .5, .05, -6); }
+  else bolt.body.rotation.x = bolt.bank;
+}
+const PAW_V = new THREE.Vector3();
+// tracks in the snow: the owner's boots and Bolt's paws pressed into it, filling in again over a minute
+const TRACK_N = 200, TRACK_LIFE = 60; let TRACKS = null, trackI = 0;
+function buildTracks(){ if (TRACKS) return; const g = new THREE.CircleGeometry(1, 10); g.rotateX(-Math.PI / 2);
+  const m = new THREE.MeshBasicMaterial({ color:'#8e9aa8', transparent:true, opacity:.42, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-2 });
+  TRACKS = new THREE.InstancedMesh(g, m, TRACK_N); TRACKS.userData.noSnow = true; TRACKS.userData.dyn = true; TRACKS.frustumCulled = false; TRACKS.renderOrder = 2; TRACKS.userData.t = new Float32Array(TRACK_N).fill(-1e9); TRACKS.userData.s = new Float32Array(TRACK_N * 3);
+  const z = new THREE.Matrix4().makeScale(0, 0, 0); for (let i = 0; i < TRACK_N; i++) TRACKS.setMatrixAt(i, z); world.add(TRACKS); }
+const trackM = new THREE.Matrix4(), trackQ = new THREE.Quaternion(), trackP = new THREE.Vector3(), trackS = new THREE.Vector3(), trackY = new THREE.Vector3(0, 1, 0);
+function trackPrint(x, z, yaw, len, wid){ if (!TRACKS) return; if ((M.roofList || []).some(r => x > r[0] && x < r[2] && z > r[1] && z < r[3])) return;   // no snow under a roof
+  if ((S.wx && S.wx.cleared || 0) > .6 && x > SITE.x0 && x < SITE.x1 && z > SITE.z0 && z < SITE.z1) return;   // the yard shovelled clear
+  const i = trackI = (trackI + 1) % TRACK_N, u = TRACKS.userData; u.t[i] = T; u.s[i * 3] = len; u.s[i * 3 + 1] = wid; u.s[i * 3 + 2] = yaw;
+  TRACKS.setMatrixAt(i, trackM.compose(trackP.set(x, .018, z), trackQ.setFromAxisAngle(trackY, yaw), trackS.set(len, 1, wid))); TRACKS.instanceMatrix.needsUpdate = true; }
+function updateTracks(){ if (!TRACKS) return; const u = TRACKS.userData, lying = snowLying(); let dirty = false;
+  for (let i = 0; i < TRACK_N; i++) { const age = T - u.t[i]; if (age < 0 || age > TRACK_LIFE * 1.2) continue; const f = lying < .1 ? 0 : clamp(1.6 - age / TRACK_LIFE * 1.6, 0, 1);   // snow gone: so are the tracks
+    if (age > TRACK_LIFE * .4 || lying < .1) { TRACKS.getMatrixAt(i, trackM); trackM.decompose(trackP, trackQ, trackS); trackS.set(u.s[i * 3] * f, 1, u.s[i * 3 + 1] * f); TRACKS.setMatrixAt(i, trackM.compose(trackP, trackQ, trackS)); dirty = true; if (f === 0) u.t[i] = -1e9; } }
+  if (dirty) TRACKS.instanceMatrix.needsUpdate = true; }
+// he keeps out from under people's feet: a body's width from the crew, the visitors and the owner
+function boltSpace(){ const b = bolt.o.position; let moved = false;
+  for (const c of [...staffObj.values(), ...folk.values(), owner]) { if (!c || !c.o || !c.o.visible) continue; const p = c.o.position, dx = b.x - p.x, dz = b.z - p.z, d = Math.hypot(dx, dz), need = c === owner ? .42 : .5;
+    if (d < need && d > 1e-3) { b.x = p.x + dx / d * need; b.z = p.z + dz / d * need; moved = true; } }
+  if (moved) collide(b, !['arrive', 'stray', 'meet', 'eat'].includes(bolt.mode)); }
+// the owner back from a drive (or in through the gates in the morning): he comes running, up on his hind legs, tail going
+function boltGreet(dt){ const o = owner.o.position, b = bolt.o.position, d = Math.hypot(o.x - b.x, o.z - b.z);
+  if (d > 1.0) { if (T - (bolt.rp || 0) > .4 || !bolt.path || !bolt.path.length) { bolt.rp = T; boltGo(o.x, o.z); } boltStep(dt, 4.3); bolt.hop = 0; return; }
+  bolt.path = null; boltStep(dt, 0); if (!bolt.hopped) { bolt.hopped = true; boltBark(1); bolt.greetT = Math.min(bolt.greetT, T + 2.2); } bolt.hop = 1;   // arrived: a couple of seconds up on his hind legs
+  let da = Math.atan2(-(o.z - b.z), o.x - b.x) - bolt.o.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); bolt.o.rotation.y += da * Math.min(1, dt * 8); }
 // a moving vehicle with Bolt in or near its line: he steps sideways out of it at once (never along it), so nobody waits for anybody
 function boltDodge(dt){
   const b = bolt.o.position, list = [[fork.o, fork.o && /^to/.test(fork.state), 1.3, .8], [M.truck, ['arrive', 'leave'].includes(truck.state), 4.2, 1.35], [M.flat, ['arrive', 'leave'].includes(sup.state), 4.2, 1.35], [M.car, !!trip && ['out', 'back', 'park'].includes(trip.phase), 2.6, 1.0]];
@@ -6899,6 +7007,7 @@ function strayHtml(){ return `<div class="who"><img alt="" src="${portrait('gus'
   <div class="offer"><b>Share your sandwich</b><button class="btn primary" data-feed type="button">Crouch down and share it</button><p>Half your cheese and pickle on the ground for him. A dog fed is a dog that stays.</p></div>`; }
 function updateBolt(dt){
   S.bolt ||= { joined:false };
+  const back = bolt.tripWas && !trip; bolt.tripWas = !!trip; if (back && S.bolt.joined) { bolt.greetT = T + 9; bolt.hopped = false; }   // the owner out of the car: a welcome
   if (S.bolt.joined && owner && owner.o.visible && !trip) boltTrail();
   if (!bolt.o) buildBolt();
   // the arrival (Bible v2.0 2.1, 7 L2 Thursday): at lunch a thin stray trots up the verge and sits outside the gate watching the
@@ -6938,6 +7047,8 @@ function updateBolt(dt){
   // anything moving close by: he trots to the owner's side
   let flee = false; for (const [m, on] of [[fork.o, fork.o && /^to/.test(fork.state)], [M.truck, ['arrive', 'leave'].includes(truck.state)], [M.flat, ['arrive', 'leave'].includes(sup.state)], [M.car, !!trip]]) if (on && m && Math.hypot(m.position.x - b.x, m.position.z - b.z) < 3.2) flee = true;
   if (boltDodge(dt)) { boltAnim(dt); return; }
+  if (bolt.greetT > T && owner.o.visible && !trip && Math.hypot(o.x - b.x, o.z - b.z) < 25) { bolt.mode = 'greet'; boltGreet(dt); boltAnim(dt); return; }
+  if (bolt.mode === 'greet') { bolt.mode = 'follow'; bolt.hop = 0; bolt.path = null; }
   const closing = S.day && S.day.closing, trip_ = !!trip;
   let want = closing ? (ownerOff() ? 'patrol' : 'follow') : trip_ ? 'nap' : heatOn() && ownerIdle > 6 ? 'shade' : lunchTime() && dO > 3 && ownerIdle > 4 ? 'nap' : ownerIdle > 28 && dO > 5 ? 'nap' : 'follow';
   if (flee) want = 'follow';
@@ -8065,7 +8176,7 @@ function step(dt){
   T += dt; S.time += dt;
   for (const m of mixers) m.update(dt);
   if (!officeOpen && !trip) { updateOwner(dt); updateCarDoor(); } else target = null;
-  healthCheck(dt); trolleyWatch(); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateLevel6(dt); updateLevel7(dt); updateLevel8(dt); updatePolish(dt); updateReorder(); updateLowLoaders(dt); if (AC && MASTER) MASTER.gain.value = S.fxVol ?? 1; updateTruck(dt); updateTrip(dt); updateCarFx(dt); carTip(); updateDay(dt); updateTarget(); updateEvents(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateBolt(dt); updateVeraVisit(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); syncCarry(); updateTutorial(dt); updateFx(dt);
+  healthCheck(dt); trolleyWatch(); updateFacilities(dt); updateSupplier(dt); updateGenerator(dt); updateFaults(dt); updateStall(dt); selfFeed(dt); coilSelfFeed(dt); updatePlots(dt); updateSaw(dt); updateSaw2(dt); updateForklift(dt); updateStall4(dt); updatePipeMill(dt); updateToolPress(dt); updateBuilder(dt); updateLevel3(dt); updateLevel5(dt); updateLevel6(dt); updateLevel7(dt); updateLevel8(dt); updatePolish(dt); updateReorder(); updateLowLoaders(dt); if (AC && MASTER) MASTER.gain.value = S.fxVol ?? 1; updateTruck(dt); updateTrip(dt); updateCarFx(dt); carTip(); updateDay(dt); updateTarget(); updateEvents(dt); updateWalkin(dt); updateStaff(dt); updateGus(dt); updateBolt(dt); updateTracks(); updateVeraVisit(dt); updateMains(dt); updateDock(dt); updateZoneRing(dt); updateContractors(dt); updateFlights(dt); syncCarry(); updateTutorial(dt); updateFx(dt);
   saveT += dt; if (saveT > 8) { saveT = 0; save(); }
 }
 const MAX_DPR = Math.min(2, devicePixelRatio || 1); let dpr = MAX_DPR, perfT = 0, perfN = 0, perfGood = 0, perfBad = 0, lastDpr = 0, dprSettled = false, needResize = false;
@@ -8128,7 +8239,7 @@ async function boot(){
   // a new game opens on the grandfather's letter, then Gus at the gates
   if (!S.letter) { S.letter = true; story({ kind:'letter' }); meet('gus'); save(); }
   else { loginCalendar(); restoreNight(); }
-  window.__iv = { get T(){ return T; }, get keys(){ return keys; }, leaveScene, THREE, get CARFX(){ return CARFX; }, updateCarFx, confetti, get furnOnNow(){ return furnOn; }, get limiter(){ return LIMITER; }, get AC(){ return AC; }, audioOn, CUT_AT, setSawT:t => { sawT = t; }, sawOnNow:() => sawOn, get warmN(){ return warmN; }, screenFlash, FOOT_AT, get SOUNDS(){ return SOUNDS; }, get sndState(){ return _snd; }, noiseS, get spritePool(){ return spritePool; }, get CARs(){ return CAR; }, get nightState(){ return S.day && S.day.closing && S.day.closing.night; }, ownerOff, nightKind, NIGHT_ROUND, TABS, findRoofs, ROOF_N, ROOF_R, ROOF_Y, get roofKey(){ return roofKey; }, set roofKey(v){ roofKey = v; }, siteBounds, updateGuide, get guideHere(){ return guideHere; }, get guideShown(){ return !!(guide && guide.visible); }, get guideRingShown(){ return !!(guideRing && guideRing.visible); }, get pageHidden(){ return pageHidden; }, audioAllowed, toast, placeToasts, segBlocked, STRAY_RING, SITE, stateWord, VERA_FROM, STRAY_AT, KENNEL, buildKennel, boltFeed, slotFree, parkSlotNear, officeHours, get veraWalk(){ return veraWalk; }, svcAt, FAULTS, upgVisible, upCost, lineText, applyMains, stockLedger, get beats(){ return beats; }, learnSkill, canPromote, staffOf, linesHtml, coverHtml, settingsHtml, SHOVEL_AT, PHOTO_AT, milestonePhoto, repaintSigns, COLKEYS:() => [...COL.keys()], get rail(){ return rail; }, buyRaw, chooseStore, goLiveHD, lightFurnace, l8DayEnd, get furnOn(){ return furnOn; }, get fork8(){ return fork8; }, PADS8, SIGN_RING, DAIRY_PAD, hurryOk, set hurry(v){ hurry = v; }, openGap, takeCard, makeCard, refillBoard, boardHtml, cardFits, l7Delivered, zoneCentres, zonesLive, get cyrus(){ return cyrus; }, PEGS, SURVEY_RING, BOARD_RING, hireTommy, buildClockTower, buildDockLamps, REFIT, orderRefit, finishRefit, bookService, svcDue, svcPost, tierOf, get crane(){ return crane; }, craneGone, INSPECT6, get insp6(){ return insp6; }, clerkChar, clerkOn, juneSettle, ledger, buildCanteen, hailShelter, updateCrane, cutDark, buildLevel6, acceptCall2, finishPlot, rainK, noWalkIns, wxLorryLate, stormOn, helperOf, walkPatience, PAY_Q, ICE_AT, BOLT_NAP, BOLT_SHADE, setWx:k => { wxForce = k; wxForceT = 1e9; wx.from = wx.kind = k; wx.k = 1; }, wxFlash:() => { wx.flash = 1; }, rainbowNow:() => { wx.rainbow = .7; }, get wx(){ return wx; }, bolt, chalkProg, CHALK, loginCalendar, wxPlan, wxSummary, migrate, DAY_S, PAY_MIN, PAY_AT, LV_START, calDay, weekday, isFriday, dateOf, dueAt, seasonOf, payTime, payDay, payStep, ownerAtHatch, payNeeded, knockOff, get M_hatch(){ return M.hatch; }, get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payAccounts, closeWeek, weekAccounts, takeLoan, repayLoan, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
+  window.__iv = { boltAnim, get TRACKS(){ return TRACKS; }, trackPrint, newCall, get T(){ return T; }, get keys(){ return keys; }, leaveScene, THREE, get CARFX(){ return CARFX; }, updateCarFx, confetti, get furnOnNow(){ return furnOn; }, get limiter(){ return LIMITER; }, get AC(){ return AC; }, audioOn, CUT_AT, setSawT:t => { sawT = t; }, sawOnNow:() => sawOn, get warmN(){ return warmN; }, screenFlash, FOOT_AT, get SOUNDS(){ return SOUNDS; }, get sndState(){ return _snd; }, noiseS, get spritePool(){ return spritePool; }, get CARs(){ return CAR; }, get nightState(){ return S.day && S.day.closing && S.day.closing.night; }, ownerOff, nightKind, NIGHT_ROUND, TABS, findRoofs, ROOF_N, ROOF_R, ROOF_Y, get roofKey(){ return roofKey; }, set roofKey(v){ roofKey = v; }, siteBounds, updateGuide, get guideHere(){ return guideHere; }, get guideShown(){ return !!(guide && guide.visible); }, get guideRingShown(){ return !!(guideRing && guideRing.visible); }, get pageHidden(){ return pageHidden; }, audioAllowed, toast, placeToasts, segBlocked, STRAY_RING, SITE, stateWord, VERA_FROM, STRAY_AT, KENNEL, buildKennel, boltFeed, slotFree, parkSlotNear, officeHours, get veraWalk(){ return veraWalk; }, svcAt, FAULTS, upgVisible, upCost, lineText, applyMains, stockLedger, get beats(){ return beats; }, learnSkill, canPromote, staffOf, linesHtml, coverHtml, settingsHtml, SHOVEL_AT, PHOTO_AT, milestonePhoto, repaintSigns, COLKEYS:() => [...COL.keys()], get rail(){ return rail; }, buyRaw, chooseStore, goLiveHD, lightFurnace, l8DayEnd, get furnOn(){ return furnOn; }, get fork8(){ return fork8; }, PADS8, SIGN_RING, DAIRY_PAD, hurryOk, set hurry(v){ hurry = v; }, openGap, takeCard, makeCard, refillBoard, boardHtml, cardFits, l7Delivered, zoneCentres, zonesLive, get cyrus(){ return cyrus; }, PEGS, SURVEY_RING, BOARD_RING, hireTommy, buildClockTower, buildDockLamps, REFIT, orderRefit, finishRefit, bookService, svcDue, svcPost, tierOf, get crane(){ return crane; }, craneGone, INSPECT6, get insp6(){ return insp6; }, clerkChar, clerkOn, juneSettle, ledger, buildCanteen, hailShelter, updateCrane, cutDark, buildLevel6, acceptCall2, finishPlot, rainK, noWalkIns, wxLorryLate, stormOn, helperOf, walkPatience, PAY_Q, ICE_AT, BOLT_NAP, BOLT_SHADE, setWx:k => { wxForce = k; wxForceT = 1e9; wx.from = wx.kind = k; wx.k = 1; }, wxFlash:() => { wx.flash = 1; }, rainbowNow:() => { wx.rainbow = .7; }, get wx(){ return wx; }, bolt, chalkProg, CHALK, loginCalendar, wxPlan, wxSummary, migrate, DAY_S, PAY_MIN, PAY_AT, LV_START, calDay, weekday, isFriday, dateOf, dueAt, seasonOf, payTime, payDay, payStep, ownerAtHatch, payNeeded, knockOff, get M_hatch(){ return M.hatch; }, get gateHolder(){ return gateHolder === CAR ? 'car' : gateHolder === truck ? 'lorry' : gateHolder === sup ? 'flatbed' : gateHolder ? '?' : null; }, samplePath, syncParts, syncStore, inFoot, vehInWay, LANE4, laneRoute, openScrapyard, groundY, saw2Reason, syncCoilBay, syncWh, objective, applyRestore, Box3:THREE.Box3, poolOf, step, set hold(v){ hold = v; }, carriers, palletCap, get sawBy(){ return sawBy; }, CAR, unloadBed, gateSrc, tooLate, loadModels, buildLevel3, finishMill, visiblePads, goodsIn, onLorry, buildGoodsIn, gateSwinging, carTip, pathAt, startRain, get rain(){ return rain; }, bladeK, rivalPick, accounts, targetProg, newTarget, withTerms, termsOk, set evNext(v){ evNext = v; }, ownerFeeds, get trip(){ return trip; }, startTrip, interest, callGap, placeSpec, PLACES, ADS, buyAd, pickOffer, sales, CAR_OUT, CAR_BACK, CAR_REV, carts, freeCart, takeCart, parkCart, cartSpot, BAY, giveCarry:(ch, type, n) => { while (ch.stack.length) ch.stack.pop().removeFromParent(); ch.carryType = n ? type : null; for (let i = 0; i < n; i++) { const m = type === 'pipe' ? inst('prop_pipe') : crateMesh(); ch.o.add(m); ch.stack.push(m); } layoutCarry(ch); }, carriedPos, CART_FROM, gateShut, get gateRot(){ return M.gateLeaves.map(L => +L.g.rotation.y.toFixed(2)); }, gateLeft, whistle, get audio(){ return AC && AC.state; }, yardEmpty, clockIn, get walker(){ return walker; }, syncPallet, syncPipes, spawnWalker, walkPrice, lunchTime, dayMin, dayNo, endOfDay, dayDate, morning, LUNCH_SPOTS, LDOCK, previewL2Layout, feedK, PADS, folkMap:folk, gusChar, gusDoing, giveGift, gusFarewellDone, get partyT(){ return partyT; }, get truckB(){ return truckB; }, payAccounts, closeWeek, weekAccounts, takeLoan, repayLoan, signOrder2, need2, short2, mill2Ready, startMill2Build, finishMill2, rushHaulier, dock2Spec, buildLevel5, get mill2On(){ return mill2On; }, mill2Reason, zoneHint, zoneCentre, get zoneRing(){ return zoneRing; }, showZone, promote, movePost, fork, saw2Ready, startSaw2Build, finishSaw2, get saw2On(){ return saw2On; }, zoneR, supervisor, plotOwned, whCapT, story, INSPECT, licReady, get inspector(){ return inspector; }, newGame, WHERE, PLOTS, offerPrice, openDeal, makeOffer, giveUpOrder, nextCard, get cardOpen(){ return cardOpen; }, ownerOn, plotSt, folk, repBand, get stalled(){ return stalled(); }, handOn, pressReady, pressOp, toolReason, toolLeft, buyField, startPressBuild, finishPress, applyLicence, orderParts, get toolOn(){ return toolOn; }, whReady, whMaking, whCapC, whCapP, startWhBuild, finishWh, whUnlocked, siteCrates, sitePipes, orderLeft, stockLeftC, stockLeftP,  TX, set speed(v){ SPEED = v; }, set paused(v){ paused = v; }, set camLock(v){ camLock = v; }, set camZoom(v){ camZoom = v; }, cam, scene, get frames(){ return frames; }, S, get owner(){ return owner; }, truck, M, P, staffObj, temps, hire, train, buyUpgrade, openOffice, closeOffice, save, capOf, maxLv, upSteps, UPGRADES, stallCount, orderWater, acceptCall, declineCall, orderTimber, orderSteel, startLevel, showLevelUp, startMillBuild, pipeReason, sawReason, get pipeOn(){ return pipeOn; }, get sawOn(){ return sawOn; }, pf, load, genKW, charter, lineDone, briefOrder, sup, startTalk, renderer, get dpr(){ return dpr; }, get trolleyBy(){ return trolleyBy; },
     COL, NAV, findPath, addFault, diagnose, project:(x, y, z) => { v3.set(x, y, z).project(cam); return [(v3.x + 1) / 2 * innerWidth, (1 - v3.y) / 2 * innerHeight]; }, faultById, get target(){ return target; }, powerOn, circuitOn, signOrder };
 }
 boot().catch(e => { $('loading').innerHTML = `<div style="padding:24px;color:#aab0b7">The workshop could not load: ${e.message}</div>`; console.error(e); });

@@ -1,4 +1,4 @@
-# Handover: where Iron Valley stands (27 Nov 2026, build 0.36, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
+# Handover: where Iron Valley stands (28 Nov 2026, build 0.37, Bible v2.0, Act II done, gap audit and pacing simulator for 1-8)
 
 Read this first when continuing in a new session.
 
@@ -89,6 +89,43 @@ Coordinates (x east, z south; Mill Road z 14.4-17.6, north lane 15.3 = eastbound
   house x -25..-15.5, z -17.5..-8.5 (south door into the forklift yard); 11 kV plinth x -29.5..-26.3, z -15..-11; beam
   store build zone spots A [-10,-11.4] B [-22.9,0.5] C [10.6,-18.9]; gates in the back fence (x -14..-11) and the forklift
   yard's north fence; the old dairy plot x 24.6..38, z -5.5..12 (Krane bids, countdown); bus shelter x .2..2.8, z 12.7..13.9.
+
+## Done in build 0.37 (the fence holds; Bolt's body and habits; tests `fixes037.mjs`, `dog_shots.mjs`)
+**The bug:** at L4, Ivan (the supervisor) walked through the front fence onto the road to take a new order from the owner,
+who was out in the car. There were three faults behind it:
+- **Who gives the order:** the crew walked to the owner wherever he was. While the car drives, the hidden owner rides
+  with it on the road.
+  - Now `ownerOnSite()` (visible, no trip, inside `siteBounds`) gates every walk to the owner: the supervisor's meet,
+    `updateFollow`, and new hires led to a post.
+  - With the owner away, `orderFrom()` gives Gus, who took the call at the phone ("Phone call: ..." / "Thanks, Gus").
+    With neither, the supervisor waits in the yard.
+- **The path finder:** a target no way point could see (the road has none) got a straight last leg from the nearest
+  point, through the fence. Now that target gives a `cut` path to the nearest reachable point; `walk()` waits there and
+  asks again.
+- **Walking:** `walk()` never checked walls. Now a step into a wall or fence from outside one is refused (`wallAt`,
+  counted in `S.wallStops`). Vehicles, the trolley spaces, the tarp and the pallet stack are not walls (`WALK_THRU`).
+
+**Bolt** (`boltAnim`, rewritten):
+- **Gaits** (walk / trot / gallop with hysteresis, `GAITS`) set the stride, duty factor and leg phase offsets; the leg
+  swing is timed to ground speed, so a planted paw slides under 30%. Gait changes blend over 0.25 s.
+- **Leg roots** ride with the body's height and pitch, so lying down puts the legs on the ground (they used to stick out
+  at hip height).
+- **Body:**
+  - pitches with acceleration and banks into turns
+  - bobs twice a stride at the trot and rocks at the gallop
+  - breathes while sitting or lying
+- **Head** is steadied against the rock and turns to `boltLook()`: the owner when stopped, a lorry he barks at, a
+  passer-by; it scans on the night round and gives a curious tilt now and then.
+- **Ears** prick when alert, bounce with the trot and lay back at the gallop.
+- **Tail and habits:** the tail wags by `bolt.mood`, streams out at the gallop and lifts when alert; sitting, he
+  scratches and yawns now and then.
+- **Welcome:** the owner back from a drive or the morning arrival (`boltGreet`): he runs to him, barks once and is up on
+  his hind legs about 2 s.
+- **Space:** `boltSpace` keeps him a body's width from the crew, visitors and owner.
+
+**Tracks in the snow** (`TRACKS`, one 200-instance mesh, built in the warm-up): the owner's boots on each footfall and
+Bolt's paws on each strike. Prints shrink away over a minute, never appear under a roof or in a shovelled yard, and go
+when the snow does.
 
 ## Done in build 0.36 (Bolt follows in real time; test `fixes036.mjs`)
 The user saw Bolt walk on to wherever the owner had turned round before coming back: he replayed the whole trail.
